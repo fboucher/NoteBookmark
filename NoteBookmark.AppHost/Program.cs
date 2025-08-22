@@ -4,6 +4,9 @@ using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+#pragma warning disable ASPIRECOMPUTE001
+var compose = builder.AddDockerComposeEnvironment("docker-env");
+
 var noteStorage = builder.AddAzureStorage("nb-storage");
 
 if (builder.Environment.IsDevelopment())
@@ -18,11 +21,13 @@ var api = builder.AddProject<NoteBookmark_Api>("api")
                     .WithReference(tables)
                     .WithReference(blobs)
                     .WaitFor(tables)
-                    .WaitFor(blobs);
+                    .WaitFor(blobs)
+                    .WithComputeEnvironment(compose);  // comment this line to deploy to Azure
 
 builder.AddProject<NoteBookmark_BlazorApp>("blazor-app")
     .WithReference(api)
     .WaitFor(api)
-    .WithExternalHttpEndpoints();
+    .WithExternalHttpEndpoints()
+    .WithComputeEnvironment(compose); // comment this line to deploy to Azure
 
 builder.Build().Run();
