@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\NoteBookmark.AIServices\NoteBookmark.AIServices.csproj" />
     <ProjectReference Include="..\NoteBookmark.ServiceDefaults\NoteBookmark.ServiceDefaults.csproj" />
     <ProjectReference Include="..\NoteBookmark.Domain\NoteBookmark.Domain.csproj" />
   </ItemGroup>

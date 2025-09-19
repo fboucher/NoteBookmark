@@ -2,10 +2,13 @@
 
 @using Markdig
 @using NoteBookmark.Domain
+@using NoteBookmark.AIServices
+
 @inject IDialogService DialogService
 @inject PostNoteClient client
 @inject IJSRuntime jsRuntime
 @inject IToastService toastService
+@inject SummaryService aiService
 
 @rendermode InteractiveServer
 
@@ -37,7 +40,8 @@ else{
                     </div>
                     <div style="width: 80%;">
                         <FluentTextArea Placeholder="Introduction" @bind-Value=@readingNotes.Intro Cols="100" Rows="5"></FluentTextArea>
-                    </div>
+                        <FluentButton OnClick="@(async () => await GenerateIntroParagraph())">Generate Introduction</FluentButton>
+                        </div>
 
                     <div>
                         @foreach (var note in readingNotes!.Notes)
@@ -240,5 +244,13 @@ else{
             toastService.ShowSuccess("Reading notes published successfully!");
         }
     }
+
+    private async Task GenerateIntroParagraph()
+    {
+        var summaryText = readingNotes!.ToMarkDown();
+        string introText = await aiService.GenerateSummaryAsync(summaryText); 
+        readingNotes.Intro = introText;
+    }
+
 }
 

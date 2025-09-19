@@ -9,6 +9,8 @@ var compose = builder.AddDockerComposeEnvironment("docker-env");
 
 var noteStorage = builder.AddAzureStorage("nb-storage");
 
+var apiKey = builder.Configuration["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
+
 if (builder.Environment.IsDevelopment())
 {
     noteStorage.RunAsEmulator();
@@ -28,6 +30,7 @@ builder.AddProject<NoteBookmark_BlazorApp>("blazor-app")
     .WithReference(api)
     .WaitFor(api)
     .WithExternalHttpEndpoints()
+    .WithEnvironment("REKA_API_KEY", apiKey)
     .WithComputeEnvironment(compose); // comment this line to deploy to Azure
 
 builder.Build().Run();

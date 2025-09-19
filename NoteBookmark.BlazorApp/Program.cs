@@ -1,4 +1,5 @@
 using Microsoft.FluentUI.AspNetCore.Components;
+using NoteBookmark.AIServices;
 using NoteBookmark.BlazorApp;
 using NoteBookmark.BlazorApp.Components;
 
@@ -10,6 +11,11 @@ builder.Services.AddHttpClient<PostNoteClient>(client =>
             {
                 client.BaseAddress = new Uri("https+http://api");
             });
+
+builder.Services.AddHttpClient<SummaryService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(300);  // Set to 5 minutes, adjust as needed
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
