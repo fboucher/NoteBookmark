@@ -39,9 +39,11 @@ else{
                         <FluentTextField Label="Published Url" @bind-Value="@readingNotes!.PublishedUrl" style="width: 80%;"/>
                     </div>
                     <div style="width: 80%;">
-                        <FluentTextArea Placeholder="Introduction" @bind-Value=@readingNotes.Intro Cols="100" Rows="5"></FluentTextArea>
-                        <FluentButton OnClick="@(async () => await GenerateIntroParagraph())">Generate Introduction</FluentButton>
-                        </div>
+                        <FluentTextArea Placeholder="Introduction" @bind-Value=@readingNotes.Intro Cols="100" Rows="5"></FluentTextArea>  
+                    </div>
+                    <FluentButton   OnClick="@(async () => await GenerateIntroParagraph())"
+                                    Loading="@isGenarating"
+                                    IconStart="@(new Icons.Filled.Size20.StarEmphasis())">Generate</FluentButton>
 
                     <div>
                         @foreach (var note in readingNotes!.Notes)
@@ -113,6 +115,8 @@ else{
 
     private string? readingNotesMD = string.Empty;
     private string? readingNotesHTML = string.Empty;
+
+    private bool isGenarating = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -247,9 +251,20 @@ else{
 
     private async Task GenerateIntroParagraph()
     {
+        isGenarating = true;
         var summaryText = readingNotes!.ToMarkDown();
-        string introText = await aiService.GenerateSummaryAsync(summaryText); 
-        readingNotes.Intro = introText;
+        try{
+            string introText = await aiService.GenerateSummaryAsync(summaryText); 
+            readingNotes.Intro = introText;
+        }
+        catch(Exception ex)
+        {
+            toastService.ShowError($"Oops! Error: {ex.Message}");
+        }
+        finally
+        {
+            isGenarating = false;
+        }
     }
 
 }
