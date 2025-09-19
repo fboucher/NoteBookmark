@@ -17,7 +17,7 @@ public class SummaryService(HttpClient client, ILogger<SummaryService> logger, I
 
     public async Task<string> GenerateSummaryAsync(string summaryText)
     {
-        string introParagraph = String.Empty;
+        string introParagraph;
         string query = $"write a short introduction paragraph, without using '—', for the blog post: {summaryText}";
 
         _client.Timeout = TimeSpan.FromSeconds(300);
