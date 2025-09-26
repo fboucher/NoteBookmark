@@ -72,7 +72,8 @@ public static class PostEndpoints
 
 		try
 		{
-			var post = await ExtractPostDetailsFromUrl(request.url);
+			var decodeUrl = System.Net.WebUtility.UrlDecode(request.url);
+			var post = await ExtractPostDetailsFromUrl(decodeUrl);
 			if (post != null)
 			{
 				dataStorageService.SavePost(post);
@@ -100,7 +101,17 @@ public static class PostEndpoints
 	private static async Task<Post?> ExtractPostDetailsFromUrl(string url)
     {
         var web = new HtmlWeb();
-        var doc = await web.LoadFromWebAsync(url);
+        HtmlDocument doc = new HtmlDocument();
+        
+        try
+        {
+	        doc = await web.LoadFromWebAsync(url);
+        }
+        catch (Exception docloadEx)
+        {
+	        Console.WriteLine($"An error Loading the page URL={url} /n Error: {docloadEx.Message}");
+        }
+
 
         var titleNode = doc.DocumentNode.SelectSingleNode("//head/title");
         var authorNode = doc.DocumentNode.SelectSingleNode("//meta[@name='author']");

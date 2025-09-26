@@ -1,0 +1,40 @@
+name: note-bookmark
+
+services:
+  api:
+    image: "fboucher/notebookmark-api:latest"
+    container_name: "notebookmark-api"
+    environment:
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      HTTP_PORTS: "8000"
+      ConnectionStrings__nb-tables: "${NB_STORAGE_OUTPUTS_TABLEENDPOINT}"
+      ConnectionStrings__nb-blobs: "${NB_STORAGE_OUTPUTS_BLOBENDPOINT}"
+    ports:
+      - "8001:8000"
+      - "8003:8002"
+    networks:
+      - "aspire"
+  blazor-app:
+    image: "fboucher/notebookmark-blazor:latest"
+    container_name: "notebookmark-blazor"
+    environment:
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EXCEPTION_LOG_ATTRIBUTES: "true"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_EMIT_EVENT_LOG_ATTRIBUTES: "true"
+      OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY: "in_memory"
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      HTTP_PORTS: "8004"
+      services__api__http__0: "http://api:8000"
+    ports:
+      - "8005:8004"
+      - "8007:8006"
+    depends_on:
+      api:
+        condition: "service_started"
+    networks:
+      - "aspire"
+networks:
+  aspire:
+    driver: "bridge"
