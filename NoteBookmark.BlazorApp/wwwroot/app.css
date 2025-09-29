@@ -13,6 +13,26 @@ body {
     background: var(--neutral-fill-layer-rest);
 }
 
+/* Compact data grid for posts list */
+.posts-grid.compact .fluent-grid-row,
+.posts-grid.compact .fluent-grid-cell {
+    height: 36px;
+    min-height: 36px;
+}
+
+.posts-grid.compact .icon-btn {
+    padding: 2px 6px;
+    margin-right: 4px;
+}
+
+.posts-grid.compact .icon-btn.danger {
+    color: var(--accent-foreground-rest);
+}
+
+.search-box {
+    padding: 4px;
+}
+
 .navmenu-icon {
     display: none;
 }

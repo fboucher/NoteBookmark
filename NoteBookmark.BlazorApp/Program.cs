@@ -7,9 +7,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.Services.AddHttpClient<PostNoteClient>(client => 
+// Resolve the API base URL from configuration or environment for local runs without Aspire
+var apiBaseUrl = builder.Configuration["Services:ApiBaseUrl"]
+                 ?? Environment.GetEnvironmentVariable("API_BASE_URL")
+                 ?? "http://localhost:5003";
+
+builder.Services.AddHttpClient<PostNoteClient>(client =>
             {
-                client.BaseAddress = new Uri("https+http://api");
+                client.BaseAddress = new Uri(apiBaseUrl);
             });
 
 builder.Services.AddHttpClient<SummaryService>(client =>

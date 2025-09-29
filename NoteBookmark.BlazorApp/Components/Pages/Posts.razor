@@ -24,18 +24,18 @@
     </FluentSwitch>
 </FluentStack>
 
-<FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination">
+<FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination" Class="posts-grid compact">
     <ChildContent>       
         <TemplateColumn Width="150px">
-            <FluentButton OnClick="@(async () => await OpenUrlInNewWindow(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Open())" />
-            <FluentButton OnClick="@(() => EditNote(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Edit())" />
+            <FluentButton Appearance="Appearance.Stealth" Size="ControlSize.Small" Title="Open" Class="icon-btn" OnClick="@(async () => await OpenUrlInNewWindow(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Open())" />
+            <FluentButton Appearance="Appearance.Stealth" Size="ControlSize.Small" Title="Edit" Class="icon-btn" OnClick="@(() => EditNote(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Edit())" />
             @if (String.IsNullOrEmpty(context!.NoteId))
             {
-                <FluentButton OnClick="@(async () => await CreateNoteForPost(context!.RowKey))"  IconEnd="@(new Icons.Regular.Size20.NoteAdd())" />
+                <FluentButton Appearance="Appearance.Stealth" Size="ControlSize.Small" Title="Create note" Class="icon-btn" OnClick="@(async () => await CreateNoteForPost(context!.RowKey))"  IconEnd="@(new Icons.Regular.Size20.NoteAdd())" />
             }
             else
             {
-                <FluentButton IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
+                <FluentButton Appearance="Appearance.Stealth" Disabled Size="ControlSize.Small" Title="Note exists" Class="icon-btn" IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
             }
         </TemplateColumn>
         <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
@@ -51,7 +51,7 @@
                         IsDefaultSortColumn="true" 
                         Width="125px"/>
         <TemplateColumn Width="60px">   
-            <FluentButton OnClick="@(async () => await DeletePost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
+            <FluentButton Appearance="Appearance.Stealth" Size="ControlSize.Small" Title="Delete" Class="icon-btn danger" OnClick="@(async () => await DeletePost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
         </TemplateColumn>
     </ChildContent>
     <EmptyContent>
