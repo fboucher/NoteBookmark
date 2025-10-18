@@ -7,9 +7,9 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="Markdig" Version="0.41.3" />
-    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.12.1" />
-    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.12.1" />
+    <PackageReference Include="Markdig" Version="0.42.0" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.13.0" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.13.0" />
   </ItemGroup>
 
   <ItemGroup>
