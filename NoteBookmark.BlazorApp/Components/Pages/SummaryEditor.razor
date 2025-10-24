@@ -2,10 +2,13 @@
 
 @using Markdig
 @using NoteBookmark.Domain
+@using NoteBookmark.AIServices
+
 @inject IDialogService DialogService
 @inject PostNoteClient client
 @inject IJSRuntime jsRuntime
 @inject IToastService toastService
+@inject SummaryService aiService
 
 @rendermode InteractiveServer
 
@@ -36,8 +39,11 @@ else{
                         <FluentTextField Label="Published Url" @bind-Value="@readingNotes!.PublishedUrl" style="width: 80%;"/>
                     </div>
                     <div style="width: 80%;">
-                        <FluentTextArea Placeholder="Introduction" @bind-Value=@readingNotes.Intro Cols="100" Rows="5"></FluentTextArea>
+                        <FluentTextArea Placeholder="Introduction" @bind-Value=@readingNotes.Intro Cols="100" Rows="5"></FluentTextArea>  
                     </div>
+                    <FluentButton   OnClick="@(async () => await GenerateIntroParagraph())"
+                                    Loading="@isGenarating"
+                                    IconStart="@(new Icons.Filled.Size20.StarEmphasis())">Generate</FluentButton>
 
                     <div>
                         @foreach (var note in readingNotes!.Notes)
@@ -109,6 +115,8 @@ else{
 
     private string? readingNotesMD = string.Empty;
     private string? readingNotesHTML = string.Empty;
+
+    private bool isGenarating = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -240,5 +248,24 @@ else{
             toastService.ShowSuccess("Reading notes published successfully!");
         }
     }
+
+    private async Task GenerateIntroParagraph()
+    {
+        isGenarating = true;
+        var summaryText = readingNotes!.ToMarkDown();
+        try{
+            string introText = await aiService.GenerateSummaryAsync(summaryText); 
+            readingNotes.Intro = introText;
+        }
+        catch(Exception ex)
+        {
+            toastService.ShowError($"Oops! Error: {ex.Message}");
+        }
+        finally
+        {
+            isGenarating = false;
+        }
+    }
+
 }
 
