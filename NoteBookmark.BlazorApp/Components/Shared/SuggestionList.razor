@@ -11,16 +11,8 @@
 <FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination">
     <ChildContent>       
         <TemplateColumn Width="150px">
-            <FluentButton OnClick="@(async () => await OpenUrlInNewWindow(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Open())" />
-            <FluentButton OnClick="@(() => EditNote(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Edit())" />
-            @if (String.IsNullOrEmpty(context!.NoteId))
-            {
-                <FluentButton OnClick="@(async () => await CreateNoteForPost(context!.RowKey))"  IconEnd="@(new Icons.Regular.Size20.NoteAdd())" />
-            }
-            else
-            {
-                <FluentButton IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
-            }
+            <FluentButton OnClick="@(async () => await AddSuggestion(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Add())" />
+            <FluentButton OnClick="@(async () => await DeleteSuggestion(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
         </TemplateColumn>
         <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
             <ColumnOptions>
@@ -34,9 +26,6 @@
                         Sortable="true" SortBy="@defSort" 
                         IsDefaultSortColumn="true" 
                         Width="125px"/>
-        <TemplateColumn Width="60px">   
-            <FluentButton OnClick="@(async () => await DeletePost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
-        </TemplateColumn>
     </ChildContent>
     <EmptyContent>
         <FluentIcon Value="@(new Icons.Filled.Size20.Crown())" Color="@Color.Accent" />&nbsp; Nothing to see here. Carry on!
@@ -57,75 +46,26 @@
     private bool showRead = false;
 
 
-    private async Task CreateNoteForPost(string postId)
+
+    private async Task AddSuggestion(string postId)
     {
-        var newNote = new Note { PostId = postId };
-
-        IDialogReference dialog = await DialogService.ShowDialogAsync<NoteDialog>(newNote, new DialogParameters(){
-            Title = "Add a note",
-            PreventDismissOnOverlayClick = true,
-            PreventScroll = true,
-
-        });
-
-        var result = await dialog.Result;
-        if (!result.Cancelled && result.Data != null)
-        {
-            var note = (Note)result.Data;
-            await client.CreateNote(note);
-            ShowConfirmationMessage();
-            //await LoadPosts();
-        }
+        
     }
 
-        private void ShowConfirmationMessage()
-    {
-        toastService.ShowSuccess("Note created successfully!");
-    }
-
-    private void EditNote(string postId)
-    {
-        Navigation.NavigateTo($"posteditor/{postId}");
-    }
-
-    private async Task AddNewPost()
-    {
-        if (!string.IsNullOrEmpty(newPostUrl))
-        {
-            var result = await client.ExtractPostDetailsAndSave(newPostUrl);
-            if (result)
-            {
-                await LoadPosts();
-                newPostUrl = string.Empty;
-                toastService.ShowSuccess("Post added successfully!");
-            }
-            else
-            {
-                toastService.ShowError("Failed to add post. Please try again.");
-            }
-        }
-    }
-
-    private async Task DeletePost(string postId)
+    private async Task DeleteSuggestion(string postId)
     {
         var result = await client.DeletePost(postId);
         if (result)
         {
-            await LoadPosts();
-            toastService.ShowSuccess("Post deleted successfully!");
+            @* await LoadSuggestions(); *@
+            toastService.ShowSuccess("Suggestion deleted successfully!");
         }
         else
         {
-            toastService.ShowError("Failed to delete post. Please try again.");
+            toastService.ShowError("Failed to delete suggestion. Please try again.");
         }
     }
 
-    // Add handler to reload posts when toggle changes
-    private async Task OnShowReadChanged(bool value)
-    {
-        showRead = value;
-        await LoadPosts();
-    }
 
     private void HandleTitleFilter(ChangeEventArgs args)
     {

@@ -61,10 +61,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadPosts();
+        @* await LoadPosts(); *@
     }
 
-    private async Task LoadPosts()
+    private async Task FetchSuggestions()
     {
         List<PostL> loadedPosts = showRead ? await client.GetReadPosts(): await client.GetUnreadPosts();
         posts = loadedPosts.AsQueryable();
