@@ -17,6 +17,11 @@ builder.Services.AddHttpClient<SummaryService>(client =>
     client.Timeout = TimeSpan.FromSeconds(300);  // Set to 5 minutes, adjust as needed
 });
 
+builder.Services.AddHttpClient<ResearchService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(300);  // Set to 5 minutes, adjust as needed
+});
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

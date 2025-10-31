@@ -1,11 +1,13 @@
 ﻿@page "/search"
+@using NoteBookmark.AIServices
 @using NoteBookmark.BlazorApp.Components.Shared
 @using NoteBookmark.Domain
 @using Microsoft.FluentUI.AspNetCore.Components
 @inject PostNoteClient client
 @* @inject IJSRuntime jsRuntime *@
-@* @inject IToastService toastService
-@inject IDialogService DialogService *@
+@inject IToastService toastService
+@* @inject IDialogService DialogService  *@
+@inject ResearchService aiService
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 
@@ -21,18 +23,24 @@
             
             <FluentValidationMessage For="@(() => _criterias.SearchPrompt)" />
             <div>
-                <FluentTextArea Name="Search Prompt" Label="Search Prompt" @bind-Value="_criterias.SearchPrompt" Required="true" />
+                <FluentTextArea Name="Search Prompt" Label="Search Prompt" @bind-Value="_criterias.SearchPrompt" Required="true" Rows="5" Cols="80"/>
                 <FluentValidationMessage For="@(() => _criterias.SearchPrompt)" />
             </div>
 
             <div>
-                <FluentTextField Name="Allowed Domains" Label="Allowed Domains (Comma Separated)" @bind-Value="_criterias.AllowedDomains" />
+                <FluentTextField Name="Allowed Domains" Label="Allowed Domains (Comma Separated)" @bind-Value="_criterias.AllowedDomains" style="width: 80%;" />
                 <FluentValidationMessage For="@(() => _criterias.AllowedDomains)" />
             </div>
 
             <div>
-                <FluentTextField Name="Blocked Domains" Label="Blocked Domains (Comma Separated)" @bind-Value="_criterias.BlockedDomains" />
+                <FluentTextField Name="Blocked Domains" Label="Blocked Domains (Comma Separated)" @bind-Value="_criterias.BlockedDomains" style="width: 80%;" />
                 <FluentValidationMessage For="@(() => _criterias.BlockedDomains)" />
+            </div>
+
+            <div>
+                <FluentButton Appearance="Appearance.Accent" OnClick="FetchSuggestions" Disabled="@isSearching">
+                    @(isSearching ? "Searching..." : "Search")
+                </FluentButton>
             </div>
 
         </FluentStack>
@@ -55,6 +63,7 @@
     private GridSort<PostL> defSort = GridSort<PostL>.ByDescending(c => c.Date_published);
     private string newPostUrl = string.Empty;
     private bool showRead = false;
+    private bool isSearching = false;
 
     private SearchCriterias _criterias = new SearchCriterias();
 
@@ -66,8 +75,29 @@
 
     private async Task FetchSuggestions()
     {
-        List<PostL> loadedPosts = showRead ? await client.GetReadPosts(): await client.GetUnreadPosts();
-        posts = loadedPosts.AsQueryable();
+        isSearching = true;
+        if (string.IsNullOrWhiteSpace(_criterias.SearchPrompt))
+        {
+            toastService.ShowError("Please enter a search prompt.");
+            isSearching = false;
+            return;
+        }
+
+        try{
+            var allowedDomains = _criterias.AllowedDomains?.Split(',').Select(d => d.Trim()).ToArray();
+            var blockedDomains = _criterias.BlockedDomains?.Split(',').Select(d => d.Trim()).ToArray();
+
+            string introText = await aiService.SearchSuggestionsAsync(_criterias.SearchPrompt, allowedDomains, blockedDomains);
+            @* readingNotes.Intro = introText; *@
+        }
+        catch(Exception ex)
+        {
+            toastService.ShowError($"Oops! Error: {ex.Message}");
+        }
+        finally
+        {
+            isSearching = false;
+        }
     }
 
     @* private async Task OpenUrlInNewWindow(string? url)
