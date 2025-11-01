@@ -4,5 +4,5 @@ name: NoteBookmark
 services:  
   app:
     language: dotnet
-    project: ./NoteBookmark.AppHost/NoteBookmark.AppHost.csproj
+    project: ./src/NoteBookmark.AppHost/NoteBookmark.AppHost.csproj
     host: containerapp

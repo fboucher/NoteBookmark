@@ -1,0 +1,174 @@
+@page "/posts"
+@using NoteBookmark.BlazorApp.Components.Shared
+@using NoteBookmark.Domain
+@using Microsoft.FluentUI.AspNetCore.Components
+@inject PostNoteClient client
+@inject IJSRuntime jsRuntime
+@inject IToastService toastService
+@inject IDialogService DialogService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Posts</PageTitle>
+
+<h1>Posts</h1>
+
+<FluentStack Orientation="Orientation.Vertical">
+    <FluentStack Orientation="Orientation.Horizontal">
+        <FluentButton OnClick="AddNewPost" IconEnd="@(new Icons.Regular.Size20.Add())" Title="Add new post"></FluentButton>
+        <FluentTextField @bind-Value="newPostUrl" Placeholder="Enter URL" style="width: 100%;"/>
+    </FluentStack>
+    <FluentSwitch ValueChanged="OnShowReadChanged" Label="Show">
+        <span slot="checked-message">Read Only</span>
+        <span slot="unchecked-message">UnRead Only</span>
+    </FluentSwitch>
+</FluentStack>
+
+<FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination" RowSize="DataGridRowSize.Medium" >
+    <ChildContent>       
+        <TemplateColumn Width="150px">
+            <FluentButton OnClick="@(async () => await OpenUrlInNewWindow(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Open())" />
+            <FluentButton OnClick="@(() => EditNote(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Edit())" />
+            @if (String.IsNullOrEmpty(context!.NoteId))
+            {
+                <FluentButton OnClick="@(async () => await CreateNoteForPost(context!.RowKey))"  IconEnd="@(new Icons.Regular.Size20.NoteAdd())" />
+            }
+            else
+            {
+                <FluentButton IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
+            }
+        </TemplateColumn>
+        <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
+            <ColumnOptions>
+                    <div class="search-box">
+                        <FluentSearch type="search" Autofocus=true @bind-Value=titleFilter @oninput="HandleTitleFilter" @bind-Value:after="HandleClearTitleFilter" Placeholder="contains..." />
+                    </div>
+            </ColumnOptions>
+        </PropertyColumn>
+        <PropertyColumn Title="Published" 
+                        Property="@(c => (c!.Date_published ?? "0000-00-00").Substring(0,10))"  
+                        Sortable="true" SortBy="@defSort" 
+                        IsDefaultSortColumn="true" 
+                        Width="125px"/>
+        <TemplateColumn Width="60px">   
+            <FluentButton OnClick="@(async () => await DeletePost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
+        </TemplateColumn>
+    </ChildContent>
+    <EmptyContent>
+        <FluentIcon Value="@(new Icons.Filled.Size20.Crown())" Color="@Color.Accent" />&nbsp; Nothing to see here. Carry on!
+    </EmptyContent>
+</FluentDataGrid>
+<FluentPaginator State="@pagination" />
+
+
+@code {
+    private IQueryable<PostL>? posts;
+    IQueryable<PostL>? filteredUrlList => posts?.Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase));
+    private GridSort<PostL> defSort = GridSort<PostL>.ByDescending(c => c.Date_published);
+    private string newPostUrl = string.Empty;
+    private bool showRead = false;
+    private PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
+    private string titleFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPosts();
+    }
+
+    private async Task LoadPosts()
+    {
+        List<PostL> loadedPosts = showRead ? await client.GetReadPosts(): await client.GetUnreadPosts();
+        posts = loadedPosts.AsQueryable();
+    }
+
+    private async Task OpenUrlInNewWindow(string? url)
+    {
+        await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task CreateNoteForPost(string postId)
+    {
+        var newNote = new Note { PostId = postId };
+
+        IDialogReference dialog = await DialogService.ShowDialogAsync<NoteDialog>(newNote, new DialogParameters(){
+            Title = "Add a note",
+            PreventDismissOnOverlayClick = true,
+            PreventScroll = true,
+
+        });
+
+        var result = await dialog.Result;
+        if (!result.Cancelled && result.Data != null)
+        {
+            var note = (Note)result.Data;
+            await client.CreateNote(note);
+            ShowConfirmationMessage();
+            await LoadPosts();
+        }
+    }
+
+    private void ShowConfirmationMessage()
+    {
+        toastService.ShowSuccess("Note created successfully!");
+    }
+
+    private void EditNote(string postId)
+    {
+        Navigation.NavigateTo($"posteditor/{postId}");
+    }
+
+    private async Task AddNewPost()
+    {
+        if (!string.IsNullOrEmpty(newPostUrl))
+        {
+            var result = await client.ExtractPostDetailsAndSave(newPostUrl);
+            if (result)
+            {
+                await LoadPosts();
+                newPostUrl = string.Empty;
+                toastService.ShowSuccess("Post added successfully!");
+            }
+            else
+            {
+                toastService.ShowError("Failed to add post. Please try again.");
+            }
+        }
+    }
+
+    private async Task DeletePost(string postId)
+    {
+        var result = await client.DeletePost(postId);
+        if (result)
+        {
+            await LoadPosts();
+            toastService.ShowSuccess("Post deleted successfully!");
+        }
+        else
+        {
+            toastService.ShowError("Failed to delete post. Please try again.");
+        }
+    }
+
+    // Add handler to reload posts when toggle changes
+    private async Task OnShowReadChanged(bool value)
+    {
+        showRead = value;
+        await LoadPosts();
+    }
+
+    private void HandleTitleFilter(ChangeEventArgs args)
+    {
+        if (args.Value is string value)
+        {
+            titleFilter = value;
+        }
+    }
+
+    private void HandleClearTitleFilter()
+    {
+        if (string.IsNullOrWhiteSpace(titleFilter))
+        {
+            titleFilter = string.Empty;
+        }
+    }
+}

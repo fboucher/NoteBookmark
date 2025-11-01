@@ -13,7 +13,7 @@ Write-Host "Building and pushing Docker images for NoteBookmark..." -ForegroundC
 
 # Build API image
 Write-Host "Building API image..." -ForegroundColor Yellow
-docker build -f ../NoteBookmark.Api/Dockerfile -t "$DockerHubUsername/notebookmark-api:$ApiTag" ..
+docker build -f ../src/NoteBookmark.Api/Dockerfile -t "$DockerHubUsername/notebookmark-api:$ApiTag" ..
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to build API image"
@@ -22,7 +22,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # Build Blazor App image
 Write-Host "Building Blazor App image..." -ForegroundColor Yellow
-docker build -f ../NoteBookmark.BlazorApp/Dockerfile -t "$DockerHubUsername/notebookmark-blazor:$BlazorTag" ..
+docker build -f ../src/NoteBookmark.BlazorApp/Dockerfile -t "$DockerHubUsername/notebookmark-blazor:$BlazorTag" ..
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to build Blazor App image"
