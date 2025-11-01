@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Markdig" Version="0.42.0" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.13.0" />
+    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.13.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NoteBookmark.AIServices\NoteBookmark.AIServices.csproj" />
+    <ProjectReference Include="..\NoteBookmark.ServiceDefaults\NoteBookmark.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\NoteBookmark.Domain\NoteBookmark.Domain.csproj" />
+  </ItemGroup>
+</Project>

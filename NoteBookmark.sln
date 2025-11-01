@@ -3,19 +3,19 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NoteBookmark.Api", "NoteBookmark.Api\NoteBookmark.Api.csproj", "{482A0C21-91F3-4B77-B8CD-E1241D33B40D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NoteBookmark.Api", "src\NoteBookmark.Api\NoteBookmark.Api.csproj", "{482A0C21-91F3-4B77-B8CD-E1241D33B40D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.ServiceDefaults", "NoteBookmark.ServiceDefaults\NoteBookmark.ServiceDefaults.csproj", "{B3C00A0B-AFF2-4CF2-8A24-98430BC0206B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.ServiceDefaults", "src\NoteBookmark.ServiceDefaults\NoteBookmark.ServiceDefaults.csproj", "{B3C00A0B-AFF2-4CF2-8A24-98430BC0206B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.AppHost", "NoteBookmark.AppHost\NoteBookmark.AppHost.csproj", "{49440529-42B9-497D-8F2F-D0A2DE20253E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.AppHost", "src\NoteBookmark.AppHost\NoteBookmark.AppHost.csproj", "{49440529-42B9-497D-8F2F-D0A2DE20253E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.Domain", "NoteBookmark.Domain\NoteBookmark.Domain.csproj", "{204E2DC3-7131-4D7C-BA02-68AD272F9C58}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.Domain", "src\NoteBookmark.Domain\NoteBookmark.Domain.csproj", "{204E2DC3-7131-4D7C-BA02-68AD272F9C58}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.BlazorApp", "NoteBookmark.BlazorApp\NoteBookmark.BlazorApp.csproj", "{91470C33-E926-409D-8C0B-3647D7D5848B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.BlazorApp", "src\NoteBookmark.BlazorApp\NoteBookmark.BlazorApp.csproj", "{91470C33-E926-409D-8C0B-3647D7D5848B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.Api.Tests", "NoteBookmark.Api.Tests\NoteBookmark.Api.Tests.csproj", "{3DBF1970-A8DA-44E2-8AE8-0858F0269382}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.Api.Tests", "src\NoteBookmark.Api.Tests\NoteBookmark.Api.Tests.csproj", "{3DBF1970-A8DA-44E2-8AE8-0858F0269382}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.AIServices", "NoteBookmark.AIServices\NoteBookmark.AIServices.csproj", "{D29D80A5-82EC-4350-B738-96BAF88EB9DD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.AIServices", "src\NoteBookmark.AIServices\NoteBookmark.AIServices.csproj", "{D29D80A5-82EC-4350-B738-96BAF88EB9DD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
