@@ -5,12 +5,12 @@ EXPOSE 8006
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["NoteBookmark.BlazorApp/NoteBookmark.BlazorApp.csproj", "NoteBookmark.BlazorApp/"]
-COPY ["NoteBookmark.Domain/NoteBookmark.Domain.csproj", "NoteBookmark.Domain/"]
-COPY ["NoteBookmark.ServiceDefaults/NoteBookmark.ServiceDefaults.csproj", "NoteBookmark.ServiceDefaults/"]
-RUN dotnet restore "NoteBookmark.BlazorApp/NoteBookmark.BlazorApp.csproj"
+COPY ["src/NoteBookmark.BlazorApp/NoteBookmark.BlazorApp.csproj", "src/NoteBookmark.BlazorApp/"]
+COPY ["src/NoteBookmark.Domain/NoteBookmark.Domain.csproj", "src/NoteBookmark.Domain/"]
+COPY ["src/NoteBookmark.ServiceDefaults/NoteBookmark.ServiceDefaults.csproj", "src/NoteBookmark.ServiceDefaults/"]
+RUN dotnet restore "src/NoteBookmark.BlazorApp/NoteBookmark.BlazorApp.csproj"
 COPY . .
-WORKDIR "/src/NoteBookmark.BlazorApp"
+WORKDIR "/src/src/NoteBookmark.BlazorApp"
 RUN dotnet build "NoteBookmark.BlazorApp.csproj" -c Release -o /app/build
 
 FROM build AS publish

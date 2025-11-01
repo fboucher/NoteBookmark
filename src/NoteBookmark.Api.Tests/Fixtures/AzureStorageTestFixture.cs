@@ -20,8 +20,10 @@ public class AzureStorageTestFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         // Start Azurite container for integration testing
+        // Use --skipApiVersionCheck to allow newer Azure SDK versions
         _azuriteContainer = new AzuriteBuilder()
             .WithImage("mcr.microsoft.com/azure-storage/azurite:latest")
+            .WithCommand("--skipApiVersionCheck")
             .Build();
 
         await _azuriteContainer.StartAsync();

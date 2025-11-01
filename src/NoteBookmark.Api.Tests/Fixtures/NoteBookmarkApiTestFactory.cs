@@ -39,8 +39,10 @@ public class NoteBookmarkApiTestFactory : WebApplicationFactory<Program>, IAsync
 
     public async Task InitializeAsync()
     {
+        // Use --skipApiVersionCheck to allow newer Azure SDK versions
         _azuriteContainer = new AzuriteBuilder()
             .WithImage("mcr.microsoft.com/azure-storage/azurite:latest")
+            .WithCommand("--skipApiVersionCheck")
             .Build();
 
         await _azuriteContainer.StartAsync();
