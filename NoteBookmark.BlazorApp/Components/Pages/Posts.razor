@@ -24,7 +24,7 @@
     </FluentSwitch>
 </FluentStack>
 
-<FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination">
+<FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination" RowSize="DataGridRowSize.Medium" >
     <ChildContent>       
         <TemplateColumn Width="150px">
             <FluentButton OnClick="@(async () => await OpenUrlInNewWindow(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Open())" />
