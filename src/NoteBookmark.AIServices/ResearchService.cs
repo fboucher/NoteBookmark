@@ -18,9 +18,23 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
     public async Task<string> SearchSuggestionsAsync(string topic, string[]? allowedDomains, string[]? blockedDomains)
     {
         string introParagraph;
-        string query = $"Provide a concise research summary on the topic: '{topic}'. Use credible sources only.";
+        string query = $"Provide a concise research summary on the topic: '{topic}'.";
 
         _client.Timeout = TimeSpan.FromSeconds(300);
+
+        var webSearch = new Dictionary<string, object>
+        {
+            ["max_uses"] = 3
+        };
+
+        if (allowedDomains != null && allowedDomains.Length > 0)
+        {
+            webSearch["allowed_domains"] = allowedDomains;
+        }
+        else if (blockedDomains != null && blockedDomains.Length > 0)
+        {
+            webSearch["blocked_domains"] = blockedDomains;
+        }
 
         var requestPayload = new
         {
@@ -33,7 +47,12 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
                     role = "user",
                     content = query
                 }
-            }
+            },
+            response_format = GetResponseFormat(),
+            research = new
+            {
+                web_search = webSearch
+            },
         };
 
         var jsonPayload = JsonSerializer.Serialize(requestPayload, new JsonSerializerOptions
@@ -65,6 +84,44 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
         }
 
         return introParagraph;
+    }
+
+
+    private object GetResponseFormat()
+    {
+        return new
+        {
+            type = "json_schema",
+            json_schema = new
+            {
+                name = "post_suggestions",
+                schema = new
+                {
+                    type = "object",
+                    properties = new
+                    {
+                        suggestions = new
+                        {
+                            type = "array",
+                            items = new
+                            {
+                                type = "object",
+                                properties = new
+                                {
+                                    title = new { type = "string" },
+                                    author = new { type = "string" },
+                                    summary = new { type = "string" },
+                                    publication_date = new { type = "string" },
+                                    url = new { type = "string" }
+                                },
+                                required = new[] { "title", "summary", "url" }
+                            }
+                        }
+                    },
+                    required = new[] { "post_suggestions" }
+                }
+            }
+        };
     }
 
 }
