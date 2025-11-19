@@ -1,4 +1,4 @@
-namespace NoteBookmark.AIServices;
+namespace NoteBookmark.Domain;
 
 public class PostSuggestions
 {

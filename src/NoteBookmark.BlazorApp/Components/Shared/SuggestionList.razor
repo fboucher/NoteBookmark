@@ -11,8 +11,8 @@
 <FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination">
     <ChildContent>       
         <TemplateColumn Width="150px">
-            <FluentButton OnClick="@(async () => await AddSuggestion(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Add())" />
-            <FluentButton OnClick="@(async () => await DeleteSuggestion(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
+            <FluentButton OnClick="@(async () => await AddSuggestion(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Add())" />
+            <FluentButton OnClick="@(async () => await DeleteSuggestion(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
         </TemplateColumn>
         <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
             <ColumnOptions>
@@ -22,7 +22,7 @@
             </ColumnOptions>
         </PropertyColumn>
         <PropertyColumn Title="Published" 
-                        Property="@(c => (c!.Date_published ?? "0000-00-00").Substring(0,10))"  
+                        Property="@(c => (c!.PublicationDate ?? "0000-00-00").Substring(0,10))"  
                         Sortable="true" SortBy="@defSort" 
                         IsDefaultSortColumn="true" 
                         Width="125px"/>
@@ -38,10 +38,10 @@
     private PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
     private string titleFilter = string.Empty;
 
-    IQueryable<PostL>? filteredUrlList => posts?.Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase));
+    IQueryable<PostSuggestion>? filteredUrlList => posts?.Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase));
 
-    private IQueryable<PostL>? posts;
-    private GridSort<PostL> defSort = GridSort<PostL>.ByDescending(c => c.Date_published);
+    private IQueryable<PostSuggestion>? posts;
+    private GridSort<PostSuggestion> defSort = GridSort<PostSuggestion>.ByDescending(c => c.PublicationDate);
     private string newPostUrl = string.Empty;
     private bool showRead = false;
 

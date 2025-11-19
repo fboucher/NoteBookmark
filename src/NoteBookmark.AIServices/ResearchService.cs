@@ -11,16 +11,14 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
 {
     private readonly HttpClient _client = client;
     private readonly ILogger<ResearchService> _logger = logger;
-    private const string BASE_URL = "https://api.reka.ai/v1/chat/completions";
+    private const string BASE_URL = "http://api.reka.ai/v1/chat/completions";
     private const string MODEL_NAME = "reka-flash-research";
     private readonly string _apiKey = config["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
 
     public async Task<string> SearchSuggestionsAsync(string topic, string[]? allowedDomains, string[]? blockedDomains)
     {
         string introParagraph;
-        string query = $"Provide a concise research summary on the topic: '{topic}'.";
-
-        _client.Timeout = TimeSpan.FromSeconds(300);
+        string query = $"Provide a concise research summary on the topic: {topic}.";
 
         var webSearch = new Dictionary<string, object>
         {
@@ -60,27 +58,39 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
-        HttpResponseMessage? response = null;
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, BASE_URL);
-        request.Headers.Add("Authorization", $"Bearer {_apiKey}");
-        request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-        response = await _client.SendAsync(request);
-        var responseContent = await response.Content.ReadAsStringAsync();
-
-        var rekaResponse = JsonSerializer.Deserialize<RekaChatResponse>(responseContent);
-
-        if (response.IsSuccessStatusCode)
+        try
         {
-            var textContent = rekaResponse!.Responses![0]!.Message!.Content!
-                .FirstOrDefault(c => c.Type == "text");
+            HttpResponseMessage? response = null;
+    
+            using var request = new HttpRequestMessage(HttpMethod.Post, BASE_URL);
+            request.Headers.Add("Authorization", $"Bearer {_apiKey}");
+            request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+    
+            await SaveToFile("research_request", jsonPayload);
+    
+            response = await _client.SendAsync(request);
+            var responseContent = await response.Content.ReadAsStringAsync();
 
-            introParagraph = textContent?.Text ?? String.Empty;
+            await SaveToFile("research_response", responseContent);
+    
+            var rekaResponse = JsonSerializer.Deserialize<RekaChatResponse>(responseContent);
+    
+            if (response.IsSuccessStatusCode)
+            {
+                var textContent = rekaResponse!.Responses![0]!.Message!.Content!
+                    .FirstOrDefault(c => c.Type == "text"); 
+    
+                introParagraph = textContent?.Text ?? String.Empty;
+            }
+            else
+            {
+                throw new Exception($"Request failed with status code: {response.StatusCode}. Response: {responseContent}");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            throw new Exception($"Request failed with status code: {response.StatusCode}. Response: {responseContent}");
+            _logger.LogError(ex, "Error occurred while fetching research suggestions.");
+            throw new Exception("An error occurred while fetching research suggestions.", ex);
         }
 
         return introParagraph;
@@ -122,6 +132,16 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
                 }
             }
         };
+    }
+
+    private async Task SaveToFile(string prefix, string responseContent)
+    {
+        string datetime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm");
+        string fileName = $"{prefix}_{datetime}.json";
+        string folderPath = "Data";
+        Directory.CreateDirectory(folderPath);
+        string filePath = Path.Combine(folderPath, fileName);
+        await File.WriteAllTextAsync(filePath, responseContent);
     }
 
 }
