@@ -11,14 +11,14 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
 {
     private readonly HttpClient _client = client;
     private readonly ILogger<ResearchService> _logger = logger;
-    private const string BASE_URL = "http://api.reka.ai/v1/chat/completions";
+    private const string BASE_URL = "https://api.reka.ai/v1/chat/completions";
     private const string MODEL_NAME = "reka-flash-research";
     private readonly string _apiKey = config["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
 
     public async Task<string> SearchSuggestionsAsync(string topic, string[]? allowedDomains, string[]? blockedDomains)
     {
-        string introParagraph;
-        string query = $"Provide a concise research summary on the topic: {topic}.";
+        string introParagraph = string.Empty;
+        string query = $"Provide interesting a list of blog posts, published recently, that talks about the topic: {topic}.";
 
         var webSearch = new Dictionary<string, object>
         {
@@ -58,15 +58,15 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
+        await SaveToFile("research_request", jsonPayload);
+
+        HttpResponseMessage? response = null;
+
         try
         {
-            HttpResponseMessage? response = null;
-    
             using var request = new HttpRequestMessage(HttpMethod.Post, BASE_URL);
             request.Headers.Add("Authorization", $"Bearer {_apiKey}");
             request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-    
-            await SaveToFile("research_request", jsonPayload);
     
             response = await _client.SendAsync(request);
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -89,8 +89,7 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while fetching research suggestions.");
-            throw new Exception("An error occurred while fetching research suggestions.", ex);
+            _logger.LogError($"An error occurred while fetching research suggestions: {ex.Message}");
         }
 
         return introParagraph;
