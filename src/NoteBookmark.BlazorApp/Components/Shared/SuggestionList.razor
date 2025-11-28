@@ -35,12 +35,16 @@
 
 @code {
 
+
+    [Parameter] 
+    public IQueryable<PostSuggestion>? Suggestions {get; set;}
+
     private PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
     private string titleFilter = string.Empty;
 
-    IQueryable<PostSuggestion>? filteredUrlList => posts?.Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase));
+    IQueryable<PostSuggestion>? filteredUrlList => Suggestions?.Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase));
 
-    private IQueryable<PostSuggestion>? posts;
+
     private GridSort<PostSuggestion> defSort = GridSort<PostSuggestion>.ByDescending(c => c.PublicationDate);
     private string newPostUrl = string.Empty;
     private bool showRead = false;

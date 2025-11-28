@@ -52,15 +52,15 @@
         <span slot="checked-message">Read Only</span>
         <span slot="unchecked-message">UnRead Only</span>
     </FluentSwitch> *@
-    <SuggestionList></SuggestionList>
+    <SuggestionList Suggestions="suggestions" ></SuggestionList>
 </FluentStack>
 
 
 
 
 @code {
-    private IQueryable<PostL>? posts;
-    private GridSort<PostL> defSort = GridSort<PostL>.ByDescending(c => c.Date_published);
+    private IQueryable<PostSuggestion>? suggestions;
+    private GridSort<PostSuggestion> defSort = GridSort<PostSuggestion>.ByDescending(c => c.PublicationDate);
     private string newPostUrl = string.Empty;
     private bool showRead = false;
     private bool isSearching = false;
@@ -87,8 +87,9 @@
             var allowedDomains = _criterias.AllowedDomains?.Split(',').Select(d => d.Trim()).ToArray();
             var blockedDomains = _criterias.BlockedDomains?.Split(',').Select(d => d.Trim()).ToArray();
 
-            string introText = await aiService.SearchSuggestionsAsync(_criterias.SearchPrompt, allowedDomains, blockedDomains);
-            @* readingNotes.Intro = introText; *@
+            PostSuggestions result = await aiService.SearchSuggestionsAsync(_criterias.SearchPrompt, allowedDomains, blockedDomains);
+            suggestions = result.Suggestions.AsQueryable();
+            StateHasChanged();
         }
         catch(Exception ex)
         {

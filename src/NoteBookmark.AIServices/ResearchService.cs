@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Reka.SDK;
+using NoteBookmark.Domain;
 
 namespace NoteBookmark.AIServices;
 
@@ -15,10 +17,10 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
     private const string MODEL_NAME = "reka-flash-research";
     private readonly string _apiKey = config["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
 
-    public async Task<string> SearchSuggestionsAsync(string topic, string[]? allowedDomains, string[]? blockedDomains)
+    public async Task<PostSuggestions> SearchSuggestionsAsync(string topic, string[]? allowedDomains, string[]? blockedDomains)
     {
-        string introParagraph = string.Empty;
-        string query = $"Provide interesting a list of blog posts, published recently, that talks about the topic: {topic}.";
+        PostSuggestions suggestions = new PostSuggestions();
+        string query = $"Provide interesting a list of 3 blog posts, published recently, that talks about the topic: {topic}.";
 
         var webSearch = new Dictionary<string, object>
         {
@@ -58,7 +60,7 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
-        await SaveToFile("research_request", jsonPayload);
+        // await SaveToFile("research_request", jsonPayload);
 
         HttpResponseMessage? response = null;
 
@@ -73,14 +75,11 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
 
             await SaveToFile("research_response", responseContent);
     
-            var rekaResponse = JsonSerializer.Deserialize<RekaChatResponse>(responseContent);
+            var rekaResponse = JsonSerializer.Deserialize<RekaResponse>(responseContent);
     
             if (response.IsSuccessStatusCode)
             {
-                var textContent = rekaResponse!.Responses![0]!.Message!.Content!
-                    .FirstOrDefault(c => c.Type == "text"); 
-    
-                introParagraph = textContent?.Text ?? String.Empty;
+                suggestions = JsonSerializer.Deserialize<PostSuggestions>(rekaResponse!.Choices![0].Message!.Content!)!;
             }
             else
             {
@@ -92,7 +91,7 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
             _logger.LogError($"An error occurred while fetching research suggestions: {ex.Message}");
         }
 
-        return introParagraph;
+        return suggestions;
     }
 
 
@@ -119,7 +118,7 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
                                 {
                                     title = new { type = "string" },
                                     author = new { type = "string" },
-                                    summary = new { type = "string" },
+                                    summary = new { type = "string", maxLength = 100 },
                                     publication_date = new { type = "string" },
                                     url = new { type = "string" }
                                 },

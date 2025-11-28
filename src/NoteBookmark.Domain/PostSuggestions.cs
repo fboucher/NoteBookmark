@@ -1,6 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace NoteBookmark.Domain;
 
 public class PostSuggestions
 {
-    public List<PostSuggestion> Events { get; set; } = new();
+    [JsonPropertyName("suggestions")]
+    public List<PostSuggestion>? Suggestions { get; set; } 
 }
