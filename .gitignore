@@ -494,4 +494,4 @@ NoteBookmark.BlazorApp/appsettings.Development.json
 
 NoteBookmark.AppHost/appsettings.Development.json
 
-src/NoteBookmark.AppHost/appsettings.Development.json
+src/NoteBookmark.AppHost/appsettings.[Dd]evelopment.json
