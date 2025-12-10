@@ -493,3 +493,7 @@ NoteBookmark.BlazorApp/appsettings.Development.json
 .azure
 
 NoteBookmark.AppHost/appsettings.Development.json
+
+src/NoteBookmark.AppHost/appsettings.[Dd]evelopment.json
+
+src/NoteBookmark.AppHost/appsettings.json

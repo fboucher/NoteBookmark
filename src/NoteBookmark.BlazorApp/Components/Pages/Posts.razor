@@ -50,7 +50,7 @@
                         Sortable="true" SortBy="@defSort" 
                         IsDefaultSortColumn="true" 
                         Width="125px"/>
-        <TemplateColumn Width="60px">   
+        <TemplateColumn Width="65px">   
             <FluentButton OnClick="@(async () => await DeletePost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
         </TemplateColumn>
     </ChildContent>
