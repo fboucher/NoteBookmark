@@ -41,13 +41,32 @@
             <DataAnnotationsValidator />
             <ValidationSummary />
             <FluentStack Orientation="Orientation.Vertical" Width="100%">
-                <FluentTextField Label="Last Bookmark Date" @bind-Value="settings!.LastBookmarkDate" />
-                
+
+                <FluentStack Orientation="Orientation.Horizontal">
+                    <FluentTextField Label="Last Bookmark Date" @bind-Value="settings!.LastBookmarkDate" />
+                </FluentStack>
+
                 <FluentStack Orientation="Orientation.Horizontal">
                     <FluentTextField Label="Reading Notes Counter" @bind-Value="settings!.ReadingNotesCounter" />
                     <FluentButton OnClick="IncrementCounter" Appearance="Appearance.Accent" IconEnd="@(new Icons.Regular.Size16.Add())"/>
                 </FluentStack>
-                
+
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+                    <FluentTextField Label="Favorite Domains" @bind-Value="settings!.FavoriteDomains" Style="width:100%" />
+                </FluentStack>
+
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+                    <FluentTextField Label="Blocked Domains" @bind-Value="settings!.BlockedDomains" Style="width:100%" />
+                </FluentStack>
+
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+                    <FluentTextArea Label="Summary Prompt" @bind-Value="settings!.SummaryPrompt" Cols="80" Rows="3"/>
+                </FluentStack>
+
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+                    <FluentTextArea Label="Search Prompt" @bind-Value="settings!.SearchPrompt" Cols="80" Rows="3" />
+                </FluentStack>
+
                 <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>
         
             </FluentStack>
