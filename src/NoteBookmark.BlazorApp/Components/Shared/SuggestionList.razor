@@ -8,7 +8,7 @@
 
 <h3>Suggestions</h3>
 
-<FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination">
+<FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination" RowSize="DataGridRowSize.Medium" >
     <ChildContent>       
         <TemplateColumn Width="150px">
             <FluentButton OnClick="@(async () => await AddSuggestion(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Add())" />
@@ -37,12 +37,14 @@
 
 
     [Parameter] 
-    public IQueryable<PostSuggestion>? Suggestions {get; set;}
+    public List<PostSuggestion>? Suggestions { get; set; }
 
     private PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
     private string titleFilter = string.Empty;
 
-    IQueryable<PostSuggestion>? filteredUrlList => Suggestions?.Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase));
+    IQueryable<PostSuggestion>? filteredUrlList => Suggestions?
+        .Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase))
+        .AsQueryable();
 
 
     private GridSort<PostSuggestion> defSort = GridSort<PostSuggestion>.ByDescending(c => c.PublicationDate);
@@ -51,17 +53,35 @@
 
 
 
-    private async Task AddSuggestion(string postId)
+    private async Task AddSuggestion(string postURL)
     {
-        
+        if (postURL != null)
+        {
+            var result = await client.ExtractPostDetailsAndSave(postURL);
+            if (result != null)
+            {
+                Suggestions!.Remove(Suggestions.First(x => x.Url == postURL));
+                StateHasChanged();
+                toastService.ShowSuccess("Suggestion added as note successfully!");
+            }
+            else
+            {
+                toastService.ShowError("Failed to add suggestion as note. Please try again.");
+            }
+        }
+        else
+        {
+            toastService.ShowError("Suggestion not found. Please try again.");
+        }
     }
 
-    private async Task DeleteSuggestion(string postId)
+    private async Task DeleteSuggestion(string postURL)
     {
-        var result = await client.DeletePost(postId);
-        if (result)
+        var sug = Suggestions?.FirstOrDefault(x => x.Url == postURL);
+        if (sug != null)
         {
-            @* await LoadSuggestions(); *@
+            Suggestions!.Remove(sug);
+            StateHasChanged();
             toastService.ShowSuccess("Suggestion deleted successfully!");
         }
         else

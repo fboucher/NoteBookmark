@@ -119,7 +119,7 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
                                     title = new { type = "string" },
                                     author = new { type = "string" },
                                     summary = new { type = "string", maxLength = 100 },
-                                    publication_date = new { type = "string" },
+                                    publication_date = new { type = "string", format = "date" },
                                     url = new { type = "string" }
                                 },
                                 required = new[] { "title", "summary", "url" }

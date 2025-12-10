@@ -19,11 +19,11 @@
     <EditForm Model="@_criterias" FormName="new_note">
         <DataAnnotationsValidator />
 
-        <FluentStack Orientation="Orientation.Vertical">
+        <FluentStack Orientation="Orientation.Vertical" Width="100%">
             
             <FluentValidationMessage For="@(() => _criterias.SearchPrompt)" />
             <div>
-                <FluentTextArea Name="Search Prompt" Label="Search Prompt" @bind-Value="_criterias.SearchPrompt" Required="true" Rows="5" Cols="80"/>
+                <FluentTextArea Name="Search Prompt" Label="Search Prompt" @bind-Value="_criterias.SearchPrompt" Required="true" Rows="3" Cols="80"/>
                 <FluentValidationMessage For="@(() => _criterias.SearchPrompt)" />
             </div>
 
@@ -59,7 +59,7 @@
 
 
 @code {
-    private IQueryable<PostSuggestion>? suggestions;
+    private List<PostSuggestion>? suggestions;
     private GridSort<PostSuggestion> defSort = GridSort<PostSuggestion>.ByDescending(c => c.PublicationDate);
     private string newPostUrl = string.Empty;
     private bool showRead = false;
@@ -88,7 +88,7 @@
             var blockedDomains = _criterias.BlockedDomains?.Split(',').Select(d => d.Trim()).ToArray();
 
             PostSuggestions result = await aiService.SearchSuggestionsAsync(_criterias.SearchPrompt, allowedDomains, blockedDomains);
-            suggestions = result.Suggestions.AsQueryable();
+            suggestions = result.Suggestions ?? [];
             StateHasChanged();
         }
         catch(Exception ex)
