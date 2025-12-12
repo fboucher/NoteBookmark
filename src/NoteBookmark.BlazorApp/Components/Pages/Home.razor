@@ -1,7 +1,66 @@
 ﻿@page "/"
+@using Microsoft.FluentUI.AspNetCore.Components
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Home - NoteBookmark</PageTitle>
 
-<h1>Hello, world!</h1>
+<FluentStack Orientation="Orientation.Vertical" VerticalGap="20">
+    <h1>📚 NoteBookmark</h1>
 
-Welcome to your new Fluent Blazor app.
+    <FluentCard Width="932px">
+        <p>Your personal reading companion for capturing thoughts and insights from articles and blog posts.
+            Transform your reading notes into polished summaries, perfect for sharing your weekly discoveries.</p>
+    </FluentCard>
+
+    <FluentStack Orientation="Orientation.Horizontal" Wrap="true" HorizontalGap="16">
+        <FluentCard Width="300px" Height="180px">
+            <FluentStack Orientation="Orientation.Vertical" VerticalGap="8">
+                <div style="font-size: 2em;">📝</div>
+                <h3>Manage Posts</h3>
+                <p>Collect articles to read and add your notes as you go through them.</p>
+            </FluentStack>
+        </FluentCard>
+
+        <FluentCard Width="300px" Height="180px">
+            <FluentStack Orientation="Orientation.Vertical" VerticalGap="8">
+                <div style="font-size: 2em;">🔍</div>
+                <h3>AI-Powered Search</h3>
+                <p>Discover relevant content with intelligent suggestions tailored to your interests.</p>
+            </FluentStack>
+        </FluentCard>
+
+        <FluentCard Width="300px" Height="180px">
+            <FluentStack Orientation="Orientation.Vertical" VerticalGap="8">
+                <div style="font-size: 2em;">✨</div>
+                <h3>Generate Summaries</h3>
+                <p>Create beautiful summaries of your reading notes with AI assistance.</p>
+            </FluentStack>
+        </FluentCard>
+    </FluentStack>
+
+    <FluentDivider />
+
+    <FluentStack Orientation="Orientation.Vertical" VerticalGap="8">
+        <h3>Built with Modern Tech</h3>
+        <FluentStack Orientation="Orientation.Horizontal" Wrap="true" HorizontalGap="12">
+            <a href="https://dotnet.microsoft.com" target="_blank" style="text-decoration: none;">
+                <FluentBadge Appearance="Appearance.Accent">.NET 9</FluentBadge>
+            </a>
+            <a href="https://blazor.net" target="_blank" style="text-decoration: none;">
+                <FluentBadge Appearance="Appearance.Accent">Blazor</FluentBadge>
+            </a>
+            <a href="https://fluentui-blazor.net" target="_blank" style="text-decoration: none;">
+                <FluentBadge Appearance="Appearance.Accent">Fluent UI Blazor</FluentBadge>
+            </a>
+            <a href="https://aspire.dev" target="_blank" style="text-decoration: none;">
+                <FluentBadge Appearance="Appearance.Accent">Aspire</FluentBadge>
+            </a>
+            <a href="https://azure.microsoft.com/services/storage/tables" target="_blank" style="text-decoration: none;">
+                <FluentBadge Appearance="Appearance.Accent">Azure Table Storage</FluentBadge>
+            </a>
+            <a href="https://reka.ai" target="_blank" style="text-decoration: none;">
+                <FluentBadge Appearance="Appearance.Accent">Reka AI</FluentBadge>
+            </a>
+        </FluentStack>
+    </FluentStack>
+</FluentStack>

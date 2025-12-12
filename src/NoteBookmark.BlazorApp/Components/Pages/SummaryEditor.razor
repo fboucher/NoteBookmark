@@ -117,6 +117,7 @@ else{
     private string? readingNotesHTML = string.Empty;
 
     private bool isGenarating = false;
+    private string rawPrompt = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -127,6 +128,12 @@ else{
         else
         {
             readingNotes = await client.GetReadingNotes(number);
+        }
+
+        var settings = await client.GetSettings();
+        if(settings != null)
+        {
+            rawPrompt = settings!.SummaryPrompt ?? string.Empty;
         }
     }
     
@@ -254,7 +261,8 @@ else{
         isGenarating = true;
         var summaryText = readingNotes!.ToMarkDown();
         try{
-            string introText = await aiService.GenerateSummaryAsync(summaryText); 
+            string prompt = rawPrompt.Replace("{content}", summaryText);
+            string introText = await aiService.GenerateSummaryAsync(prompt); 
             readingNotes.Intro = introText;
         }
         catch(Exception ex)

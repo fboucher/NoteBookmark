@@ -17,15 +17,17 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
     private const string MODEL_NAME = "reka-flash-research";
     private readonly string _apiKey = config["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
 
-    public async Task<PostSuggestions> SearchSuggestionsAsync(string topic, string[]? allowedDomains, string[]? blockedDomains)
+    public async Task<PostSuggestions> SearchSuggestionsAsync(SearchCriterias searchCriterias)
     {
         PostSuggestions suggestions = new PostSuggestions();
-        string query = $"Provide interesting a list of 3 blog posts, published recently, that talks about the topic: {topic}.";
 
         var webSearch = new Dictionary<string, object>
         {
             ["max_uses"] = 3
         };
+
+        var allowedDomains = searchCriterias.GetSplittedAllowedDomains();
+        var blockedDomains = searchCriterias.GetSplittedBlockedDomains();
 
         if (allowedDomains != null && allowedDomains.Length > 0)
         {
@@ -45,7 +47,7 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
                 new
                 {
                     role = "user",
-                    content = query
+                    content = searchCriterias.GetSearchPrompt()
                 }
             },
             response_format = GetResponseFormat(),
