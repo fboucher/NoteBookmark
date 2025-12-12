@@ -17,22 +17,29 @@
 
 <div>
 	<FluentStack Orientation="Orientation.Vertical">
-		<FluentSelect   Label="Theme" Width="150px"
-						Items="@(Enum.GetValues<DesignThemeModes>())"
-						@bind-SelectedOption="@Mode" />
-		<FluentSelect   Label="Color"
-						Items="@(Enum.GetValues<OfficeColor>().Select(i => (OfficeColor?)i))"
-			Height="200px" Width="250px" @bind-SelectedOption="@OfficeColor">
-			<OptionTemplate>
-				<FluentStack>
-					<FluentIcon Value="@(new Icons.Filled.Size20.RectangleLandscape())" Color="Color.Custom"
-						CustomColor="@(@context.ToAttributeValue() != "default" ? context.ToAttributeValue() : "#036ac4" )" />
-					<FluentLabel>@context</FluentLabel>
-				</FluentStack>
-			</OptionTemplate>
-		</FluentSelect>
+        <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+            <FluentSelect   Label="Theme" Width="150px"
+                            Items="@(Enum.GetValues<DesignThemeModes>())"
+                            @bind-SelectedOption="@Mode" />
+        </FluentStack>
+
+        <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+            <FluentSelect   Label="Color"
+                            Items="@(Enum.GetValues<OfficeColor>().Select(i => (OfficeColor?)i))"
+                Height="200px" Width="250px" @bind-SelectedOption="@OfficeColor">
+                <OptionTemplate>
+                    <FluentStack>
+                        <FluentIcon Value="@(new Icons.Filled.Size20.RectangleLandscape())" Color="Color.Custom"
+                            CustomColor="@(@context.ToAttributeValue() != "default" ? context.ToAttributeValue() : "#036ac4" )" />
+                        <FluentLabel>@context</FluentLabel>
+                    </FluentStack>
+                </OptionTemplate>
+            </FluentSelect>
+        </FluentStack>
 	</FluentStack>
 </div>
+
+<br/>
 
 @if( settings != null)
 {
@@ -42,29 +49,31 @@
             <ValidationSummary />
             <FluentStack Orientation="Orientation.Vertical" Width="100%">
 
-                <FluentStack Orientation="Orientation.Horizontal">
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%" VerticalAlignment="VerticalAlignment.Center">
                     <FluentTextField Label="Last Bookmark Date" @bind-Value="settings!.LastBookmarkDate" />
                 </FluentStack>
 
-                <FluentStack Orientation="Orientation.Horizontal">
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%" VerticalAlignment="VerticalAlignment.Center">
                     <FluentTextField Label="Reading Notes Counter" @bind-Value="settings!.ReadingNotesCounter" />
                     <FluentButton OnClick="IncrementCounter" Appearance="Appearance.Accent" IconEnd="@(new Icons.Regular.Size16.Add())"/>
                 </FluentStack>
 
                 <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextField Label="Favorite Domains" @bind-Value="settings!.FavoriteDomains" Style="width:100%" />
+                    <FluentTextField Label="Favorite Domains" @bind-Value="settings!.FavoriteDomains" Style="width:80%" />
                 </FluentStack>
 
                 <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextField Label="Blocked Domains" @bind-Value="settings!.BlockedDomains" Style="width:100%" />
+                    <FluentTextField Label="Blocked Domains" @bind-Value="settings!.BlockedDomains" Style="width:80%" />
                 </FluentStack>
 
                 <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextArea Label="Summary Prompt" @bind-Value="settings!.SummaryPrompt" Cols="80" Rows="3"/>
+                    <FluentTextArea Label="Summary Prompt - must contain {content}." @bind-Value="settings!.SummaryPrompt" Cols="80" Rows="3"/>
+                    <FluentValidationMessage For="@(() => settings!.SummaryPrompt)" />
                 </FluentStack>
 
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextArea Label="Search Prompt" @bind-Value="settings!.SearchPrompt" Cols="80" Rows="3" />
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%"> 
+                    <FluentTextArea Label="Search Prompt - must contain {topic}. Will be replace at search time" @bind-Value="settings!.SearchPrompt" Cols="80" Rows="3" />
+                    <FluentValidationMessage For="@(() => settings!.SearchPrompt)" />
                 </FluentStack>
 
                 <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>

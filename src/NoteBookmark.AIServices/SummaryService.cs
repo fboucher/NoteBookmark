@@ -16,10 +16,9 @@ public class SummaryService(HttpClient client, ILogger<SummaryService> logger, I
     private const string MODEL_NAME = "reka-flash-3.1";
     private readonly string _apiKey = config["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
 
-    public async Task<string> GenerateSummaryAsync(string summaryText)
+    public async Task<string> GenerateSummaryAsync(string prompt)
     {
         string introParagraph;
-        string query = $"write a short introduction paragraph, without using '—', for the blog post: {summaryText}";
 
         _client.Timeout = TimeSpan.FromSeconds(300);
 
@@ -32,7 +31,7 @@ public class SummaryService(HttpClient client, ILogger<SummaryService> logger, I
                 new
                 {
                     role = "user",
-                    content = query
+                    content = prompt
                 }
             }
         };

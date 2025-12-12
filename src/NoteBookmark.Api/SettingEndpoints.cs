@@ -60,6 +60,17 @@ public static class SettingEndpoints
     {
         var dataStorageService = new DataStorageService(tblClient, blobClient);
         var settings = await dataStorageService.GetSettings();
+
+        if(settings!.SearchPrompt == null)
+        {
+            settings.SearchPrompt = "Provide interesting a list of 3 blog posts, published recently, that talks about the topic: {topic}.";
+        }
+
+        if(settings.SummaryPrompt == null)
+        {
+            settings.SummaryPrompt = "write a short introduction paragraph, without using '—', for the blog post: {content}";
+        }
+
         return settings != null ? TypedResults.Ok(settings) : TypedResults.BadRequest();
     }
 }
