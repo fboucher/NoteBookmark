@@ -5,6 +5,8 @@ EXPOSE 8006
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
+COPY ["Directory.Build.props", "/src/"]
+COPY ["Directory.Packages.props", "/src/"]
 COPY ["src/NoteBookmark.BlazorApp/NoteBookmark.BlazorApp.csproj", "src/NoteBookmark.BlazorApp/"]
 COPY ["src/NoteBookmark.Domain/NoteBookmark.Domain.csproj", "src/NoteBookmark.Domain/"]
 COPY ["src/NoteBookmark.ServiceDefaults/NoteBookmark.ServiceDefaults.csproj", "src/NoteBookmark.ServiceDefaults/"]

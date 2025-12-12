@@ -5,6 +5,9 @@ EXPOSE 8002
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
+# Copy central props for TargetFramework and package management
+COPY ["Directory.Build.props", "/src/"]
+COPY ["Directory.Packages.props", "/src/"]
 COPY ["src/NoteBookmark.Api/NoteBookmark.Api.csproj", "src/NoteBookmark.Api/"]
 COPY ["src/NoteBookmark.Domain/NoteBookmark.Domain.csproj", "src/NoteBookmark.Domain/"]
 COPY ["src/NoteBookmark.ServiceDefaults/NoteBookmark.ServiceDefaults.csproj", "src/NoteBookmark.ServiceDefaults/"]
