@@ -86,7 +86,7 @@ public class NoteEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         
-        var notes = await response.Content.ReadFromJsonAsync<List<ReadingNote>>();
+        var notes = await response.Content.ReadFromJsonAsync<List<Note>>();
         notes.Should().NotBeNull();
         notes.Should().NotBeEmpty();
     }
@@ -122,7 +122,6 @@ public class NoteEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         
         var readingNotes = await response.Content.ReadFromJsonAsync<List<ReadingNote>>();
-        readingNotes.Should().NotBeNull();
         readingNotes.Should().BeEmpty();
     }
 
