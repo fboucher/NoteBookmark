@@ -1,0 +1,106 @@
+@page "/noteeditor/{noteId}"
+
+@using NoteBookmark.BlazorApp
+@using NoteBookmark.Domain
+@inject PostNoteClient client
+@inject NavigationManager Navigation
+@inject IToastService toastService
+
+@rendermode InteractiveServer
+
+<PageTitle>Edit Note</PageTitle>
+
+<h1>Edit Note</h1>
+
+@if (note == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <EditForm Model="@note" OnValidSubmit="SaveNote">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <FluentStack Orientation="Orientation.Vertical">
+            <div>
+                <FluentSelect @bind-Value="note.Category" TOption="string" Label="Category">
+                    @foreach (var category in _categories)
+                    {
+                        <FluentOption TOption="string" Value="@category">@category</FluentOption>
+                    }
+                </FluentSelect>
+            </div>
+
+            <div>
+                <FluentTextArea Name="Comment" Label="Comment" @bind-Value="note.Comment" Required="true" />
+            </div>
+
+            <div>
+                <FluentTextField Name="Tags" Label="Tags" @bind-Value="note.Tags" />
+            </div>
+        </FluentStack>
+
+        <FluentStack Orientation="Orientation.Horizontal" style="margin-top: 20px;">
+            <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>
+            <FluentButton OnClick="BackToList" Appearance="Appearance.Neutral">Back to List</FluentButton>
+            <FluentButton OnClick="DeleteNoteAsync" Appearance="Appearance.Accent" Color="Color.Danger">Delete</FluentButton>
+        </FluentStack>
+    </EditForm>
+}
+
+
+@code {
+    [Parameter]
+    public string? noteId { get; set; }
+
+    private Note? note;
+    private List<string> _categories = NoteCategories.GetCategories();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(noteId))
+        {
+            note = await client.GetNote(noteId);
+        }
+    }
+
+    private async Task SaveNote()
+    {
+        if (note != null)
+        {
+            var result = await client.UpdateNote(note);
+            if (result)
+            {
+                toastService.ShowSuccess("Note updated successfully!");
+                Navigation.NavigateTo("/posts");
+            }
+            else
+            {
+                toastService.ShowError("Failed to update note. Please try again.");
+            }
+        }
+    }
+
+    private void BackToList()
+    {
+        Navigation.NavigateTo("/posts");
+    }
+
+    private async Task DeleteNoteAsync()
+    {
+        if (note != null)
+        {
+            var result = await client.DeleteNote(note.RowKey);
+            if (result)
+            {
+                toastService.ShowSuccess("Note deleted successfully!");
+                Navigation.NavigateTo("/posts");
+            }
+            else
+            {
+                toastService.ShowError("Failed to delete note. Please try again.");
+            }
+        }
+    }
+}
