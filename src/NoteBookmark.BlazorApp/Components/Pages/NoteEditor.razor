@@ -5,6 +5,7 @@
 @inject PostNoteClient client
 @inject NavigationManager Navigation
 @inject IToastService toastService
+@inject IDialogService DialogService
 
 @rendermode InteractiveServer
 
@@ -44,7 +45,7 @@ else
         <FluentStack Orientation="Orientation.Horizontal" style="margin-top: 20px;">
             <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>
             <FluentButton OnClick="BackToList" Appearance="Appearance.Neutral">Back to List</FluentButton>
-            <FluentButton OnClick="DeleteNoteAsync" Appearance="Appearance.Accent" Color="Color.Danger">Delete</FluentButton>
+            <FluentButton OnClick="ShowDeleteConfirmation" Appearance="Appearance.Accent" Color="Color.Danger">Delete</FluentButton>
         </FluentStack>
     </EditForm>
 }
@@ -61,7 +62,20 @@ else
     {
         if (!string.IsNullOrEmpty(noteId))
         {
-            note = await client.GetNote(noteId);
+            try
+            {
+                note = await client.GetNote(noteId);
+                if (note == null)
+                {
+                    toastService.ShowError("Note not found.");
+                    Navigation.NavigateTo("/posts");
+                }
+            }
+            catch (Exception)
+            {
+                toastService.ShowError("Failed to load note. Please try again.");
+                Navigation.NavigateTo("/posts");
+            }
         }
     }
 
@@ -69,15 +83,22 @@ else
     {
         if (note != null)
         {
-            var result = await client.UpdateNote(note);
-            if (result)
+            try
             {
-                toastService.ShowSuccess("Note updated successfully!");
-                Navigation.NavigateTo("/posts");
+                var result = await client.UpdateNote(note);
+                if (result)
+                {
+                    toastService.ShowSuccess("Note updated successfully!");
+                    Navigation.NavigateTo("/posts");
+                }
+                else
+                {
+                    toastService.ShowError("Failed to update note. Please check your input and try again.");
+                }
             }
-            else
+            catch (Exception)
             {
-                toastService.ShowError("Failed to update note. Please try again.");
+                toastService.ShowError("An error occurred while updating the note. Please try again.");
             }
         }
     }
@@ -87,19 +108,41 @@ else
         Navigation.NavigateTo("/posts");
     }
 
+    private async Task ShowDeleteConfirmation()
+    {
+        var dialog = await DialogService.ShowConfirmationAsync(
+            "Are you sure you want to delete this note? This action cannot be undone.",
+            "Confirm Delete",
+            "Delete",
+            "Cancel");
+
+        var result = await dialog.Result;
+        if (!result.Cancelled)
+        {
+            await DeleteNoteAsync();
+        }
+    }
+
     private async Task DeleteNoteAsync()
     {
         if (note != null)
         {
-            var result = await client.DeleteNote(note.RowKey);
-            if (result)
+            try
             {
-                toastService.ShowSuccess("Note deleted successfully!");
-                Navigation.NavigateTo("/posts");
+                var result = await client.DeleteNote(note.RowKey);
+                if (result)
+                {
+                    toastService.ShowSuccess("Note deleted successfully!");
+                    Navigation.NavigateTo("/posts");
+                }
+                else
+                {
+                    toastService.ShowError("Failed to delete note. The note may not exist anymore.");
+                }
             }
-            else
+            catch (Exception)
             {
-                toastService.ShowError("Failed to delete note. Please try again.");
+                toastService.ShowError("An error occurred while deleting the note. Please try again.");
             }
         }
     }
