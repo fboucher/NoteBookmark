@@ -56,6 +56,14 @@
                   OnClick="@CancelAsync">
         Cancel
     </FluentButton>
+    @if (_isEditMode)
+    {
+        <FluentButton Appearance="Appearance.Accent"
+                      Color="Color.Danger"
+                      OnClick="@DeleteAsync">
+            Delete
+        </FluentButton>
+    }
 </FluentDialogFooter>
 
 @code {
@@ -68,25 +76,46 @@
     private Domain.Note _note = default!;
 
     private List<string> _categories = NoteCategories.GetCategories();
+    private bool _isEditMode = false;
 
     protected override void OnInitialized()
     {
-        _note = new Note{PostId = Content.PostId};
+        // Check if we're editing an existing note or creating a new one
+        _isEditMode = !string.IsNullOrEmpty(Content.RowKey) && Content.RowKey != Guid.Empty.ToString();
+        
+        if (_isEditMode)
+        {
+            // Editing mode - use the existing note data
+            _note = Content;
+        }
+        else
+        {
+            // Create mode - create a new note with the PostId
+            _note = new Note { PostId = Content.PostId };
+        }
     }
 
     private async Task SaveAsync()
     {
-        _note.DateAdded = DateTime.UtcNow;
+        if (!_isEditMode)
+        {
+            _note.DateAdded = DateTime.UtcNow;
+        }
 
         if (_note.Validate())
         {
-            await Dialog.CloseAsync(_note);
+            await Dialog.CloseAsync(new NoteDialogResult { Action = "Save", Note = _note });
         }
     }
 
     private async Task CancelAsync()
     {
         await Dialog.CancelAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        await Dialog.CloseAsync(new NoteDialogResult { Action = "Delete", Note = _note });
     }
 
 
