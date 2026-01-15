@@ -81,7 +81,7 @@
     protected override void OnInitialized()
     {
         // Check if we're editing an existing note or creating a new one
-        _isEditMode = !string.IsNullOrEmpty(Content.RowKey) && Content.RowKey != Guid.Empty.ToString();
+        _isEditMode = !string.IsNullOrEmpty(Content.RowKey) && !Content.RowKey.Equals(Guid.Empty.ToString(), StringComparison.OrdinalIgnoreCase);
         
         if (_isEditMode)
         {

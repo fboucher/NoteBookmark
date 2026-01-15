@@ -98,9 +98,8 @@
         });
 
         var result = await dialog.Result;
-        if (!result.Cancelled && result.Data != null)
+        if (!result.Cancelled && result.Data is NoteDialogResult dialogResult)
         {
-            var dialogResult = (NoteDialogResult)result.Data;
             if (dialogResult.Action == "Save" && dialogResult.Note != null)
             {
                 await client.CreateNote(dialogResult.Note);
@@ -133,10 +132,8 @@
             });
 
             var result = await dialog.Result;
-            if (!result.Cancelled && result.Data != null)
+            if (!result.Cancelled && result.Data is NoteDialogResult dialogResult)
             {
-                var dialogResult = (NoteDialogResult)result.Data;
-                
                 if (dialogResult.Action == "Delete" && dialogResult.Note != null)
                 {
                     var deleteResult = await client.DeleteNote(dialogResult.Note.RowKey);
