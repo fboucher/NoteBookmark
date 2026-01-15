@@ -31,6 +31,24 @@ public class PostNoteClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
     }
 
+    public async Task<Note?> GetNote(string noteId)
+    {
+        var note = await httpClient.GetFromJsonAsync<Note>($"api/notes/note/{noteId}");
+        return note;
+    }
+
+    public async Task<bool> UpdateNote(Note note)
+    {
+        var response = await httpClient.PutAsJsonAsync("api/notes/note", note);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteNote(string noteId)
+    {
+        var response = await httpClient.DeleteAsync($"api/notes/note/{noteId}");
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<ReadingNotes> CreateReadingNotes()
     {
         var rnCounter = await httpClient.GetStringAsync("api/settings/GetNextReadingNotesCounter");

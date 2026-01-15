@@ -158,6 +158,111 @@ public class NoteEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
         // This would require additional verification logic based on the actual implementation
     }
 
+    [Fact]
+    public async Task GetNote_WithValidNoteId_ReturnsNote()
+    {
+        // Arrange
+        var testPost = await CreateAndSaveTestPost();
+        var testNote = CreateTestNote();
+        testNote.PostId = testPost.RowKey;
+        await _client.PostAsJsonAsync("/api/notes/note", testNote);
+
+        // Act
+        var response = await _client.GetAsync($"/api/notes/note/{testNote.RowKey}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var retrievedNote = await response.Content.ReadFromJsonAsync<Note>();
+        retrievedNote.Should().NotBeNull();
+        retrievedNote!.RowKey.Should().Be(testNote.RowKey);
+        retrievedNote.Comment.Should().Be(testNote.Comment);
+    }
+
+    [Fact]
+    public async Task GetNote_WithInvalidNoteId_ReturnsNotFound()
+    {
+        // Arrange
+        var nonExistentNoteId = "non-existent-note-id";
+
+        // Act
+        var response = await _client.GetAsync($"/api/notes/note/{nonExistentNoteId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UpdateNote_WithValidNote_ReturnsOk()
+    {
+        // Arrange
+        var testPost = await CreateAndSaveTestPost();
+        var testNote = CreateTestNote();
+        testNote.PostId = testPost.RowKey;
+        await _client.PostAsJsonAsync("/api/notes/note", testNote);
+
+        // Update the note
+        testNote.Comment = "Updated comment";
+        testNote.Tags = "updated, tags";
+
+        // Act
+        var response = await _client.PutAsJsonAsync("/api/notes/note", testNote);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        var updatedNote = await response.Content.ReadFromJsonAsync<Note>();
+        updatedNote.Should().NotBeNull();
+        updatedNote!.Comment.Should().Be("Updated comment");
+        updatedNote.Tags.Should().Be("updated, tags");
+    }
+
+    [Fact]
+    public async Task UpdateNote_WithInvalidNote_ReturnsBadRequest()
+    {
+        // Arrange
+        var invalidNote = new Note(); // Missing required comment
+
+        // Act
+        var response = await _client.PutAsJsonAsync("/api/notes/note", invalidNote);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DeleteNote_WithValidNoteId_ReturnsOk()
+    {
+        // Arrange
+        var testPost = await CreateAndSaveTestPost();
+        var testNote = CreateTestNote();
+        testNote.PostId = testPost.RowKey;
+        await _client.PostAsJsonAsync("/api/notes/note", testNote);
+
+        // Act
+        var response = await _client.DeleteAsync($"/api/notes/note/{testNote.RowKey}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        
+        // Verify the note is deleted
+        var getResponse = await _client.GetAsync($"/api/notes/note/{testNote.RowKey}");
+        getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteNote_WithInvalidNoteId_ReturnsNotFound()
+    {
+        // Arrange
+        var nonExistentNoteId = "non-existent-note-id";
+
+        // Act
+        var response = await _client.DeleteAsync($"/api/notes/note/{nonExistentNoteId}");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     // Helper methods
     private async Task SeedTestNotes()
     {
