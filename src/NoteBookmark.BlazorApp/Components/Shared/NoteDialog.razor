@@ -35,8 +35,24 @@
             </div>
 
             <div>
-                <FluentTextField Name="Tags" Label="Tags" @bind-Value="_note.Tags" />
-                <FluentValidationMessage For="@(() => _note.Tags)" />
+                <FluentStack Orientation="Orientation.Vertical">
+                    <label>Tags</label>
+                    <FluentStack Orientation="Orientation.Horizontal" Wrap="true" HorizontalGap="4"">
+                        @foreach (var tag in _currentTags)
+                        {
+                            <FluentBadge Appearance="Appearance.Neutral" OnDismissClick="@((e) => RemoveTag(tag))">
+                                @tag
+                            </FluentBadge>
+                        }
+                    </FluentStack>
+                    <FluentStack Orientation="Orientation.Horizontal">
+                        <FluentTextField @bind-Value="_newTagInput"
+                                        Placeholder="Add a tag..."
+                                        @onkeydown="HandleKeyDown" />
+                        <FluentButton @onclick="() => AddTag(_newTagInput)" Appearance="Appearance.Lightweight" Size="Size.Small">Add</FluentButton>
+                    </FluentStack>
+                    <FluentValidationMessage For="@(() => _note.Tags)" />
+                </FluentStack>
             </div>
         </FluentStack>
         <div style="color: var(--error);">
@@ -78,11 +94,14 @@
     private List<string> _categories = NoteCategories.GetCategories();
     private bool _isEditMode = false;
 
+    private List<string> _currentTags = new();
+    private string _newTagInput = string.Empty;
+
     protected override void OnInitialized()
     {
         // Check if we're editing an existing note or creating a new one
         _isEditMode = !string.IsNullOrEmpty(Content.RowKey) && !Content.RowKey.Equals(Guid.Empty.ToString(), StringComparison.OrdinalIgnoreCase);
-        
+
         if (_isEditMode)
         {
             // Editing mode - use the existing note data
@@ -93,6 +112,8 @@
             // Create mode - create a new note with the PostId
             _note = new Note { PostId = Content.PostId };
         }
+
+        ParseTagsFromString();
     }
 
     private async Task SaveAsync()
@@ -118,5 +139,52 @@
         await Dialog.CloseAsync(new NoteDialogResult { Action = "Delete", Note = _note });
     }
 
+    private void ParseTagsFromString()
+    {
+        _currentTags = string.IsNullOrWhiteSpace(_note.Tags)
+            ? new List<string>()
+            : _note.Tags.Split(',')
+                .Select(t => t.Trim().ToLower())
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Distinct()
+                .ToList();
+    }
+
+    private void SerializeTagsToString()
+    {
+        _note.Tags = _currentTags.Any() ? string.Join(", ", _currentTags) : null;
+    }
+
+    private void AddTag(string tag)
+    {
+        if (string.IsNullOrWhiteSpace(tag)) return;
+
+        var normalizedTag = tag.Trim().ToLower();
+        if (!_currentTags.Contains(normalizedTag))
+        {
+            _currentTags.Add(normalizedTag);
+            SerializeTagsToString();
+            _newTagInput = string.Empty;
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveTag(string tag)
+    {
+        _currentTags.Remove(tag);
+        SerializeTagsToString();
+        StateHasChanged();
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            if (!string.IsNullOrWhiteSpace(_newTagInput))
+            {
+                AddTag(_newTagInput);
+            }
+        }
+    }
 
 }
