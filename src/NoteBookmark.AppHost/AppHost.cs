@@ -28,6 +28,7 @@ var api = builder.AddProject<NoteBookmark_Api>("api")
 
 builder.AddProject<NoteBookmark_BlazorApp>("blazor-app")
     .WithReference(api)
+    .WithReference(tables)  // Server-side access to Azure Tables for unmasked settings
     .WaitFor(api)
     .WithExternalHttpEndpoints()
     .WithEnvironment("REKA_API_KEY", apiKey)

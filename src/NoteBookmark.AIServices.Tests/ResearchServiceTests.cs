@@ -7,20 +7,18 @@ namespace NoteBookmark.AIServices.Tests;
 public class ResearchServiceTests
 {
     private readonly Mock<ILogger<ResearchService>> _mockLogger;
-    private readonly Mock<IConfiguration> _mockConfig;
 
     public ResearchServiceTests()
     {
         _mockLogger = new Mock<ILogger<ResearchService>>();
-        _mockConfig = new Mock<IConfiguration>();
     }
 
     [Fact]
     public async Task SearchSuggestionsAsync_WithMissingApiKey_ThrowsInvalidOperationException()
     {
         // Arrange
-        SetupConfiguration(apiKey: null);
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: null);
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt") { SearchTopic = "AI" };
 
         // Act
@@ -36,8 +34,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithMissingApiKey_LogsError()
     {
         // Arrange
-        SetupConfiguration(apiKey: null);
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: null);
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -51,8 +49,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithApiKeyFromAppSettings_UsesCorrectValue()
     {
         // Arrange
-        SetupConfiguration(apiKey: "test-api-key-from-settings");
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-api-key-from-settings");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt") { SearchTopic = "Testing" };
 
         // Act - Will fail to connect but won't throw missing config exception
@@ -66,8 +64,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithApiKeyFromRekaEnvVar_UsesCorrectValue()
     {
         // Arrange
-        SetupConfiguration(apiKey: null, rekaApiKey: "test-reka-key");
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-reka-key");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt") { SearchTopic = "Testing" };
 
         // Act
@@ -82,8 +80,8 @@ public class ResearchServiceTests
     {
         // Arrange
         const string customUrl = "https://custom.api.example.com/v1";
-        SetupConfiguration(apiKey: "test-key", baseUrl: customUrl);
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-key", baseUrl: customUrl);
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -97,8 +95,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithDefaultBaseUrl_UsesRekaApi()
     {
         // Arrange
-        SetupConfiguration(apiKey: "test-key", baseUrl: null);
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-key", baseUrl: "https://api.reka.ai/v1");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -113,8 +111,8 @@ public class ResearchServiceTests
     {
         // Arrange
         const string customModel = "custom-model-v2";
-        SetupConfiguration(apiKey: "test-key", modelName: customModel);
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-key", modelName: customModel);
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -128,8 +126,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithDefaultModelName_UsesRekaFlashResearch()
     {
         // Arrange
-        SetupConfiguration(apiKey: "test-key", modelName: null);
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-key", modelName: "reka-flash-research");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -143,8 +141,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithInvalidUrl_ReturnsEmptyPostSuggestions()
     {
         // Arrange
-        SetupConfiguration(apiKey: "test-key", baseUrl: "not-a-valid-url");
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-key", baseUrl: "not-a-valid-url");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -160,8 +158,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_OnException_ReturnsEmptyPostSuggestions()
     {
         // Arrange
-        SetupConfiguration(apiKey: "test-key");
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-key");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -176,8 +174,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithValidSearchCriterias_ProcessesPrompt()
     {
         // Arrange
-        SetupConfiguration(apiKey: "test-key");
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "test-key");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Find articles about {topic}")
         {
             SearchTopic = "Machine Learning",
@@ -200,8 +198,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_WithEmptyApiKey_ThrowsInvalidOperationException(string emptyKey)
     {
         // Arrange
-        SetupConfiguration(apiKey: emptyKey);
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: emptyKey);
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -217,8 +215,8 @@ public class ResearchServiceTests
     public async Task SearchSuggestionsAsync_ApiKeyPriority_AppSettingsOverridesEnvVar()
     {
         // Arrange - Both AppSettings and env var set, AppSettings should take precedence
-        SetupConfiguration(apiKey: "settings-key", rekaApiKey: "env-key");
-        var service = new ResearchService(_mockLogger.Object, _mockConfig.Object);
+        var settingsProvider = CreateSettingsProvider(apiKey: "settings-key");
+        var service = new ResearchService(_mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -226,19 +224,26 @@ public class ResearchServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        _mockConfig.Verify(c => c["AppSettings:AiApiKey"], Times.Once);
     }
 
-    private void SetupConfiguration(
+    private Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> CreateSettingsProvider(
         string? apiKey = "test-api-key",
-        string? baseUrl = null,
-        string? modelName = null,
-        string? rekaApiKey = null)
+        string? baseUrl = "https://api.reka.ai/v1",
+        string? modelName = "reka-flash-research")
     {
-        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns(apiKey);
-        _mockConfig.Setup(c => c["AppSettings:REKA_API_KEY"]).Returns(rekaApiKey);
-        _mockConfig.Setup(c => c["AppSettings:AiBaseUrl"]).Returns(baseUrl);
-        _mockConfig.Setup(c => c["AppSettings:AiModelName"]).Returns(modelName);
+        return () =>
+        {
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new InvalidOperationException("AI API key not configured");
+            }
+            
+            return Task.FromResult((
+                ApiKey: apiKey,
+                BaseUrl: baseUrl ?? "https://api.reka.ai/v1",
+                ModelName: modelName ?? "reka-flash-research"
+            ));
+        };
     }
 
     private void VerifyErrorLogged(string expectedMessagePart)

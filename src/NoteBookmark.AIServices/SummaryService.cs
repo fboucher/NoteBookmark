@@ -1,5 +1,4 @@
 ﻿using System.ClientModel;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.AI;
 using Microsoft.Agents.AI;
@@ -9,15 +8,24 @@ using NoteBookmark.Domain;
 
 namespace NoteBookmark.AIServices;
 
-public class SummaryService(ILogger<SummaryService> logger, IConfiguration config)
+public class SummaryService
 {
-    private readonly ILogger<SummaryService> _logger = logger;
+    private readonly ILogger<SummaryService> _logger;
+    private readonly Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> _settingsProvider;
+
+    public SummaryService(
+        ILogger<SummaryService> logger, 
+        Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> settingsProvider)
+    {
+        _logger = logger;
+        _settingsProvider = settingsProvider;
+    }
 
     public async Task<string> GenerateSummaryAsync(string prompt)
     {
         try
         {
-            var settings = GetSettings(config);
+            var settings = await _settingsProvider();
             
             IChatClient chatClient = new ChatClient(
                 settings.ModelName, 
@@ -37,20 +45,5 @@ public class SummaryService(ILogger<SummaryService> logger, IConfiguration confi
             _logger.LogError($"An error occurred while generating summary: {ex.Message}");
             return string.Empty;
         }
-    }
-
-    private static (string ApiKey, string BaseUrl, string ModelName) GetSettings(IConfiguration config)
-    {
-        string? apiKey = config["AppSettings:AiApiKey"] 
-            ?? config["AppSettings:REKA_API_KEY"] 
-            ?? Environment.GetEnvironmentVariable("REKA_API_KEY");
-            
-        if (string.IsNullOrEmpty(apiKey))
-            throw new InvalidOperationException("AI API key not configured. Set AiApiKey in settings or REKA_API_KEY environment variable.");
-
-        string baseUrl = config["AppSettings:AiBaseUrl"] ?? "https://api.reka.ai/v1";
-        string modelName = config["AppSettings:AiModelName"] ?? "reka-flash-3.1";
-
-        return (apiKey, baseUrl, modelName);
     }
 }

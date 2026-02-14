@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using System.ClientModel;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.AI;
 using Microsoft.Agents.AI;
@@ -11,9 +10,18 @@ using NoteBookmark.Domain;
 
 namespace NoteBookmark.AIServices;
 
-public class ResearchService(ILogger<ResearchService> logger, IConfiguration config)
+public class ResearchService
 {
-    private readonly ILogger<ResearchService> _logger = logger;
+    private readonly ILogger<ResearchService> _logger;
+    private readonly Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> _settingsProvider;
+
+    public ResearchService(
+        ILogger<ResearchService> logger, 
+        Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> settingsProvider)
+    {
+        _logger = logger;
+        _settingsProvider = settingsProvider;
+    }
 
     public async Task<PostSuggestions> SearchSuggestionsAsync(SearchCriterias searchCriterias)
     {
@@ -21,7 +29,7 @@ public class ResearchService(ILogger<ResearchService> logger, IConfiguration con
 
         try
         {
-            var settings = GetSettings(config);
+            var settings = await _settingsProvider();
 
             IChatClient chatClient = new ChatClient(
                 settings.ModelName,
@@ -63,21 +71,6 @@ public class ResearchService(ILogger<ResearchService> logger, IConfiguration con
         }
 
         return suggestions;
-    }
-
-    private static (string ApiKey, string BaseUrl, string ModelName) GetSettings(IConfiguration config)
-    {
-        string? apiKey = config["AppSettings:AiApiKey"]
-            ?? config["AppSettings:REKA_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("REKA_API_KEY");
-
-        if (string.IsNullOrEmpty(apiKey))
-            throw new InvalidOperationException("AI API key not configured. Set AiApiKey in settings or REKA_API_KEY environment variable.");
-
-        string baseUrl = config["AppSettings:AiBaseUrl"] ?? "https://api.reka.ai/v1";
-        string modelName = config["AppSettings:AiModelName"] ?? "reka-flash-research";
-
-        return (apiKey, baseUrl, modelName);
     }
 
     private async Task SaveToFile(string prefix, string responseContent)

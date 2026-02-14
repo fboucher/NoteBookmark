@@ -6,40 +6,55 @@ using NoteBookmark.BlazorApp.Components;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
+builder.AddAzureTableClient("nb-tables");
 
-// Register ResearchService with a manual HttpClient to bypass Aspire resilience policies
-// builder.Services.AddTransient<ResearchService>(sp =>
-// {
-//     var handler = new SocketsHttpHandler
-//     {
-//         PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-//         ConnectTimeout = TimeSpan.FromMinutes(5)
-//     };
-    
-//     var httpClient = new HttpClient(handler)
-//     {
-//         Timeout = TimeSpan.FromMinutes(5)
-//     };
-    
-//     var logger = sp.GetRequiredService<ILogger<ResearchService>>();
-//     var config = sp.GetRequiredService<IConfiguration>();
-    
-//     return new ResearchService(httpClient, logger, config);
-// });
-
+// Add HTTP client for API calls
 builder.Services.AddHttpClient<PostNoteClient>(client => 
             {
                 client.BaseAddress = new Uri("https+http://api");
             });
 
-builder.Services.AddHttpClient<SummaryService>(client =>
+// Register server-side AI settings provider (direct database access, unmasked)
+builder.Services.AddScoped<AISettingsProvider>();
+
+// Register AI services with settings provider that reads directly from database
+builder.Services.AddTransient<SummaryService>(sp =>
 {
-    client.Timeout = TimeSpan.FromMinutes(5);  
+    var logger = sp.GetRequiredService<ILogger<SummaryService>>();
+    var settingsProvider = sp.GetRequiredService<AISettingsProvider>();
+    
+    // Settings provider that fetches directly from database (server-side, unmasked)
+    Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> provider = async () =>
+    {
+        var settings = await settingsProvider.GetAISettingsAsync();
+        return (
+            settings.ApiKey,
+            settings.BaseUrl,
+            settings.ModelName
+        );
+    };
+    
+    return new SummaryService(logger, provider);
 });
 
-
-builder.Services.AddHttpClient<ResearchService>();
-    // .AddStandardResilienceHandler();
+builder.Services.AddTransient<ResearchService>(sp =>
+{
+    var logger = sp.GetRequiredService<ILogger<ResearchService>>();
+    var settingsProvider = sp.GetRequiredService<AISettingsProvider>();
+    
+    // Settings provider that fetches directly from database (server-side, unmasked)
+    Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> provider = async () =>
+    {
+        var settings = await settingsProvider.GetAISettingsAsync();
+        return (
+            settings.ApiKey,
+            settings.BaseUrl,
+            settings.ModelName
+        );
+    };
+    
+    return new ResearchService(logger, provider);
+});
 
 
 // Add services to the container.

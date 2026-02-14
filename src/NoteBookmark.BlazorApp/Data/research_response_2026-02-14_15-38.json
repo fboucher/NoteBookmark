@@ -1,0 +1,25 @@
+{
+  "suggestions": [
+    {
+      "title": "5 Ways Your .NET Developers Can Get Started with Azure Machine Learning",
+      "author": "James Serra, Azure Developer Ecosystem blog",
+      "summary": "Azure Machine Learning is a cloud-based platform for building and deploying AI models. In this article we will explore how your .Net developers can get started working with Azure Machine Learning through Visual Studio Code.",
+      "publication_date": {},
+      "url": "https://jamesmicrosoftcom/5-ways-get-started-with-azure-machine-learning-as-a-net-developer/"
+    },
+    {
+      "title": "C# and C++ Machine Learning for .NET Developers and AI Researchers",
+      "author": "Pankaj Dua, aka ‘AI Guy’ on Microsoft’s Developer Community blog.",
+      "summary": "In this article we'll present how to use open-source libraries like Accord.NET to build machine learning models in your choice of languages i.e., C#, F# or even C++.  We'll walk through building your 'first ML model' using popular tools that you might have never used.",
+      "publication_date": {},
+      "url": "https://blogs.msdn.microsoft.com/ptgoa/c-cpp-companion-piece-on-ml-in-dot-net-world/"
+    },
+    {
+      "title": ".NET AI – a new home for .NET Machine Learning",
+      "author": "Microsoft .Net blog",
+      "summary": "Find out about latest developments in the world of machine learning on .net, including deep dive into ONNX and .NET Core. ",
+      "publication_date": {},
+      "url": "https://devblogs.microsoft.com/dotnet/net-ai-a-new-home-for-net-machine-learning/"
+    }
+  ]
+}
