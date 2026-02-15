@@ -497,3 +497,9 @@ NoteBookmark.AppHost/appsettings.Development.json
 src/NoteBookmark.AppHost/appsettings.[Dd]evelopment.json
 
 src/NoteBookmark.AppHost/appsettings.json
+
+# Todos folder
+todos/
+
+# AI Team folder
+.ai-team/

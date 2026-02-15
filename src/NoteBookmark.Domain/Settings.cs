@@ -32,6 +32,18 @@ public class Settings: ITableEntity
     [DataMember(Name="search_prompt")]
     [ContainsPlaceholder("topic")]
     public string? SearchPrompt { get; set; }
+
+
+    [DataMember(Name="ai_api_key")]
+    public string? AiApiKey { get; set; }
+
+
+    [DataMember(Name="ai_base_url")]
+    public string? AiBaseUrl { get; set; }
+
+
+    [DataMember(Name="ai_model_name")]
+    public string? AiModelName { get; set; }
     
     public required string PartitionKey { get ; set; }
     public required string RowKey { get ; set; }

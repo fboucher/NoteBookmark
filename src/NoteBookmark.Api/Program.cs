@@ -12,6 +12,12 @@ builder.AddAzureBlobClient("nb-blobs");
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Register data storage service
+builder.Services.AddScoped<IDataStorageService, DataStorageService>();
+
+// Register AI settings provider
+builder.Services.AddScoped<IAISettingsProvider, AISettingsProvider>();
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();

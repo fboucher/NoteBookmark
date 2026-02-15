@@ -46,6 +46,14 @@ public static class SettingEndpoints
             }
 
             var dataStorageService = new DataStorageService(tblClient, blobClient);
+            
+            // If API key is masked, preserve the existing value from database
+            if (settings.AiApiKey == "********")
+            {
+                var existingSettings = await dataStorageService.GetSettings();
+                settings.AiApiKey = existingSettings.AiApiKey;
+            }
+            
             var result = await dataStorageService.SaveSettings(settings);
             return result ? TypedResults.Ok() : TypedResults.BadRequest();
         }
@@ -69,6 +77,12 @@ public static class SettingEndpoints
         if(settings.SummaryPrompt == null)
         {
             settings.SummaryPrompt = "write a short introduction paragraph, without using '—', for the blog post: {content}";
+        }
+
+        // Security: Do not expose the API key to clients - return masked value
+        if (!string.IsNullOrWhiteSpace(settings.AiApiKey))
+        {
+            settings.AiApiKey = "********"; // Masked for security
         }
 
         return settings != null ? TypedResults.Ok(settings) : TypedResults.BadRequest();

@@ -227,4 +227,99 @@ public class DateOnlyJsonConverterTests
         // Assert
         deserialized!.PublicationDate.Should().Match("????-??-??");
     }
+
+    [Fact]
+    public void Read_ShouldHandleBoolean_ReturnStringRepresentation()
+    {
+        // Arrange - AI might return boolean instead of date
+        var json = @"{
+            ""title"": ""Test"",
+            ""summary"": ""Summary"",
+            ""publication_date"": true,
+            ""url"": ""https://test.com""
+        }";
+
+        // Act
+        var result = JsonSerializer.Deserialize<PostSuggestion>(json);
+
+        // Assert - Should convert to string instead of throwing
+        result.Should().NotBeNull();
+        result!.PublicationDate.Should().Be("True");
+    }
+
+    [Fact]
+    public void Read_ShouldHandleNumber_ParseAsTimestamp()
+    {
+        // Arrange - AI might return Unix timestamp
+        var json = @"{
+            ""title"": ""Test"",
+            ""summary"": ""Summary"",
+            ""publication_date"": 1704067200,
+            ""url"": ""https://test.com""
+        }";
+
+        // Act
+        var result = JsonSerializer.Deserialize<PostSuggestion>(json);
+
+        // Assert - Should convert Unix timestamp to yyyy-MM-dd
+        result.Should().NotBeNull();
+        result!.PublicationDate.Should().Be("2024-01-01");
+    }
+
+    [Fact]
+    public void Read_ShouldHandleObject_ReturnNull()
+    {
+        // Arrange - AI might return object
+        var json = @"{
+            ""title"": ""Test"",
+            ""summary"": ""Summary"",
+            ""publication_date"": { ""year"": 2024, ""month"": 1, ""day"": 15 },
+            ""url"": ""https://test.com""
+        }";
+
+        // Act
+        var result = JsonSerializer.Deserialize<PostSuggestion>(json);
+
+        // Assert - Should gracefully skip and return null
+        result.Should().NotBeNull();
+        result!.PublicationDate.Should().BeNull();
+    }
+
+    [Fact]
+    public void Read_ShouldHandleArray_ReturnNull()
+    {
+        // Arrange - AI might return array
+        var json = @"{
+            ""title"": ""Test"",
+            ""summary"": ""Summary"",
+            ""publication_date"": [2024, 1, 15],
+            ""url"": ""https://test.com""
+        }";
+
+        // Act
+        var result = JsonSerializer.Deserialize<PostSuggestion>(json);
+
+        // Assert - Should gracefully skip and return null
+        result.Should().NotBeNull();
+        result!.PublicationDate.Should().BeNull();
+    }
+
+    [Fact]
+    public void Read_ShouldHandleInvalidDateString_ReturnOriginal()
+    {
+        // Arrange - AI might return non-parseable date string
+        var json = @"{
+            ""title"": ""Test"",
+            ""summary"": ""Summary"",
+            ""publication_date"": ""sometime in 2024"",
+            ""url"": ""https://test.com""
+        }";
+
+        // Act
+        var result = JsonSerializer.Deserialize<PostSuggestion>(json);
+
+        // Assert - Should keep original string if not parseable
+        result.Should().NotBeNull();
+        result!.PublicationDate.Should().Be("sometime in 2024");
+    }
 }
