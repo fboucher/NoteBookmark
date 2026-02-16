@@ -91,15 +91,14 @@ builder.Services.AddAuthentication(options =>
     // Configure logout to properly pass id_token_hint to Keycloak
     options.Events = new OpenIdConnectEvents
     {
-        OnRedirectToIdentityProviderForSignOut = context =>
+        OnRedirectToIdentityProviderForSignOut = async context =>
         {
             // Get the id_token from saved tokens
-            var idToken = context.HttpContext.GetTokenAsync("id_token").Result;
+            var idToken = await context.HttpContext.GetTokenAsync("id_token");
             if (!string.IsNullOrEmpty(idToken))
             {
                 context.ProtocolMessage.IdTokenHint = idToken;
             }
-            return Task.CompletedTask;
         }
     };
 });
