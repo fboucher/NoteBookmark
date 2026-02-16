@@ -52,7 +52,8 @@ Voila! Your app is now secure.
 ## Documentation
 
 For detailed setup guides and configuration information:
-- [Keycloak Authentication Setup](/docs/KEYCLOAK_AUTH.md) - Complete guide for setting up Keycloak authentication
+- [Keycloak Authentication Setup](/docs/keycloak_auth.md) - Complete guide for setting up Keycloak authentication
+- [Docker Compose Deployment](/docs/docker-compose-deployment.md) - Deploy with Docker Compose (generate from Aspire or use provided files)
 
 ## Contributing
 
