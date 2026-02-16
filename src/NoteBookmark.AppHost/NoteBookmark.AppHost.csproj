@@ -5,6 +5,7 @@
     <UserSecretsId>0784f0a9-b1e6-4e65-8d31-00f1369f6d75</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.Azure.Storage" />
     <PackageReference Include="Aspire.Hosting.Docker" />
     <PackageReference Include="Aspire.Hosting.Keycloak" />

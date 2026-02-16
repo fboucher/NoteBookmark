@@ -1,8 +1,42 @@
-﻿<FluentDesignTheme StorageName="theme" @rendermode="@InteractiveServer" />
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
 
-<Router AppAssembly="typeof(Program).Assembly">
-    <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
-        <FocusOnNavigate RouteData="routeData" Selector="h1" />
-    </Found>
-</Router>
+<FluentDesignTheme StorageName="theme" @rendermode="@InteractiveServer" />
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    @if (context.User.Identity?.IsAuthenticated != true)
+                    {
+                        <FluentStack Orientation="Orientation.Vertical" VerticalGap="20" HorizontalAlignment="HorizontalAlignment.Center" Style="margin-top: 100px;">
+                            <FluentIcon Value="@(new Icons.Regular.Size48.LockClosed())" Color="Color.Accent" />
+                            <h2>Authentication Required</h2>
+                            <p>You need to be logged in to access this page.</p>
+                            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => NavigationManager.NavigateTo("/login?returnUrl=" + Uri.EscapeDataString(NavigationManager.ToBaseRelativePath(NavigationManager.Uri)), forceLoad: false))">
+                                Login
+                            </FluentButton>
+                        </FluentStack>
+                    }
+                    else
+                    {
+                        <FluentStack Orientation="Orientation.Vertical" VerticalGap="20" HorizontalAlignment="HorizontalAlignment.Center" Style="margin-top: 100px;">
+                            <FluentIcon Value="@(new Icons.Regular.Size48.ShieldError())" Color="Color.Error" />
+                            <h2>Access Denied</h2>
+                            <p>You don't have permission to access this page.</p>
+                            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => NavigationManager.NavigateTo("/", forceLoad: false))">
+                                Go to Home
+                            </FluentButton>
+                        </FluentStack>
+                    }
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+}
