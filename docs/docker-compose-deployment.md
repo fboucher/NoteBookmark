@@ -6,37 +6,55 @@ This guide explains how to deploy NoteBookmark using Docker Compose, either by g
 
 ### Option 1: Generate from Aspire (Recommended)
 
-Generate an up-to-date docker-compose.yaml from your Aspire AppHost configuration.
+Generate an up-to-date docker-compose.yaml from your Aspire AppHost configuration using the official Aspire CLI.
 
 **Prerequisites:**
 - .NET Aspire Workload installed: `dotnet workload install aspire`
-- [aspirate](https://github.com/prom3theu5/aspirate) CLI tool: `dotnet tool install -g aspirate`
+- Aspire CLI installed: Included with the Aspire workload
 
 **Steps:**
 
-1. **Generate the Aspire manifest:**
+1. **Publish the application (generates Docker Compose files):**
    ```bash
-   dotnet run --project src/NoteBookmark.AppHost --publisher manifest --output-path ./aspire-manifest
+   aspire publish
    ```
-   This creates a `manifest.json` file that describes your application's services and dependencies.
+   This command generates:
+   - `docker-compose.yaml` from the AppHost configuration
+   - `.env` file template with expected parameters (unfilled)
+   - Output is placed in the `aspire-output` directory
 
-2. **Convert manifest to docker-compose:**
+2. **Fill in environment variables:**
+   Edit `aspire-output/.env` and replace placeholder values with your actual configuration:
+   - Azure Storage connection strings
+   - Keycloak admin password and client secrets
+   - Any other environment-specific settings
+
+3. **Deploy (optional - full workflow):**
    ```bash
-   aspirate generate --manifest-path ./aspire-manifest/manifest.json --output-path ./docker-compose-generated
+   aspire deploy
    ```
-   This uses the `aspirate` tool to transform the Aspire manifest into a working docker-compose.yaml file.
+   This performs the complete workflow: publishes, prepares environment configs, builds images, and runs `docker compose up`.
 
-3. **Review the generated files:**
-   - `docker-compose.yaml` - Main compose file
-   - `.env` template - Environment variables to configure
+   Or manually run Docker Compose from the output directory:
+   ```bash
+   cd aspire-output
+   docker compose up -d
+   ```
 
 This ensures your docker-compose file stays in sync with the latest AppHost configuration.
 
-> **Note:** The `--publisher manifest` command alone does NOT generate docker-compose files - it creates an intermediate manifest.json. You need the `aspirate` tool (or similar) to convert it to docker-compose format.
+> **📚 Learn more:** See the [official Aspire Docker integration documentation](https://aspire.dev/integrations/compute/docker/) for advanced scenarios like environment-specific configs and custom image tagging.
 
 ### Option 2: Use the Provided Compose File (Quick Start)
 
-For a quick start without cloning the repository, you can use the checked-in docker-compose.yaml file located in the `docker-compose/` directory. This is ideal if you just want to run the application quickly without generating the manifest yourself.
+For a quick start, you can use the checked-in docker-compose.yaml file located in the `docker-compose/` directory. This file was generated from Aspire and committed to the repository for convenience.
+
+**When to use this option:**
+- You want to quickly test the application without regenerating compose files
+- You're deploying a stable release version
+- You haven't modified the AppHost configuration
+
+**Important:** If you've modified `src/NoteBookmark.AppHost/AppHost.cs`, use Option 1 to regenerate the compose file to reflect your changes.
 
 ## Environment Configuration
 
@@ -69,6 +87,13 @@ The `.env` file contains sensitive configuration values needed for production de
 
 Once your `.env` file is configured:
 
+**If using Option 1 (Aspire-generated):**
+```bash
+cd aspire-output
+docker compose up -d
+```
+
+**If using Option 2 (checked-in file):**
 ```bash
 cd docker-compose
 docker compose up -d
@@ -78,6 +103,8 @@ Access the application at:
 - **Blazor App**: http://localhost:8005
 - **API**: http://localhost:8001
 - **Keycloak**: http://localhost:8080
+
+**First-time setup:** Keycloak needs to be configured with the realm settings. See [Keycloak Setup Guide](KEYCLOAK_SETUP.md) for detailed instructions.
 
 ## Stopping the Application
 
@@ -91,9 +118,39 @@ To also remove volumes (WARNING: This deletes Keycloak data):
 docker compose down -v
 ```
 
+## Advanced Deployment Workflows
+
+The Aspire CLI supports environment-specific deployments:
+
+**Prepare for a specific environment:**
+```bash
+# For staging
+aspire do prepare-docker-env --environment staging
+
+# For production
+aspire do prepare-docker-env --environment production
+```
+
+This generates environment-specific `.env` files and builds container images.
+
+**Clean up a deployment:**
+```bash
+aspire do docker-compose-down-docker-env
+```
+
+This stops and removes all containers, networks, and volumes.
+
 ## Notes
 
-- The AppHost maintains `AddDockerComposeEnvironment("docker-env")` to integrate with the docker-compose setup
-- Aspire service discovery automatically wires up connections in development
-- In production (docker-compose), explicit environment variables are required
-- Keycloak data persists in a named volume (`keycloak-data`)
+- **Development vs Production:**
+  - In development (`dotnet run`), Aspire manages Keycloak automatically via `AddKeycloak()`
+  - In production (docker-compose), Keycloak runs as a containerized service
+  - The AppHost uses `AddDockerComposeEnvironment("docker-env")` to signal Azure Container Apps deployment intent
+  
+- **Service Discovery:**
+  - Development: Aspire service discovery wires up connections automatically
+  - Production: Services connect via explicit environment variables in `.env`
+  
+- **Data Persistence:**
+  - Keycloak data persists in a named volume (`keycloak-data`)
+  - Use `docker compose down -v` carefully — it deletes all data including Keycloak configuration

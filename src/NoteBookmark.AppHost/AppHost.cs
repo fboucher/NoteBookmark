@@ -28,7 +28,11 @@ if (builder.Environment.IsDevelopment())
                         .WithReference(tables)
                         .WithReference(blobs)
                         .WaitFor(tables)
-                        .WaitFor(blobs);
+                        .WaitFor(blobs)
+                        .PublishAsDockerComposeService((resource, service) =>
+                        {
+                            service.ContainerName = "notebookmark-api";
+                        });
 
     builder.AddProject<NoteBookmark_BlazorApp>("blazor-app")
         .WithReference(api)
@@ -38,7 +42,11 @@ if (builder.Environment.IsDevelopment())
         .WaitFor(keycloak)
         .WaitFor(compose)  // Wait for docker-compose services to be ready
         .WithExternalHttpEndpoints()
-        .WithEnvironment("REKA_API_KEY", apiKey);
+        .WithEnvironment("REKA_API_KEY", apiKey)
+        .PublishAsDockerComposeService((resource, service) =>
+        {
+            service.ContainerName = "notebookmark-blazor";
+        });
 }
 else
 {
@@ -54,14 +62,22 @@ else
                         .WithReference(tables)
                         .WithReference(blobs)
                         .WaitFor(tables)
-                        .WaitFor(blobs);
+                        .WaitFor(blobs)
+                        .PublishAsDockerComposeService((resource, service) =>
+                        {
+                            service.ContainerName = "notebookmark-api";
+                        });
 
     builder.AddProject<NoteBookmark_BlazorApp>("blazor-app")
         .WithReference(api)
         .WithReference(tables)  // Server-side access to Azure Tables for unmasked settings
         .WaitFor(api)
         .WithExternalHttpEndpoints()
-        .WithEnvironment("REKA_API_KEY", apiKey);
+        .WithEnvironment("REKA_API_KEY", apiKey)
+        .PublishAsDockerComposeService((resource, service) =>
+        {
+            service.ContainerName = "notebookmark-blazor";
+        });
 }
 
 builder.Build().Run();
