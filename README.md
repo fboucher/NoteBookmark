@@ -49,6 +49,11 @@ Next time you will navigate to the app, you will be prompt a to login with your 
 
 Voila! Your app is now secure.
 
+## Documentation
+
+For detailed setup guides and configuration information:
+- [Keycloak Authentication Setup](/docs/KEYCLOAK_AUTH.md) - Complete guide for setting up Keycloak authentication
+
 ## Contributing
 
 Your contributions are welcome! Take a look at [CONTRIBUTING](/CONTRIBUTING.md) for details.
