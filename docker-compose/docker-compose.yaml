@@ -45,7 +45,7 @@ services:
       HTTP_PORTS: "8004"
       services__api__http__0: "http://api:8000"
       services__keycloak__http__0: "http://keycloak:8080"
-      Keycloak__Authority: "${KEYCLOAK_AUTHORITY:-http://localhost:8080/realms/notebookmark}"
+      Keycloak__Authority: "${KEYCLOAK_AUTHORITY:-http://keycloak:8080/realms/notebookmark}"
       Keycloak__ClientId: "${KEYCLOAK_CLIENT_ID:-notebookmark}"
       Keycloak__ClientSecret: "${KEYCLOAK_CLIENT_SECRET}"
     ports:
