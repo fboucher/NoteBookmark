@@ -125,7 +125,7 @@ Access the application at:
 - **API**: http://localhost:8001
 - **Keycloak**: http://localhost:8080
 
-**First-time setup:** Keycloak needs to be configured with the realm settings. See [Keycloak Setup Guide](KEYCLOAK_SETUP.md) for detailed instructions.
+**First-time setup:** Keycloak needs to be configured with the realm settings. See [Keycloak Setup Guide](./keycloak-setup.md) for detailed instructions.
 
 ## Stopping the Application
 
