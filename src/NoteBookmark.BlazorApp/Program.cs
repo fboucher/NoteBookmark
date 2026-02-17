@@ -75,7 +75,9 @@ builder.Services.AddAuthentication(options =>
     options.ResponseType = "code";
     options.SaveTokens = true;
     options.GetClaimsFromUserInfoEndpoint = true;
-    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+    // Allow overriding RequireHttpsMetadata via configuration for development/docker scenarios
+    options.RequireHttpsMetadata = builder.Configuration.GetValue<bool?>("Keycloak:RequireHttpsMetadata") 
+                                   ?? !builder.Environment.IsDevelopment();
     
     options.Scope.Clear();
     options.Scope.Add("openid");

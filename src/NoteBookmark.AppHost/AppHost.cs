@@ -40,7 +40,7 @@ if (builder.Environment.IsDevelopment())
         .WithReference(keycloak)  // Reference Keycloak for authentication
         .WaitFor(api)
         .WaitFor(keycloak)
-        .WaitFor(compose)  // Wait for docker-compose services to be ready
+        //.WaitFor(compose)  // Wait for docker-compose services to be ready
         .WithExternalHttpEndpoints()
         .WithEnvironment("REKA_API_KEY", apiKey)
         .PublishAsDockerComposeService((resource, service) =>

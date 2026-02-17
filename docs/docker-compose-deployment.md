@@ -14,24 +14,45 @@ Generate an up-to-date docker-compose.yaml from your Aspire AppHost configuratio
 
 **Steps:**
 
-1. **Publish the application (generates Docker Compose files):**
+1. **Build container images locally:**
+   
+   The generated docker-compose file references image names (e.g., `notebookmark-api`, `notebookmark-blazor`), but these images don't exist until you build them. Build and tag the images with the expected names:
+   
    ```bash
-   aspire publish
+   # Build API image
+   dotnet publish src/NoteBookmark.Api/NoteBookmark.Api.csproj -c Release -t:PublishContainer
+   
+   # Build Blazor app image
+   dotnet publish src/NoteBookmark.BlazorApp/NoteBookmark.BlazorApp.csproj -c Release -t:PublishContainer
    ```
+   
+   These commands build the projects and create Docker images tagged as `notebookmark-api:latest` and `notebookmark-blazorapp:latest` (based on your project names). The container names `notebookmark-api` and `notebookmark-blazor` are what the running containers will be called.
+
+2. **Publish the application (generates Docker Compose files):**
+   ```bash
+   aspire publish --output-path ./aspire-output --project-name notebookmark
+   ```
+   
+   **Parameters:**
+   - `--output-path`: Directory where docker-compose files will be generated (default: `aspire-output`)
+   - `--project-name`: Docker Compose project name (sets `name:` at the top of docker-compose.yaml)
+     - Without this, the project name defaults to the output directory name
+     - Affects container names: `notebookmark-api`, `notebookmark-blazor` vs `aspire-output-api`, `aspire-output-blazor`
+   
    This command generates:
    - `docker-compose.yaml` from the AppHost configuration
    - `.env` file template with expected parameters (unfilled)
-   - Output is placed in the `aspire-output` directory
+   - Supporting infrastructure files (Bicep, Azure configs if applicable)
 
-2. **Fill in environment variables:**
-   Edit `aspire-output/.env` and replace placeholder values with your actual configuration:
+3. **Fill in environment variables:**
+   Edit `./aspire-output/.env` and replace placeholder values with your actual configuration:
    - Azure Storage connection strings
    - Keycloak admin password and client secrets
    - Any other environment-specific settings
 
-3. **Deploy (optional - full workflow):**
+4. **Deploy (optional - full workflow):**
    ```bash
-   aspire deploy
+   aspire deploy --output-path ./aspire-output
    ```
    This performs the complete workflow: publishes, prepares environment configs, builds images, and runs `docker compose up`.
 
