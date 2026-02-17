@@ -1,6 +1,23 @@
 name: note-bookmark
 
 services:
+  keycloak:
+    image: "quay.io/keycloak/keycloak:26.1"
+    container_name: "notebookmark-keycloak"
+    command: ["start-dev"]
+    environment:
+      KEYCLOAK_ADMIN: "admin"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+      KC_HTTP_PORT: "8080"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+    networks:
+      - "aspire"
   api:
     image: "fboucher/notebookmark-api:latest"
     container_name: "notebookmark-api"
@@ -27,14 +44,23 @@ services:
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
       HTTP_PORTS: "8004"
       services__api__http__0: "http://api:8000"
+      services__keycloak__http__0: "http://keycloak:8080"
+      Keycloak__Authority: "${KEYCLOAK_AUTHORITY:-http://keycloak:8080/realms/notebookmark}"
+      Keycloak__ClientId: "${KEYCLOAK_CLIENT_ID:-notebookmark}"
+      Keycloak__ClientSecret: "${KEYCLOAK_CLIENT_SECRET}"
     ports:
       - "8005:8004"
       - "8007:8006"
     depends_on:
       api:
         condition: "service_started"
+      keycloak:
+        condition: "service_started"
     networks:
       - "aspire"
+volumes:
+  keycloak-data:
+    driver: "local"
 networks:
   aspire:
     driver: "bridge"

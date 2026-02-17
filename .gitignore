@@ -490,6 +490,7 @@ NoteBookmark.Api/obj/
 NoteBookmark.Api/appsettings.Development.json
 
 NoteBookmark.BlazorApp/appsettings.Development.json
+src/NoteBookmark.BlazorApp/appsettings.Development.json
 .azure
 
 NoteBookmark.AppHost/appsettings.Development.json
@@ -502,4 +503,13 @@ src/NoteBookmark.AppHost/appsettings.json
 todos/
 
 # AI Team folder
+.ai-team/
+.ai-team-templates/
+
+# Copilot config
+.copilot/
+
+# Squad/Agent files
+.github/agents/
+# Squad (local AI team - not committed)
 .ai-team/

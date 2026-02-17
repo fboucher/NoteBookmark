@@ -1,5 +1,6 @@
 ﻿@page "/settings"
-
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.FluentUI.AspNetCore.Components.Extensions
 @using NoteBookmark.Domain
 @inject ILogger<Settings> Logger

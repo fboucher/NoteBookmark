@@ -1,17 +1,17 @@
 <Project>
   <ItemGroup>
     <!-- Aspire packages -->
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.0.2" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.0.2" />
-    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.0.2-preview.1.25603.5" />
-    <PackageVersion Include="Aspire.Azure.Data.Tables" Version="13.0.2" />
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.0.2" />
-
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.1.1" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.1.1" />
+    <PackageVersion Include="Aspire.Hosting.Docker" Version="13.1.1-preview.1.26105.8" />
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.1.1-preview.1.26105.8" />
+    <PackageVersion Include="Aspire.Azure.Data.Tables" Version="13.1.1" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.1.1" />
     <!-- Azure packages -->
     <PackageVersion Include="Azure.Data.Tables" Version="12.11.0" />
     <PackageVersion Include="Azure.Storage.Blobs" Version="12.26.0" />
-
     <!-- Microsoft packages -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.10" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.1" />
@@ -24,14 +24,12 @@
     <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components" Version="4.13.2" />
     <PackageVersion Include="Microsoft.FluentUI.AspNetCore.Components.Icons" Version="4.13.2" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
-
     <!-- OpenTelemetry packages -->
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.14.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.14.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.14.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.14.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.14.0" />
-
     <!-- Other packages -->
     <PackageVersion Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageVersion Include="Markdig" Version="0.44.0" />
@@ -39,7 +37,6 @@
     <PackageVersion Include="Microsoft.Extensions.AI.OpenAI" Version="10.1.1-preview.1.25612.2" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="9.0.6" />
     <PackageVersion Include="System.Text.Json" Version="9.0.10" />
-
     <!-- Test packages -->
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
