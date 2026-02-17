@@ -69,15 +69,38 @@ builder.Services.AddAuthentication(options =>
 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme)
 .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
-    options.Authority = builder.Configuration["Keycloak:Authority"];
+    var authority = builder.Configuration["Keycloak:Authority"];
+    options.Authority = authority;
     options.ClientId = builder.Configuration["Keycloak:ClientId"];
     options.ClientSecret = builder.Configuration["Keycloak:ClientSecret"];
     options.ResponseType = "code";
     options.SaveTokens = true;
     options.GetClaimsFromUserInfoEndpoint = true;
-    // Allow overriding RequireHttpsMetadata via configuration for development/docker scenarios
-    options.RequireHttpsMetadata = builder.Configuration.GetValue<bool?>("Keycloak:RequireHttpsMetadata") 
-                                   ?? !builder.Environment.IsDevelopment();
+
+    // Allow overriding RequireHttpsMetadata via configuration for development/docker scenarios.
+    // If not explicitly configured, relax the requirement when running in a container against HTTP Keycloak.
+    var requireHttpsConfigured = builder.Configuration.GetValue<bool?>("Keycloak:RequireHttpsMetadata");
+    var isRunningInContainer = string.Equals(
+        System.Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"),
+        "true",
+        StringComparison.OrdinalIgnoreCase);
+
+    if (requireHttpsConfigured.HasValue)
+    {
+        options.RequireHttpsMetadata = requireHttpsConfigured.Value;
+    }
+    else
+    {
+        var defaultRequireHttps = !builder.Environment.IsDevelopment();
+        if (isRunningInContainer &&
+            !string.IsNullOrEmpty(authority) &&
+            authority.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+        {
+            defaultRequireHttps = false;
+        }
+
+        options.RequireHttpsMetadata = defaultRequireHttps;
+    }
     
     options.Scope.Clear();
     options.Scope.Add("openid");
