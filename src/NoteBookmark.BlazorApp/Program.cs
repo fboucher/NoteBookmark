@@ -40,11 +40,15 @@ builder.Services.AddTransient<SummaryService>(sp =>
     return new SummaryService(logger, provider);
 });
 
+builder.Services.AddHttpClient(nameof(ResearchService));
+
 builder.Services.AddTransient<ResearchService>(sp =>
 {
     var logger = sp.GetRequiredService<ILogger<ResearchService>>();
     var settingsProvider = sp.GetRequiredService<AISettingsProvider>();
-    
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var client = httpClientFactory.CreateClient(nameof(ResearchService));
+
     // Settings provider that fetches directly from database (server-side, unmasked)
     Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> provider = async () =>
     {
@@ -55,8 +59,8 @@ builder.Services.AddTransient<ResearchService>(sp =>
             settings.ModelName
         );
     };
-    
-    return new ResearchService(logger, provider);
+
+    return new ResearchService(client, logger, provider);
 });
 
 

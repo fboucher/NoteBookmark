@@ -7,6 +7,7 @@ namespace NoteBookmark.AIServices.Tests;
 public class ResearchServiceTests
 {
     private readonly Mock<ILogger<ResearchService>> _mockLogger;
+    private readonly HttpClient _httpClient = new();
 
     public ResearchServiceTests()
     {
@@ -18,7 +19,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: null);
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt") { SearchTopic = "AI" };
 
         // Act
@@ -35,7 +36,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: null);
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -50,7 +51,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: "test-api-key-from-settings");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt") { SearchTopic = "Testing" };
 
         // Act - Will fail to connect but won't throw missing config exception
@@ -65,7 +66,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: "test-reka-key");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt") { SearchTopic = "Testing" };
 
         // Act
@@ -81,7 +82,7 @@ public class ResearchServiceTests
         // Arrange
         const string customUrl = "https://custom.api.example.com/v1";
         var settingsProvider = CreateSettingsProvider(apiKey: "test-key", baseUrl: customUrl);
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -96,7 +97,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: "test-key", baseUrl: "https://api.reka.ai/v1");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -112,7 +113,7 @@ public class ResearchServiceTests
         // Arrange
         const string customModel = "custom-model-v2";
         var settingsProvider = CreateSettingsProvider(apiKey: "test-key", modelName: customModel);
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -127,7 +128,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: "test-key", modelName: "reka-flash-research");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -142,7 +143,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: "test-key", baseUrl: "not-a-valid-url");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -159,7 +160,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: "test-key");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -175,7 +176,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: "test-key");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Find articles about {topic}")
         {
             SearchTopic = "Machine Learning",
@@ -199,7 +200,7 @@ public class ResearchServiceTests
     {
         // Arrange
         var settingsProvider = CreateSettingsProvider(apiKey: emptyKey);
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act
@@ -216,7 +217,7 @@ public class ResearchServiceTests
     {
         // Arrange - Both AppSettings and env var set, AppSettings should take precedence
         var settingsProvider = CreateSettingsProvider(apiKey: "settings-key");
-        var service = new ResearchService(_mockLogger.Object, settingsProvider);
+        var service = new ResearchService(_httpClient, _mockLogger.Object, settingsProvider);
         var searchCriterias = new SearchCriterias("Test prompt");
 
         // Act

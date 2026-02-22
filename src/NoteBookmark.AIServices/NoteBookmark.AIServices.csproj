@@ -5,6 +5,7 @@
       <PackageReference Include="Microsoft.Extensions.Logging" />
       <PackageReference Include="Microsoft.Agents.AI" />
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
+      <PackageReference Include="Reka.SDK" />
     </ItemGroup>
 
     <ItemGroup>
