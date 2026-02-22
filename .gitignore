@@ -513,3 +513,5 @@ todos/
 .github/agents/
 # Squad (local AI team - not committed)
 .ai-team/
+
+src/NoteBookmark.BlazorApp/Data/
