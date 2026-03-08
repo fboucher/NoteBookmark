@@ -1,82 +1,62 @@
-# Keycloak Authentication Setup
+# Keycloak Realm Setup For NoteBookmark
 
-## Overview
+This file explains only how to configure Keycloak for NoteBookmark.
 
-NoteBookmark now requires authentication via Keycloak (or any OpenID Connect provider). Only the home page is accessible without authentication - all other pages require a logged-in user.
+If you do not have a Keycloak server yet, use [`docs/keycloak-container-setup.md`](keycloak-container-setup.md) first.
 
-## Configuration
+## Official References
 
-### 1. Keycloak Server Setup
+- Keycloak server administration guide: <https://www.keycloak.org/docs/latest/server_admin/>
+- Keycloak securing applications (OIDC clients): <https://www.keycloak.org/docs/latest/server_admin/#oidc-clients>
 
-You'll need a Keycloak server running. For local development:
+## 1. Create Realm
 
-```bash
-docker run -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:latest start-dev
+In the Keycloak admin console, create a realm named:
+
+- `notebookmark`
+
+## 2. Create OIDC Client
+
+In realm `notebookmark`, create a client with:
+
+- Client ID: `notebookmark`
+- Protocol: OpenID Connect
+- Client authentication: Enabled (confidential client)
+- Standard flow: Enabled
+
+Set redirect and origin values for your app URL.
+
+Local example:
+
+- Valid redirect URIs: `http://localhost:8005/*`
+- Valid post logout redirect URIs: `http://localhost:8005/*`
+- Web origins: `http://localhost:8005`
+
+Then copy the generated client secret.
+
+## 3. Map Keycloak Values To NoteBookmark
+
+Use these values in `docker-compose/.env`:
+
+```env
+KEYCLOAK_AUTHORITY=http://localhost:8080/realms/notebookmark
+KEYCLOAK_CLIENT_ID=notebookmark
+KEYCLOAK_CLIENT_SECRET=your-client-secret
 ```
 
-### 2. Create a Realm
+These are consumed by `docker-compose/note-compose.yaml`:
 
-1. Log into Keycloak admin console (http://localhost:8080)
-2. Create a new realm called "notebookmark"
+- `Keycloak__Authority: ${KEYCLOAK_AUTHORITY}`
+- `Keycloak__ClientId: ${KEYCLOAK_CLIENT_ID}`
+- `Keycloak__ClientSecret: ${KEYCLOAK_CLIENT_SECRET}`
 
-### 3. Create a Client
+## 4. Validate Before Running NoteBookmark
 
-1. In the realm, create a new client:
-   - Client ID: `notebookmark`
-   - Client Protocol: `openid-connect`
-   - Access Type: `confidential`
-   - Valid Redirect URIs: `https://localhost:5001/*` (adjust for your environment)
-   - Web Origins: `https://localhost:5001` (adjust for your environment)
+Check that:
 
-2. Get the client secret from the Credentials tab
+- Realm is exactly `notebookmark`
+- Client ID is exactly `notebookmark`
+- Client secret in `.env` matches Keycloak
+- Redirect URI matches your app URL
 
-### 4. Configure the Application
-
-Update `appsettings.json` or environment variables:
-
-```json
-{
-  "Keycloak": {
-    "Authority": "http://localhost:8080/realms/notebookmark",
-    "ClientId": "notebookmark",
-    "ClientSecret": "your-client-secret-here"
-  }
-}
-```
-
-**Environment Variables (recommended for production):**
-
-```bash
-export Keycloak__Authority="https://your-keycloak-server/realms/notebookmark"
-export Keycloak__ClientId="notebookmark"
-export Keycloak__ClientSecret="your-secret"
-```
-
-### 5. Add Users
-
-In Keycloak, create users in the realm who should have access to your private website.
-
-## How It Works
-
-- **Home page (/)**: Public - no authentication required
-- **All other pages**: Protected with `[Authorize]` attribute
-- **Login/Logout**: UI in the header shows login button when not authenticated
-- **Session**: Uses cookie-based authentication with OpenID Connect
-
-## Technical Details
-
-- Uses `Microsoft.AspNetCore.Authentication.OpenIdConnect` package
-- Cookie-based session management
-- Authorization state cascaded throughout the component tree
-- `AuthorizeRouteView` in Routes.razor handles route-level protection
-
-## Files Modified
-
-- `Program.cs`: Added authentication middleware and configuration
-- `Routes.razor`: Changed to `AuthorizeRouteView` for authorization support
-- `MainLayout.razor`: Added `LoginDisplay` component to header
-- `_Imports.razor`: Added authorization namespaces
-- All pages except `Home.razor`: Added `@attribute [Authorize]`
-- `Components/Shared/LoginDisplay.razor`: New component for login/logout UI
-- `Components/Pages/Login.razor`: Login page
-- `Components/Pages/Logout.razor`: Logout page
+After that, run NoteBookmark using [`docs/docker-compose-deployment.md`](docker-compose-deployment.md).

@@ -15,6 +15,17 @@ NoteBookmark is composed of three main sections:
 
 ![Slide show of all NoteBookmark Screens](gh/images/NoteBookmark-Tour_hd.gif)
 
+## Run Options
+
+- Development: running the Aspire project is the easiest path and everything is wired automatically.
+- Production-style: run with containers and deploy to Azure.
+
+Run locally with Aspire:
+
+```bash
+dotnet run --project src/NoteBookmark.AppHost
+```
+
 ## How to deploy Your own NoteBookmark
 
 ### Get the code on your machine
@@ -52,8 +63,9 @@ Voila! Your app is now secure.
 ## Documentation
 
 For detailed setup guides and configuration information:
+- [Keycloak Container Setup](/docs/keycloak-container-setup.md) - Start a local Keycloak instance if you do not already have one
 - [Keycloak Authentication Setup](/docs/keycloak-setup.md) - Complete guide for setting up Keycloak authentication
-- [Docker Compose Deployment](/docs/docker-compose-deployment.md) - Deploy with Docker Compose (generate from Aspire or use provided files)
+- [Docker Compose Deployment](/docs/docker-compose-deployment.md) - Deploy NoteBookmark containers (assumes a healthy Keycloak + configured realm)
 
 ## Contributing
 
