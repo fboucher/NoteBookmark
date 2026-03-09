@@ -15,7 +15,7 @@ permissions:
   pull-requests: write
 
 env:
-  DEFAULT_DOTNET_VERSION: "8.0.x"
+  DEFAULT_DOTNET_VERSION: "10.0.x"
 
 jobs:
   test:
@@ -31,7 +31,7 @@ jobs:
         with:
           dotnet-version: |
             ${{ env.DEFAULT_DOTNET_VERSION }}
-            9.0.x
+            10.0.x
 
       - name: Restore dependencies
         run: dotnet restore

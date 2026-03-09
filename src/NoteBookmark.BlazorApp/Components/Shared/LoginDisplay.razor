@@ -1,0 +1,36 @@
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <FluentStack Orientation="Orientation.Horizontal" HorizontalGap="8" HorizontalAlignment="HorizontalAlignment.Right" VerticalAlignment="VerticalAlignment.Center">
+            <span>Hello, @context.User.Identity?.Name</span>
+            <FluentButton Appearance="Appearance.Lightweight" OnClick="Logout" IconStart="@(new Icons.Regular.Size16.ArrowExit())">
+                Logout
+            </FluentButton>
+        </FluentStack>
+    </Authorized>
+    <NotAuthorized>
+        <FluentButton Appearance="Appearance.Accent" OnClick="Login" IconStart="@(new Icons.Regular.Size16.Person())">
+            Login
+        </FluentButton>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private void Login()
+    {
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        if (string.IsNullOrEmpty(returnUrl))
+        {
+            returnUrl = "/";
+        }
+        Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: false);
+    }
+
+    private void Logout()
+    {
+        Navigation.NavigateTo("/logout", forceLoad: false);
+    }
+}

@@ -1,5 +1,6 @@
 @page "/posteditorlight/{id?}"
-
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using NoteBookmark.BlazorApp
 @using NoteBookmark.BlazorApp.Components.Layout
 @using NoteBookmark.Domain

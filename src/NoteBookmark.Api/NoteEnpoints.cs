@@ -27,6 +27,15 @@ public static class NoteEnpoints
 
 		endpoints.MapGet("/UpdatePostReadStatus", UpdatePostReadStatus)
 			.WithDescription("Update the read status of all posts to true if they have a note referencing them.");
+
+		endpoints.MapGet("/note/{rowKey}", GetNote)
+			.WithDescription("Get a specific note by its row key.");
+
+		endpoints.MapPut("/note", UpdateNote)
+			.WithDescription("Update an existing note");
+
+		endpoints.MapDelete("/note/{rowKey}", DeleteNote)
+			.WithDescription("Delete a note");
 	}
 
 	static Results<Created<Note>, BadRequest> CreateNote(Note note, 
@@ -114,5 +123,45 @@ public static class NoteEnpoints
 			Console.WriteLine($"An error occurred while updating post read status: {ex.Message}");
 			return TypedResults.BadRequest();
 		}
+	}
+
+	static Results<Ok<Note>, NotFound> GetNote(string rowKey, 
+												TableServiceClient tblClient, 
+												BlobServiceClient blobClient)
+	{
+		var dataStorageService = new DataStorageService(tblClient, blobClient);
+		var note = dataStorageService.GetNote(rowKey);
+		return note == null ? TypedResults.NotFound() : TypedResults.Ok(note);
+	}
+
+	static Results<Ok<Note>, BadRequest> UpdateNote(Note note, 
+													TableServiceClient tblClient, 
+													BlobServiceClient blobClient)
+	{
+		try
+		{
+			if (!note.Validate())
+			{
+				return TypedResults.BadRequest();
+			}
+			
+			var dataStorageService = new DataStorageService(tblClient, blobClient);
+			dataStorageService.CreateNote(note);
+			return TypedResults.Ok(note);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"An error occurred while updating a note: {ex.Message}");
+			return TypedResults.BadRequest();
+		}
+	}
+
+	static Results<Ok, NotFound> DeleteNote(string rowKey, 
+											TableServiceClient tblClient, 
+											BlobServiceClient blobClient)
+	{
+		var dataStorageService = new DataStorageService(tblClient, blobClient);
+		var result = dataStorageService.DeleteNote(rowKey);
+		return result ? TypedResults.Ok() : TypedResults.NotFound();
 	}
 }

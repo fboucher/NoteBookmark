@@ -1,5 +1,6 @@
 ﻿@page "/settings"
-
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.FluentUI.AspNetCore.Components.Extensions
 @using NoteBookmark.Domain
 @inject ILogger<Settings> Logger
@@ -74,6 +75,22 @@
                 <FluentStack Orientation="Orientation.Horizontal"  Width="100%"> 
                     <FluentTextArea Label="Search Prompt - must contain {topic}. Will be replace at search time" @bind-Value="settings!.SearchPrompt" Cols="80" Rows="3" />
                     <FluentValidationMessage For="@(() => settings!.SearchPrompt)" />
+                </FluentStack>
+
+                <FluentDivider Style="margin: 20px 0;" />
+
+                <FluentLabel Typo="Typography.H5">AI Provider Configuration</FluentLabel>
+
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+                    <FluentTextField Label="API Key" @bind-Value="settings!.AiApiKey" Style="width:80%" TextFieldType="TextFieldType.Password" />
+                </FluentStack>
+
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+                    <FluentTextField Label="Base URL" @bind-Value="settings!.AiBaseUrl" Style="width:80%" Placeholder="https://api.reka.ai/v1" />
+                </FluentStack>
+
+                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
+                    <FluentTextField Label="Model Name" @bind-Value="settings!.AiModelName" Style="width:80%" Placeholder="reka-flash-research" />
                 </FluentStack>
 
                 <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>

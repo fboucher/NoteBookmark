@@ -1,75 +1,89 @@
-﻿using System.Text;
-using System.Text.Json;
-using System.IO;
-using System.Linq;
-using Microsoft.Extensions.Configuration;
+﻿using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+using System.ClientModel;
 using Microsoft.Extensions.Logging;
-using Reka.SDK;
+using Microsoft.Extensions.AI;
+using Microsoft.Agents.AI;
+using OpenAI;
+using OpenAI.Chat;
 using NoteBookmark.Domain;
+using Reka.SDK;
+using System.Text;
 
 namespace NoteBookmark.AIServices;
 
-public class ResearchService(HttpClient client, ILogger<ResearchService> logger, IConfiguration config)
+public class ResearchService
 {
-    private readonly HttpClient _client = client;
-    private readonly ILogger<ResearchService> _logger = logger;
-    private const string BASE_URL = "https://api.reka.ai/v1/chat/completions";
-    private const string MODEL_NAME = "reka-flash-research";
-    private readonly string _apiKey = config["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
+    private readonly ILogger<ResearchService> _logger;
+    private readonly Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> _settingsProvider;
+    private readonly HttpClient _client;
+
+    public ResearchService(
+        HttpClient client,
+        ILogger<ResearchService> logger, 
+        Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> settingsProvider)
+    {
+        _logger = logger;
+        _client = client;
+        _settingsProvider = settingsProvider;
+    }
 
     public async Task<PostSuggestions> SearchSuggestionsAsync(SearchCriterias searchCriterias)
     {
         PostSuggestions suggestions = new PostSuggestions();
 
-        var webSearch = new Dictionary<string, object>
-        {
-            ["max_uses"] = 3
-        };
-
-        var allowedDomains = searchCriterias.GetSplittedAllowedDomains();
-        var blockedDomains = searchCriterias.GetSplittedBlockedDomains();
-
-        if (allowedDomains != null && allowedDomains.Length > 0)
-        {
-            webSearch["allowed_domains"] = allowedDomains;
-        }
-        else if (blockedDomains != null && blockedDomains.Length > 0)
-        {
-            webSearch["blocked_domains"] = blockedDomains;
-        }
-
-        var requestPayload = new
-        {
-            model = MODEL_NAME,
-
-            messages = new[]
-            {
-                new
-                {
-                    role = "user",
-                    content = searchCriterias.GetSearchPrompt()
-                }
-            },
-            response_format = GetResponseFormat(),
-            research = new
-            {
-                web_search = webSearch
-            },
-        };
-
-        var jsonPayload = JsonSerializer.Serialize(requestPayload, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        // await SaveToFile("research_request", jsonPayload);
-
         HttpResponseMessage? response = null;
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, BASE_URL);
-            request.Headers.Add("Authorization", $"Bearer {_apiKey}");
+            var settings = await _settingsProvider();
+
+            var webSearch = new Dictionary<string, object>
+            {
+                ["max_uses"] = 3
+            };
+
+            var allowedDomains = searchCriterias.GetSplittedAllowedDomains();
+            var blockedDomains = searchCriterias.GetSplittedBlockedDomains();
+
+            if (allowedDomains != null && allowedDomains.Length > 0)
+            {
+                webSearch["allowed_domains"] = allowedDomains;
+            }
+            else if (blockedDomains != null && blockedDomains.Length > 0)
+            {
+                webSearch["blocked_domains"] = blockedDomains;
+            }
+
+            var requestPayload = new
+            {
+                model = settings.ModelName,
+
+                messages = new[]
+                {
+                    new
+                    {
+                        role = "user",
+                        content = searchCriterias.GetSearchPrompt()
+                    }
+                },
+                response_format = GetResponseFormat(),
+                research = new
+                {
+                    web_search = webSearch
+                },
+            };
+
+            var jsonPayload = JsonSerializer.Serialize(requestPayload, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+
+            // await SaveToFile("research_request", jsonPayload);
+
+            var endpoint = settings.BaseUrl.TrimEnd('/') + "/chat/completions";
+            using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
+            request.Headers.Add("Authorization", $"Bearer {settings.ApiKey}");
             request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
     
             response = await _client.SendAsync(request);
@@ -95,7 +109,6 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
 
         return suggestions;
     }
-
 
     private object GetResponseFormat()
     {
@@ -143,5 +156,4 @@ public class ResearchService(HttpClient client, ILogger<ResearchService> logger,
         string filePath = Path.Combine(folderPath, fileName);
         await File.WriteAllTextAsync(filePath, responseContent);
     }
-
 }

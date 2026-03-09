@@ -1,4 +1,6 @@
 @page "/posts"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using NoteBookmark.BlazorApp.Components.Shared
 @using NoteBookmark.Domain
 @using Microsoft.FluentUI.AspNetCore.Components
@@ -35,7 +37,7 @@
             }
             else
             {
-                <FluentButton IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
+                <FluentButton OnClick="@(() => EditNoteForPost(context!.NoteId))" IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
             }
         </TemplateColumn>
         <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
@@ -98,23 +100,74 @@
         });
 
         var result = await dialog.Result;
-        if (!result.Cancelled && result.Data != null)
+        if (!result.Cancelled && result.Data is NoteDialogResult dialogResult)
         {
-            var note = (Note)result.Data;
-            await client.CreateNote(note);
-            ShowConfirmationMessage();
-            await LoadPosts();
+            if (dialogResult.Action == "Save" && dialogResult.Note != null)
+            {
+                await client.CreateNote(dialogResult.Note);
+                toastService.ShowSuccess("Note created successfully!");
+                await LoadPosts();
+            }
         }
-    }
-
-    private void ShowConfirmationMessage()
-    {
-        toastService.ShowSuccess("Note created successfully!");
     }
 
     private void EditNote(string postId)
     {
         Navigation.NavigateTo($"posteditor/{postId}");
+    }
+
+    private async Task EditNoteForPost(string noteId)
+    {
+        try
+        {
+            var existingNote = await client.GetNote(noteId);
+            if (existingNote == null)
+            {
+                toastService.ShowError("Note not found.");
+                return;
+            }
+
+            IDialogReference dialog = await DialogService.ShowDialogAsync<NoteDialog>(existingNote, new DialogParameters(){
+                Title = "Edit note",
+                PreventDismissOnOverlayClick = true,
+                PreventScroll = true,
+            });
+
+            var result = await dialog.Result;
+            if (!result.Cancelled && result.Data is NoteDialogResult dialogResult)
+            {
+                if (dialogResult.Action == "Delete" && dialogResult.Note != null)
+                {
+                    var deleteResult = await client.DeleteNote(dialogResult.Note.RowKey);
+                    if (deleteResult)
+                    {
+                        toastService.ShowSuccess("Note deleted successfully!");
+                        await LoadPosts();
+                    }
+                    else
+                    {
+                        toastService.ShowError("Failed to delete note. Please try again.");
+                    }
+                }
+                else if (dialogResult.Action == "Save" && dialogResult.Note != null)
+                {
+                    var updateResult = await client.UpdateNote(dialogResult.Note);
+                    if (updateResult)
+                    {
+                        toastService.ShowSuccess("Note updated successfully!");
+                        await LoadPosts();
+                    }
+                    else
+                    {
+                        toastService.ShowError("Failed to update note. Please try again.");
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            toastService.ShowError("An error occurred. Please try again.");
+        }
     }
 
     private async Task AddNewPost()

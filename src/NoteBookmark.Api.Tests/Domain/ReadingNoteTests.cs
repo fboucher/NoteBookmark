@@ -53,4 +53,106 @@ public class ReadingNoteTests
         readingNote.Category.Should().Be("Performance");
         readingNote.ReadingNotesID.Should().Be("reading-notes-123");
     }
+
+    [Fact]
+    public void ToMarkDown_ShouldGenerateCorrectMarkdown_WithAllProperties()
+    {
+        // Arrange
+        var note = new ReadingNote
+        {
+            Title = "Test Article",
+            Url = "https://example.com/article",
+            Author = "John Doe",
+            Comment = "Great article!"
+        };
+
+        // Act
+        var result = note.ToMarkDown();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().Contain("**[Test Article](https://example.com/article)**");
+        result.Should().Contain("(John Doe)");
+        result.Should().Contain("Great article!");
+    }
+
+    [Fact]
+    public void ToMarkDown_ShouldHandleMissingUrl()
+    {
+        // Arrange
+        var note = new ReadingNote
+        {
+            Title = "Test Article",
+            Url = null,
+            Author = "John Doe",
+            Comment = "Great article!"
+        };
+
+        // Act
+        var result = note.ToMarkDown();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().Contain("**[Test Article]()**");
+        result.Should().Contain("(John Doe)");
+        result.Should().Contain("Great article!");
+    }
+
+    [Fact]
+    public void ToMarkDown_ShouldHandleMissingTitle()
+    {
+        // Arrange
+        var note = new ReadingNote
+        {
+            Title = null,
+            Url = "https://example.com/article",
+            Author = "John Doe",
+            Comment = "Great article!"
+        };
+
+        // Act
+        var result = note.ToMarkDown();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().Contain("**[](#)**");
+        result.Should().Contain("(John Doe)");
+        result.Should().Contain("Great article!");
+    }
+
+    [Fact]
+    public void ToMarkDown_ShouldHandleMissingAuthor()
+    {
+        // Arrange
+        var note = new ReadingNote
+        {
+            Title = "Test Article",
+            Url = "https://example.com/article",
+            Author = null,
+            Comment = "Great article!"
+        };
+
+        // Act
+        var result = note.ToMarkDown();
+
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().Contain("**[Test Article](https://example.com/article)**");
+        result.Should().NotContain("(John");
+        result.Should().Contain("Great article!");
+    }
+
+    [Fact]
+    public void ToMarkDown_ShouldStartWithNewLineAndHyphen()
+    {
+        // Arrange
+        var note = new ReadingNote { Comment = "Test" };
+
+        // Act
+        var result = note.ToMarkDown();
+
+        // Assert
+        result.Should().StartWith(Environment.NewLine);
+        result.Should().Contain("- ");
+    }
 }

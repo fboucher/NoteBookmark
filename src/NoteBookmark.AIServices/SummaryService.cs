@@ -1,70 +1,49 @@
-﻿using System.Text;
-using System.Text.Json;
-using System.IO;
-using System.Linq;
-using Microsoft.Extensions.Configuration;
+﻿using System.ClientModel;
 using Microsoft.Extensions.Logging;
-using Reka.SDK;
+using Microsoft.Extensions.AI;
+using Microsoft.Agents.AI;
+using OpenAI;
+using OpenAI.Chat;
+using NoteBookmark.Domain;
 
 namespace NoteBookmark.AIServices;
 
-public class SummaryService(HttpClient client, ILogger<SummaryService> logger, IConfiguration config)
+public class SummaryService
 {
-    private readonly HttpClient _client = client;
-    private readonly ILogger<SummaryService> _logger = logger;
-    private const string BASE_URL = "https://api.reka.ai/v1/chat";
-    private const string MODEL_NAME = "reka-flash-3.1";
-    private readonly string _apiKey = config["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
+    private readonly ILogger<SummaryService> _logger;
+    private readonly Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> _settingsProvider;
+
+    public SummaryService(
+        ILogger<SummaryService> logger, 
+        Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> settingsProvider)
+    {
+        _logger = logger;
+        _settingsProvider = settingsProvider;
+    }
 
     public async Task<string> GenerateSummaryAsync(string prompt)
     {
-        string introParagraph;
-
-        _client.Timeout = TimeSpan.FromSeconds(300);
-
-        var requestPayload = new
+        try
         {
-            model = MODEL_NAME,
+            var settings = await _settingsProvider();
+            
+            IChatClient chatClient = new ChatClient(
+                settings.ModelName, 
+                new ApiKeyCredential(settings.ApiKey), 
+                new OpenAIClientOptions { Endpoint = new Uri(settings.BaseUrl) }
+            ).AsIChatClient();
 
-            messages = new[]
-            {
-                new
-                {
-                    role = "user",
-                    content = prompt
-                }
-            }
-        };
+            AIAgent agent = new ChatClientAgent(chatClient,
+                instructions: "You are a helpful assistant that generates concise summaries.",
+                name: "SummaryAgent");
 
-        var jsonPayload = JsonSerializer.Serialize(requestPayload, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        HttpResponseMessage? response = null;
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, BASE_URL);
-        request.Headers.Add("Authorization", $"Bearer {_apiKey}");
-        request.Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-
-        response = await _client.SendAsync(request);
-        var responseContent = await response.Content.ReadAsStringAsync();
-
-        var rekaResponse = JsonSerializer.Deserialize<RekaChatResponse>(responseContent);
-
-        if (response.IsSuccessStatusCode)
-        {
-            var textContent = rekaResponse!.Responses![0]!.Message!.Content!
-                .FirstOrDefault(c => c.Type == "text");
-
-            introParagraph = textContent?.Text ?? String.Empty;
+            var response = await agent.RunAsync(prompt);
+            return response.ToString() ?? string.Empty;
         }
-        else
+        catch (Exception ex)
         {
-            throw new Exception($"Request failed with status code: {response.StatusCode}. Response: {responseContent}");
+            _logger.LogError($"An error occurred while generating summary: {ex.Message}");
+            return string.Empty;
         }
-
-        return introParagraph;
     }
-
 }

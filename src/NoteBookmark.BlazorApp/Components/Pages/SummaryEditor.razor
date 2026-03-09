@@ -1,5 +1,6 @@
 ﻿@page "/summaryeditor/{number?}"
-
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using Markdig
 @using NoteBookmark.Domain
 @using NoteBookmark.AIServices

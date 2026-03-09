@@ -1,4 +1,6 @@
 @page "/summaries"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using NoteBookmark.Domain
 @inject PostNoteClient client
 @rendermode InteractiveServer

@@ -179,6 +179,26 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
         }
     }
 
+    public Note? GetNote(string rowKey)
+    {
+        var tblNote = GetNoteTable();
+        var result = tblNote.Query<Note>(filter: $"RowKey eq '{rowKey}'");
+        Note? note = result.FirstOrDefault<Note>();
+        return note;
+    }
+
+    public bool DeleteNote(string rowKey)
+    {
+        var tblNote = GetNoteTable();
+        var existingNote = tblNote.Query<Note>(filter: $"RowKey eq '{rowKey}'").FirstOrDefault();
+        if (existingNote != null)
+        {
+            tblNote.DeleteEntity(existingNote.PartitionKey, existingNote.RowKey);
+            return true;
+        }
+        return false;
+    }
+
 
     public async Task<Settings> GetSettings()
     {

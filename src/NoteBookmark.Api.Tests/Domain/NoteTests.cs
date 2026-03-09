@@ -20,6 +20,41 @@ public class NoteTests
     }
 
     [Fact]
+    public void Note_Constructor_ShouldInitializePartitionKey_WithCurrentYearMonth()
+    {
+        // Act
+        var note = new Note();
+
+        // Assert
+        note.PartitionKey.Should().Be(DateTime.UtcNow.ToString("yyyy-MM"));
+    }
+
+    [Fact]
+    public void Note_Constructor_ShouldInitializeRowKey_WithValidGuid()
+    {
+        // Act
+        var note = new Note();
+
+        // Assert
+        note.RowKey.Should().NotBeNullOrEmpty();
+        Guid.TryParse(note.RowKey, out _).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Note_Constructor_ShouldInitializeDateAdded_WithCurrentUtcTime()
+    {
+        // Arrange
+        var before = DateTime.UtcNow;
+
+        // Act
+        var note = new Note();
+        var after = DateTime.UtcNow;
+
+        // Assert
+        note.DateAdded.Should().BeOnOrAfter(before).And.BeOnOrBefore(after);
+    }
+
+    [Fact]
     public void Note_WhenPropertiesSet_ReturnsCorrectValues()
     {
         // Arrange
@@ -40,5 +75,57 @@ public class NoteTests
         note.Comment.Should().Be("Excellent article about Azure Functions");
         note.Tags.Should().Be("azure, functions, serverless");
         note.Category.Should().Be("Technology");
+    }
+
+    [Fact]
+    public void Validate_ShouldReturnTrue_WhenCommentIsNotEmpty()
+    {
+        // Arrange
+        var note = new Note { Comment = "This is a valid comment" };
+
+        // Act
+        var result = note.Validate();
+
+        // Assert
+        result.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_ShouldReturnFalse_WhenCommentIsNull()
+    {
+        // Arrange
+        var note = new Note { Comment = null };
+
+        // Act
+        var result = note.Validate();
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_ShouldReturnFalse_WhenCommentIsEmpty()
+    {
+        // Arrange
+        var note = new Note { Comment = "" };
+
+        // Act
+        var result = note.Validate();
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_ShouldReturnFalse_WhenCommentIsWhitespace()
+    {
+        // Arrange
+        var note = new Note { Comment = "   " };
+
+        // Act
+        var result = note.Validate();
+
+        // Assert
+        result.Should().BeFalse();
     }
 }
