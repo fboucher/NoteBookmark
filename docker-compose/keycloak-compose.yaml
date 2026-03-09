@@ -1,0 +1,51 @@
+name: notebookmark-keycloak
+
+services:
+  keycloak_postgres:
+    container_name: keycloak-postgres
+    image: postgres:14.18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - notebookmark
+
+  keycloak:
+    container_name: notebookmark-keycloak
+    image: quay.io/keycloak/keycloak:26.5.4
+    restart: unless-stopped
+    command:
+      - start
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_USER}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_URL}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak_postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_PROXY_ADDRESS_FORWARDING: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_LOG_LEVEL: info
+      KC_FEATURES: "token-exchange"
+    ports:
+      - "8080:8080"
+    # Optional production TLS setup: place cert/key under docker-compose/data/certs.
+    # These values can remain unset for local HTTP usage.
+    volumes:
+      - ./data/certs:/etc/x509/https:ro
+    depends_on:
+      - keycloak_postgres
+    networks:
+      - notebookmark
+
+networks:
+  notebookmark:
+    external: true
+
+volumes:
+  postgres-data:
