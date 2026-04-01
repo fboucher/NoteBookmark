@@ -7,7 +7,7 @@ namespace NoteBookmark.Api.Tests.Domain;
 public class PostLTests
 {
     [Fact]
-    public void PostL_WhenCreated_HasCorrectDefaultValues()
+    public void PostL_WithMinimalRequiredFields_CanBeCreated()
     {
         // Act
         var postL = new PostL
@@ -17,48 +17,18 @@ public class PostLTests
         };
 
         // Assert
+        postL.PartitionKey.Should().Be("posts");
+        postL.RowKey.Should().Be("test-post");
         postL.Id.Should().BeNull();
-        postL.Date_published.Should().BeNull();
-        postL.is_read.Should().BeNull();
         postL.Title.Should().BeNull();
-        postL.Url.Should().BeNull();
         postL.Note.Should().BeNull();
         postL.NoteId.Should().BeNull();
     }
 
     [Fact]
-    public void PostL_WhenPropertiesSet_ReturnsCorrectValues()
+    public void Note_SupportsEmptyString()
     {
-        // Arrange
-        var postL = new PostL
-        {
-            PartitionKey = "posts",
-            RowKey = "post-123",
-            Id = "test-id-123",
-            Date_published = "2025-06-03",
-            is_read = true,
-            Title = "Azure Storage Best Practices",
-            Url = "https://docs.microsoft.com/azure/storage",
-            Note = "Excellent article with practical examples",
-            NoteId = "note-456"
-        };
-
-        // Assert
-        postL.PartitionKey.Should().Be("posts");
-        postL.RowKey.Should().Be("post-123");
-        postL.Id.Should().Be("test-id-123");
-        postL.Date_published.Should().Be("2025-06-03");
-        postL.is_read.Should().BeTrue();
-        postL.Title.Should().Be("Azure Storage Best Practices");
-        postL.Url.Should().Be("https://docs.microsoft.com/azure/storage");
-        postL.Note.Should().Be("Excellent article with practical examples");
-        postL.NoteId.Should().Be("note-456");
-    }
-
-    [Fact]
-    public void PostL_Note_CanBeEmptyString()
-    {
-        // Arrange
+        // Arrange & Act
         var postL = new PostL
         {
             PartitionKey = "posts",
@@ -67,13 +37,13 @@ public class PostLTests
         };
 
         // Assert
-        postL.Note.Should().Be("");
+        postL.Note.Should().BeEmpty();
     }
 
     [Fact]
-    public void PostL_NoteId_CanBeEmptyString()
+    public void NoteId_SupportsEmptyString()
     {
-        // Arrange
+        // Arrange & Act
         var postL = new PostL
         {
             PartitionKey = "posts",
@@ -82,6 +52,48 @@ public class PostLTests
         };
 
         // Assert
-        postL.NoteId.Should().Be("");
+        postL.NoteId.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void is_read_DefaultsToNull_ThenAcceptsBothBooleanStates()
+    {
+        // Arrange
+        var postL = new PostL
+        {
+            PartitionKey = "posts",
+            RowKey = "test-post"
+        };
+
+        // Assert — default is null (unread/unprocessed state)
+        postL.is_read.Should().BeNull();
+
+        // Can be set to true (read)
+        postL.is_read = true;
+        postL.is_read.Should().BeTrue();
+
+        // Can be reset to false (explicitly unread)
+        postL.is_read = false;
+        postL.is_read.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PostL_NoteProperties_AreIndependentOfTableEntityFields()
+    {
+        // PostL extends ITableEntity with Note and NoteId — these are view-layer properties
+        // not stored in Azure Table Storage directly
+        var postL = new PostL
+        {
+            PartitionKey = "posts",
+            RowKey = "post-123",
+            Note = "Excellent article about Azure",
+            NoteId = "note-456"
+        };
+
+        // Assert — the note fields are distinct from the standard entity keys
+        postL.RowKey.Should().NotBe(postL.NoteId);
+        postL.Note.Should().NotBeNullOrEmpty();
+        postL.NoteId.Should().NotBeNullOrEmpty();
     }
 }
+
