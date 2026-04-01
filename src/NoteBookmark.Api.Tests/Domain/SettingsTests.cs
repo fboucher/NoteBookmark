@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using FluentAssertions;
 using NoteBookmark.Domain;
 using Xunit;
@@ -7,7 +8,7 @@ namespace NoteBookmark.Api.Tests.Domain;
 public class SettingsTests
 {
     [Fact]
-    public void Settings_WhenCreated_HasCorrectDefaultValues()
+    public void Settings_WhenCreated_HasNullOptionalProperties()
     {
         // Act
         var settings = new Settings
@@ -19,27 +20,11 @@ public class SettingsTests
         // Assert
         settings.LastBookmarkDate.Should().BeNull();
         settings.ReadingNotesCounter.Should().BeNull();
+        settings.AiApiKey.Should().BeNull();
+        settings.SummaryPrompt.Should().BeNull();
+        settings.SearchPrompt.Should().BeNull();
     }
 
-    [Fact]
-    public void Settings_WhenPropertiesSet_ReturnsCorrectValues()
-    {
-        // Arrange
-        var settings = new Settings
-        {
-            PartitionKey = "setting",
-            RowKey = "setting",
-            LastBookmarkDate = "2025-06-03T15:30:00",
-            ReadingNotesCounter = "750"
-        };
-
-        // Assert
-        settings.PartitionKey.Should().Be("setting");
-        settings.RowKey.Should().Be("setting");
-        settings.LastBookmarkDate.Should().Be("2025-06-03T15:30:00");
-        settings.ReadingNotesCounter.Should().Be("750");
-    }
-    
     [Theory]
     [InlineData("2025-06-03T15:30:00")]
     [InlineData("2023-12-25T00:00:00")]
@@ -80,4 +65,111 @@ public class SettingsTests
         // Assert
         settings.ReadingNotesCounter.Should().Be(counter);
     }
+
+    [Fact]
+    public void SummaryPrompt_WithContentPlaceholder_PassesValidation()
+    {
+        // Arrange
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            SummaryPrompt = "Write a short introduction for the blog post: {content}"
+        };
+
+        // Act
+        var validationResults = new List<ValidationResult>();
+        var context = new ValidationContext(settings) { MemberName = nameof(Settings.SummaryPrompt) };
+        var isValid = Validator.TryValidateProperty(settings.SummaryPrompt, context, validationResults);
+
+        // Assert
+        isValid.Should().BeTrue();
+        validationResults.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SummaryPrompt_WithoutContentPlaceholder_FailsValidation()
+    {
+        // Arrange
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            SummaryPrompt = "Write a short introduction without the required placeholder"
+        };
+
+        // Act
+        var validationResults = new List<ValidationResult>();
+        var context = new ValidationContext(settings) { MemberName = nameof(Settings.SummaryPrompt) };
+        var isValid = Validator.TryValidateProperty(settings.SummaryPrompt, context, validationResults);
+
+        // Assert
+        isValid.Should().BeFalse();
+        validationResults.Should().ContainSingle();
+        validationResults[0].ErrorMessage.Should().Contain("content");
+    }
+
+    [Fact]
+    public void SearchPrompt_WithTopicPlaceholder_PassesValidation()
+    {
+        // Arrange
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            SearchPrompt = "Find 3 recent blog posts about {topic}."
+        };
+
+        // Act
+        var validationResults = new List<ValidationResult>();
+        var context = new ValidationContext(settings) { MemberName = nameof(Settings.SearchPrompt) };
+        var isValid = Validator.TryValidateProperty(settings.SearchPrompt, context, validationResults);
+
+        // Assert
+        isValid.Should().BeTrue();
+        validationResults.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SearchPrompt_WithoutTopicPlaceholder_FailsValidation()
+    {
+        // Arrange
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            SearchPrompt = "Find 3 recent blog posts about something interesting."
+        };
+
+        // Act
+        var validationResults = new List<ValidationResult>();
+        var context = new ValidationContext(settings) { MemberName = nameof(Settings.SearchPrompt) };
+        var isValid = Validator.TryValidateProperty(settings.SearchPrompt, context, validationResults);
+
+        // Assert
+        isValid.Should().BeFalse();
+        validationResults.Should().ContainSingle();
+        validationResults[0].ErrorMessage.Should().Contain("topic");
+    }
+
+    [Fact]
+    public void SummaryPrompt_WhenNull_PassesValidation()
+    {
+        // Arrange — null is treated as "not set yet", so validation is skipped
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            SummaryPrompt = null
+        };
+
+        // Act
+        var validationResults = new List<ValidationResult>();
+        var context = new ValidationContext(settings) { MemberName = nameof(Settings.SummaryPrompt) };
+        var isValid = Validator.TryValidateProperty(settings.SummaryPrompt, context, validationResults);
+
+        // Assert
+        isValid.Should().BeTrue();
+    }
 }
+

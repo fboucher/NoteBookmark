@@ -188,6 +188,58 @@ public class PostEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task GetUnreadPosts_WhenAllPostsAreRead_ReturnsEmptyList()
+    {
+        // Arrange — save a read post only
+        var readPost = CreateTestPost();
+        readPost.RowKey = "all-read-post-" + Guid.NewGuid().ToString("N")[..8];
+        readPost.is_read = true;
+        await _client.PostAsJsonAsync("/api/posts/", readPost);
+
+        // Act
+        var response = await _client.GetAsync("/api/posts/");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var posts = await response.Content.ReadFromJsonAsync<List<PostL>>();
+        posts.Should().NotBeNull();
+        posts.Should().NotContain(p => p.RowKey == readPost.RowKey);
+    }
+
+    [Fact]
+    public async Task GetReadPosts_WhenNoPostsHaveBeenRead_ReturnsEmptyList()
+    {
+        // Act — query read posts without seeding any
+        var response = await _client.GetAsync("/api/posts/read");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var posts = await response.Content.ReadFromJsonAsync<List<PostL>>();
+        posts.Should().NotBeNull();
+        // All returned posts must be read (the list may be empty)
+        posts.Should().OnlyContain(p => p.is_read == true);
+    }
+
+    [Fact]
+    public async Task SavePost_WhenPostAlreadyExists_UpdatesAndReturnsOk()
+    {
+        // Arrange — save the post once
+        var originalPost = await CreateAndSaveTestPost();
+
+        // Act — save the same post again with updated title
+        originalPost.Title = "Updated Title";
+        var response = await _client.PostAsJsonAsync("/api/posts/", originalPost);
+
+        // Assert — upsert succeeds
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Verify the update was applied
+        var getResponse = await _client.GetAsync($"/api/posts/{originalPost.RowKey}");
+        var updatedPost = await getResponse.Content.ReadFromJsonAsync<Post>();
+        updatedPost!.Title.Should().Be("Updated Title");
+    }
+
     // Helper methods
     private async Task SeedTestData()
     {

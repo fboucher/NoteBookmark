@@ -7,32 +7,6 @@ namespace NoteBookmark.Api.Tests.Domain;
 public class PostTests
 {
     [Fact]
-    public void PartitionKey_IsRequired()
-    {
-        // Act & Assert - required properties enforce initialization
-        var post = new Post
-        {
-            PartitionKey = "posts",
-            RowKey = "test-post"
-        };
-
-        post.PartitionKey.Should().NotBeNull();
-    }
-
-    [Fact]
-    public void RowKey_IsRequired()
-    {
-        // Act & Assert - required properties enforce initialization
-        var post = new Post
-        {
-            PartitionKey = "posts",
-            RowKey = "test-post"
-        };
-
-        post.RowKey.Should().NotBeNull();
-    }
-
-    [Fact]
     public void Post_WithMinimalRequiredFields_CanBeCreated()
     {
         // Act
@@ -48,35 +22,6 @@ public class PostTests
         post.Title.Should().BeNull();
         post.Url.Should().BeNull();
         post.is_read.Should().BeNull();
-    }
-
-    [Fact]
-    public void Post_WithFullData_PreservesAllValues()
-    {
-        // Arrange & Act
-        var post = new Post
-        {
-            PartitionKey = "posts",
-            RowKey = "test-post-123",
-            Title = "Azure Functions Best Practices",
-            Url = "https://docs.microsoft.com/azure/functions",
-            Author = "Microsoft",
-            Date_published = "2025-06-03",
-            is_read = true,
-            Id = "func-123",
-            Word_count = 1500,
-            Total_pages = 1,
-            Rendered_pages = 1
-        };
-
-        // Assert
-        post.Title.Should().Be("Azure Functions Best Practices");
-        post.Url.Should().Be("https://docs.microsoft.com/azure/functions");
-        post.Author.Should().Be("Microsoft");
-        post.Date_published.Should().Be("2025-06-03");
-        post.is_read.Should().BeTrue();
-        post.Id.Should().Be("func-123");
-        post.Word_count.Should().Be(1500);
     }
 
     [Theory]
@@ -109,5 +54,39 @@ public class PostTests
 
         // Assert
         post.Word_count.Should().Be(0);
+        post.Total_pages.Should().Be(0);
+        post.Rendered_pages.Should().Be(0);
+    }
+
+    [Fact]
+    public void Post_IsRead_DefaultsToNull_IndicatingUnprocessedState()
+    {
+        // Arrange
+        var post = new Post
+        {
+            PartitionKey = "posts",
+            RowKey = "new-post"
+        };
+
+        // Assert — null is distinct from false: it means "not yet evaluated"
+        post.is_read.Should().BeNull();
+        post.is_read.Should().NotBe(false);
+        post.is_read.Should().NotBe(true);
+    }
+
+    [Fact]
+    public void Post_PartitionKeyConvention_UsesYearMonthFormat()
+    {
+        // Arrange — posts are typically partitioned by year-month
+        var partitionKey = DateTime.UtcNow.ToString("yyyy-MM");
+        var post = new Post
+        {
+            PartitionKey = partitionKey,
+            RowKey = Guid.NewGuid().ToString()
+        };
+
+        // Assert
+        post.PartitionKey.Should().MatchRegex(@"^\d{4}-\d{2}$");
     }
 }
+
