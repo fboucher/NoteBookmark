@@ -170,6 +170,62 @@ public class SettingEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
         finalSettings.LastBookmarkDate.Should().Be(updatedSettings.LastBookmarkDate);
     }
 
+    [Fact]
+    public async Task GetSettings_ReturnsDefaultPrompts_WithRequiredPlaceholders()
+    {
+        // Act
+        var response = await _client.GetAsync("/api/settings/");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var settings = await response.Content.ReadFromJsonAsync<Settings>();
+        settings.Should().NotBeNull();
+        settings!.SearchPrompt.Should().NotBeNullOrEmpty();
+        settings.SearchPrompt.Should().Contain("{topic}");
+        settings.SummaryPrompt.Should().NotBeNullOrEmpty();
+        settings.SummaryPrompt.Should().Contain("{content}");
+    }
+
+    [Fact]
+    public async Task GetSettings_MasksAiApiKey_WhenKeyIsConfigured()
+    {
+        // Arrange — save settings that include an API key
+        var settingsWithKey = CreateTestSettings();
+        settingsWithKey.AiApiKey = "super-secret-api-key";
+        var saveResponse = await _client.PostAsJsonAsync("/api/settings/SaveSettings", settingsWithKey);
+        saveResponse.EnsureSuccessStatusCode();
+
+        // Act
+        var response = await _client.GetAsync("/api/settings/");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var settings = await response.Content.ReadFromJsonAsync<Settings>();
+        settings.Should().NotBeNull();
+        settings!.AiApiKey.Should().Be("********");
+    }
+
+    [Fact]
+    public async Task SaveSettings_WithEmptyPartitionKey_ReturnsBadRequest()
+    {
+        // Arrange
+        var invalidSettings = new Settings
+        {
+            PartitionKey = "",
+            RowKey = "setting",
+            LastBookmarkDate = "2025-06-03T12:00:00",
+            ReadingNotesCounter = "100"
+        };
+
+        // Act
+        var response = await _client.PostAsJsonAsync("/api/settings/SaveSettings", invalidSettings);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     // Helper methods
     private static Settings CreateTestSettings()
     {
