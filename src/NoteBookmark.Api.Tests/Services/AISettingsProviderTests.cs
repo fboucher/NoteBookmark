@@ -1,172 +1,198 @@
-using FluentAssertions;
+using Azure;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using Moq;
-using NoteBookmark.Api;
+using Microsoft.Extensions.Logging.Abstractions;
 using NoteBookmark.Domain;
-using Xunit;
 
 namespace NoteBookmark.Api.Tests.Services;
 
 public class AISettingsProviderTests
 {
-    private readonly Mock<IDataStorageService> _mockDataStorageService;
-    private readonly Mock<IConfiguration> _mockConfiguration;
-    private readonly Mock<ILogger<AISettingsProvider>> _mockLogger;
-    private readonly AISettingsProvider _provider;
+    private readonly Mock<IDataStorageService> _mockDataStorage;
+    private readonly Mock<IConfiguration> _mockConfig;
 
     public AISettingsProviderTests()
     {
-        _mockDataStorageService = new Mock<IDataStorageService>();
-        _mockConfiguration = new Mock<IConfiguration>();
-        _mockLogger = new Mock<ILogger<AISettingsProvider>>();
-        _provider = new AISettingsProvider(
-            _mockDataStorageService.Object,
-            _mockConfiguration.Object,
-            _mockLogger.Object);
+        _mockDataStorage = new Mock<IDataStorageService>();
+        _mockConfig = new Mock<IConfiguration>();
+
+        // Default: all config keys return null
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns((string?)null);
+        _mockConfig.Setup(c => c["AppSettings:REKA_API_KEY"]).Returns((string?)null);
+        _mockConfig.Setup(c => c["AppSettings:AiBaseUrl"]).Returns((string?)null);
+        _mockConfig.Setup(c => c["AppSettings:AiModelName"]).Returns((string?)null);
     }
 
-    [Fact]
-    public async Task GetAISettingsAsync_WhenDbHasApiKey_ReturnsDbSettings()
-    {
-        // Arrange
-        var settings = CreateSettingsWithApiKey("db-api-key", "https://api.example.com/v1", "test-model");
-        _mockDataStorageService.Setup(s => s.GetSettings()).ReturnsAsync(settings);
+    private AISettingsProvider CreateSut() =>
+        new(_mockDataStorage.Object, _mockConfig.Object, NullLogger<AISettingsProvider>.Instance);
 
-        // Act
-        var result = await _provider.GetAISettingsAsync();
-
-        // Assert
-        result.ApiKey.Should().Be("db-api-key");
-        result.BaseUrl.Should().Be("https://api.example.com/v1");
-        result.ModelName.Should().Be("test-model");
-    }
-
-    [Fact]
-    public async Task GetAISettingsAsync_WhenDbHasApiKeyWithoutOptionals_UsesDefaultBaseUrlAndModel()
-    {
-        // Arrange
-        var settings = CreateSettingsWithApiKey("db-api-key", null, null);
-        _mockDataStorageService.Setup(s => s.GetSettings()).ReturnsAsync(settings);
-
-        // Act
-        var result = await _provider.GetAISettingsAsync();
-
-        // Assert
-        result.ApiKey.Should().Be("db-api-key");
-        result.BaseUrl.Should().Be("https://api.reka.ai/v1");
-        result.ModelName.Should().Be("reka-flash-3.1");
-    }
-
-    [Fact]
-    public async Task GetAISettingsAsync_WhenDbApiKeyAbsent_FallsBackToConfiguration()
-    {
-        // Arrange
-        var settings = CreateSettingsWithApiKey(null, null, null);
-        _mockDataStorageService.Setup(s => s.GetSettings()).ReturnsAsync(settings);
-        _mockConfiguration.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-api-key");
-
-        // Act
-        var result = await _provider.GetAISettingsAsync();
-
-        // Assert
-        result.ApiKey.Should().Be("config-api-key");
-    }
-
-    [Fact]
-    public async Task GetAISettingsAsync_WhenDbThrows_FallsBackToConfiguration()
-    {
-        // Arrange
-        _mockDataStorageService.Setup(s => s.GetSettings()).ThrowsAsync(new Exception("DB unavailable"));
-        _mockConfiguration.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-fallback-key");
-
-        // Act
-        var result = await _provider.GetAISettingsAsync();
-
-        // Assert
-        result.ApiKey.Should().Be("config-fallback-key");
-    }
-
-    [Fact]
-    public async Task GetAISettingsAsync_WhenDbAndPrimaryConfigAbsent_FallsBackToRekaConfigKey()
-    {
-        // Arrange
-        var settings = CreateSettingsWithApiKey(null, null, null);
-        _mockDataStorageService.Setup(s => s.GetSettings()).ReturnsAsync(settings);
-        _mockConfiguration.Setup(c => c["AppSettings:AiApiKey"]).Returns((string?)null);
-        _mockConfiguration.Setup(c => c["AppSettings:REKA_API_KEY"]).Returns("reka-config-key");
-
-        // Act
-        var result = await _provider.GetAISettingsAsync();
-
-        // Assert
-        result.ApiKey.Should().Be("reka-config-key");
-    }
-
-    [Fact]
-    public async Task GetAISettingsAsync_WhenDbAndConfigAbsent_FallsBackToEnvironmentVariable()
-    {
-        // Arrange
-        const string envVarKey = "REKA_API_KEY";
-        var originalValue = Environment.GetEnvironmentVariable(envVarKey);
-        try
+    private static Settings MakeSettings(string? apiKey = null, string? baseUrl = null, string? modelName = null) =>
+        new()
         {
-            Environment.SetEnvironmentVariable(envVarKey, "env-api-key");
-
-            var settings = CreateSettingsWithApiKey(null, null, null);
-            _mockDataStorageService.Setup(s => s.GetSettings()).ReturnsAsync(settings);
-            _mockConfiguration.Setup(c => c["AppSettings:AiApiKey"]).Returns((string?)null);
-            _mockConfiguration.Setup(c => c["AppSettings:REKA_API_KEY"]).Returns((string?)null);
-
-            // Act
-            var result = await _provider.GetAISettingsAsync();
-
-            // Assert
-            result.ApiKey.Should().Be("env-api-key");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(envVarKey, originalValue);
-        }
-    }
-
-    [Fact]
-    public async Task GetAISettingsAsync_WhenAllSourcesAbsent_ThrowsInvalidOperationException()
-    {
-        // Arrange
-        const string envVarKey = "REKA_API_KEY";
-        var originalValue = Environment.GetEnvironmentVariable(envVarKey);
-        try
-        {
-            Environment.SetEnvironmentVariable(envVarKey, null);
-
-            var settings = CreateSettingsWithApiKey(null, null, null);
-            _mockDataStorageService.Setup(s => s.GetSettings()).ReturnsAsync(settings);
-            _mockConfiguration.Setup(c => c["AppSettings:AiApiKey"]).Returns((string?)null);
-            _mockConfiguration.Setup(c => c["AppSettings:REKA_API_KEY"]).Returns((string?)null);
-
-            // Act
-            var act = () => _provider.GetAISettingsAsync();
-
-            // Assert
-            await act.Should().ThrowAsync<InvalidOperationException>()
-                .WithMessage("*API key*");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable(envVarKey, originalValue);
-        }
-    }
-
-    private static Settings CreateSettingsWithApiKey(string? apiKey, string? baseUrl, string? modelName)
-    {
-        return new Settings
-        {
-            PartitionKey = "setting",
-            RowKey = "setting",
+            PartitionKey = "settings",
+            RowKey = "1",
             AiApiKey = apiKey,
             AiBaseUrl = baseUrl,
-            AiModelName = modelName
+            AiModelName = modelName,
+            ETag = new ETag("*")
         };
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbHasApiKey_ReturnsDbApiKey()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings(apiKey: "db-api-key"));
+
+        var (apiKey, _, _) = await CreateSut().GetAISettingsAsync();
+
+        apiKey.Should().Be("db-api-key");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbHasCustomBaseUrlAndModel_ReturnsDbValues()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings("db-key", "https://custom.api.example.com/v1", "custom-model"));
+
+        var (_, baseUrl, modelName) = await CreateSut().GetAISettingsAsync();
+
+        baseUrl.Should().Be("https://custom.api.example.com/v1");
+        modelName.Should().Be("custom-model");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbHasApiKeyButNoBaseUrl_UsesDefaultBaseUrl()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings(apiKey: "db-key"));
+
+        var (_, baseUrl, _) = await CreateSut().GetAISettingsAsync();
+
+        baseUrl.Should().Be("https://api.reka.ai/v1");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbHasApiKeyButNoModel_UsesDefaultModel()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings(apiKey: "db-key"));
+
+        var (_, _, modelName) = await CreateSut().GetAISettingsAsync();
+
+        modelName.Should().Be("reka-flash-3.1");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbApiKeyIsEmpty_FallsBackToConfig()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings(apiKey: ""));
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-api-key");
+
+        var (apiKey, _, _) = await CreateSut().GetAISettingsAsync();
+
+        apiKey.Should().Be("config-api-key");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbApiKeyIsWhitespace_FallsBackToConfig()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings(apiKey: "   "));
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-api-key");
+
+        var (apiKey, _, _) = await CreateSut().GetAISettingsAsync();
+
+        apiKey.Should().Be("config-api-key");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbThrowsException_FallsBackToConfig()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ThrowsAsync(new Exception("DB unavailable"));
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("fallback-key");
+
+        var (apiKey, _, _) = await CreateSut().GetAISettingsAsync();
+
+        apiKey.Should().Be("fallback-key");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbThrowsException_DoesNotPropagateException()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ThrowsAsync(new InvalidOperationException("Storage error"));
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("fallback-key");
+
+        var act = () => CreateSut().GetAISettingsAsync();
+
+        await act.Should().NotThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_DbAndAllConfigAbsent_ThrowsInvalidOperationException()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+
+        var act = () => CreateSut().GetAISettingsAsync();
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*AI API key not configured*");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_FallsBackToRekaApiKeyConfig_WhenAiApiKeyMissing()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+        _mockConfig.Setup(c => c["AppSettings:REKA_API_KEY"]).Returns("reka-config-key");
+
+        var (apiKey, _, _) = await CreateSut().GetAISettingsAsync();
+
+        apiKey.Should().Be("reka-config-key");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_ConfigFallback_UsesConfigBaseUrlWhenProvided()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-key");
+        _mockConfig.Setup(c => c["AppSettings:AiBaseUrl"]).Returns("https://config.api.example.com/v1");
+
+        var (_, baseUrl, _) = await CreateSut().GetAISettingsAsync();
+
+        baseUrl.Should().Be("https://config.api.example.com/v1");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_ConfigFallback_UsesDefaultBaseUrlWhenNotConfigured()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-key");
+
+        var (_, baseUrl, _) = await CreateSut().GetAISettingsAsync();
+
+        baseUrl.Should().Be("https://api.reka.ai/v1");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_EnvVarRekaApiKey_UsedWhenConfigKeysMissing()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+        var originalValue = Environment.GetEnvironmentVariable("REKA_API_KEY");
+        Environment.SetEnvironmentVariable("REKA_API_KEY", "env-reka-key");
+        try
+        {
+            var (apiKey, _, _) = await CreateSut().GetAISettingsAsync();
+            apiKey.Should().Be("env-reka-key");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("REKA_API_KEY", originalValue);
+        }
     }
 }
