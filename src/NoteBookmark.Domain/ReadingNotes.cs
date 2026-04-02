@@ -48,7 +48,7 @@ public class ReadingNotes
             {
                 if (!string.IsNullOrEmpty(note.Tags))
                 {
-                    var tags = note.Tags.ToLower().Split('.');
+                    var tags = note.Tags.ToLower().Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t));
                     uniqueTags = uniqueTags.Concat(tags).ToHashSet();
                 }
             }

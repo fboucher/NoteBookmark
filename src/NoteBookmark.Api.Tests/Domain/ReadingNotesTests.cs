@@ -61,8 +61,8 @@ public class ReadingNotesTests
     {
         // Arrange
         var readingNotes = new ReadingNotes("100");
-        var note1 = new ReadingNote { Tags = "azure.functions.serverless" };
-        var note2 = new ReadingNote { Tags = "azure.storage.blob" };
+        var note1 = new ReadingNote { Tags = "azure, functions, serverless" };
+        var note2 = new ReadingNote { Tags = "azure, storage, blob" };
 
         readingNotes.Notes["Technology"] = new List<ReadingNote> { note1, note2 };
 
@@ -76,5 +76,31 @@ public class ReadingNotesTests
         uniqueTags.Should().Contain("storage");
         uniqueTags.Should().Contain("blob");
         uniqueTags.Should().Contain("readingnotes");
+    }
+
+    [Fact]
+    public void ReadingNotes_GetAllUniqueTags_DeduplicatesTagsSharedAcrossNotes()
+    {
+        // Arrange - mirrors the real-world bug: multiple notes share a leading tag (e.g. "ai")
+        var readingNotes = new ReadingNotes("690");
+        var note1 = new ReadingNote { Tags = "ai, agent, skill" };
+        var note2 = new ReadingNote { Tags = "ai, dev, best practices" };
+        var note3 = new ReadingNote { Tags = "ai, mcp, debug" };
+
+        readingNotes.Notes["AI"] = new List<ReadingNote> { note1, note2, note3 };
+
+        // Act
+        var uniqueTags = readingNotes.GetAllUniqueTags();
+        var tagList = uniqueTags.Split(',').Select(t => t.Trim()).ToList();
+
+        // Assert - "ai" must appear exactly once despite being in 3 notes
+        tagList.Count(t => t == "ai").Should().Be(1);
+        tagList.Should().Contain("agent");
+        tagList.Should().Contain("skill");
+        tagList.Should().Contain("dev");
+        tagList.Should().Contain("best practices");
+        tagList.Should().Contain("mcp");
+        tagList.Should().Contain("debug");
+        tagList.Should().Contain("readingnotes");
     }
 }
