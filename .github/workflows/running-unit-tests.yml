@@ -51,11 +51,19 @@ jobs:
           reporter: dotnet-trx
           fail-on-error: true
 
+      - name: ReportGenerator - Merge & Deduplicate Coverage
+        uses: danielpalme/ReportGenerator-GitHubAction@5
+        if: always()
+        with:
+          reports: ./TestResults/**/*.cobertura.xml
+          targetdir: ./CodeCoverage
+          reporttypes: 'CoberturaSummary;MarkdownSummaryGithub'
+
       - name: Code Coverage Report
         uses: irongut/CodeCoverageSummary@v1.3.0
         if: always()
         with:
-          filename: ./TestResults/**/coverage.cobertura.xml
+          filename: ./CodeCoverage/Summary-github.md
           badge: true
           fail_below_min: false
           format: markdown
@@ -84,4 +92,4 @@ jobs:
         if: always()
         with:
           name: coverage-reports-${{ github.run_number }}
-          path: ./TestResults/**/coverage.cobertura.xml
+          path: ./CodeCoverage
