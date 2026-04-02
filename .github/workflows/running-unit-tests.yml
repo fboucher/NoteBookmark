@@ -52,7 +52,7 @@ jobs:
           fail-on-error: true
 
       - name: ReportGenerator - Merge & Deduplicate Coverage
-        uses: danielpalme/ReportGenerator-GitHubAction@5
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
         if: always()
         with:
           reports: ./TestResults/**/*.cobertura.xml
