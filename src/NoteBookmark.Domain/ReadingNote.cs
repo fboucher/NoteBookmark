@@ -28,18 +28,17 @@ public class ReadingNote
 
     public string? RowKey { get; set; }
 
-    private string GetCategory()
-    {
-        string category = "misc";
-        if (!string.IsNullOrEmpty(Tags))
-        {
-            var newListTags = Tags.Split('.');
-
-            category = newListTags[0];
-        }
-
-        return NoteCategories.GetCategory(category);
-    }
+    // TODO: dead code — Category is set directly via the NoteDialog UI and this method is never called. Remove when confirmed safe.
+    // private string GetCategory()
+    // {
+    //     string category = "misc";
+    //     if (!string.IsNullOrEmpty(Tags))
+    //     {
+    //         var newListTags = Tags.Split('.');
+    //         category = newListTags[0];
+    //     }
+    //     return NoteCategories.GetCategory(category);
+    // }
 
     public string? ToMarkDown()
     {
