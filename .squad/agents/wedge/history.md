@@ -30,3 +30,18 @@
 
 ## Learnings
 
+### From Leia's #119 Completion
+
+**NoteBookmark.SharedUI RCL now available** (PR #129 draft, branch squad/119-extract-sharedui)
+
+11 components extracted from BlazorApp with correct namespacing:
+- **Pages:** Posts, PostEditor, PostEditorLight, Search, Settings, Summaries, SummaryEditor
+- **Shared:** NoteDialog, SuggestionList
+- **Layout:** MinimalLayout
+- **Service:** PostNoteClient
+
+**Integration points for MAUI (#120):**
+1. Reference `NoteBookmark.SharedUI` in MAUI project
+2. Wire up `PostNoteClient` injections for all extracted pages
+3. Handle Keycloak auth for MAUI context (note: LoginDisplay, MainLayout stay in BlazorApp)
+4. Verify FluentUI/Blazor dependencies compatible with MAUI Blazor Hybrid model

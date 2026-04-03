@@ -21,3 +21,21 @@
 
 ## Learnings
 
+### From Leia's #119 Completion
+
+**SharedUI extraction complete** — 11 components now in NoteBookmark.SharedUI RCL (PR #129 draft, branch squad/119-extract-sharedui)
+
+**Testing focus for #119 regression verification:**
+- NoteDialogTests, SuggestionListTests, MinimalLayoutTests all updated to reference SharedUI namespaces
+- BlazorApp.Tests now has ProjectReference to NoteBookmark.SharedUI
+- All component tests passing post-extraction
+
+**What stayed in BlazorApp (not in SharedUI):**
+- `App.razor`, `Routes.razor` — host/routing
+- `MainLayout.razor` — references auth-specific LoginDisplay
+- `LoginDisplay.razor` — depends on OpenIdConnect
+- `Home.razor`, `Login.razor`, `Logout.razor`, `Error.razor` — web-specific
+
+**For future testing (#120+):**
+- Blazor component tests in SharedUI should be isolated from BlazorApp
+- MAUI will need auth-specific wiring (not depend on OpenIdConnect pieces)
