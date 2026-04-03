@@ -1,7 +1,6 @@
 @page "/posts"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
-@using NoteBookmark.BlazorApp.Components.Shared
 @using NoteBookmark.Domain
 @using Microsoft.FluentUI.AspNetCore.Components
 @inject PostNoteClient client
@@ -202,7 +201,6 @@
         }
     }
 
-    // Add handler to reload posts when toggle changes
     private async Task OnShowReadChanged(bool value)
     {
         showRead = value;

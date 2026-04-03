@@ -99,17 +99,14 @@
 
     protected override void OnInitialized()
     {
-        // Check if we're editing an existing note or creating a new one
         _isEditMode = !string.IsNullOrEmpty(Content.RowKey) && !Content.RowKey.Equals(Guid.Empty.ToString(), StringComparison.OrdinalIgnoreCase);
 
         if (_isEditMode)
         {
-            // Editing mode - use the existing note data
             _note = Content;
         }
         else
         {
-            // Create mode - create a new note with the PostId
             _note = new Note { PostId = Content.PostId };
         }
 

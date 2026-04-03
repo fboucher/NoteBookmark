@@ -1,4 +1,4 @@
-﻿@page "/summaryeditor/{number?}"
+@page "/summaryeditor/{number?}"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 @using Markdig
@@ -122,7 +122,7 @@ else{
 
     protected override async Task OnInitializedAsync()
     {
-        if(string.IsNullOrEmpty(number))
+        if (string.IsNullOrEmpty(number))
         {
             readingNotes = await client.CreateReadingNotes();
         }
@@ -132,7 +132,7 @@ else{
         }
 
         var settings = await client.GetSettings();
-        if(settings != null)
+        if (settings != null)
         {
             rawPrompt = settings!.SummaryPrompt ?? string.Empty;
         }
@@ -161,15 +161,16 @@ else{
         var result = await dialogInstance.Result;
         if (!result.Cancelled)
         {
-            readingNotes!.Notes.Add(newCategory, new List<ReadingNote> {new ReadingNote()});
+            readingNotes!.Notes.Add(newCategory, new List<ReadingNote> { new ReadingNote() });
         }
     }
     
     private async Task HandleValidSubmit()
     {
-        if(readingNotes is not null){
+        if (readingNotes is not null)
+        {
             var result = await client.SaveReadingNotes(readingNotes);
-            if(result)
+            if (result)
             {
                 ShowConfirmationMessage();
             }
@@ -178,11 +179,11 @@ else{
 
     private void HandleOnTabChange(FluentTab tab)
     {   
-        if(tab.Id == "tabMD")
+        if (tab.Id == "tabMD")
         {
             readingNotesMD = readingNotes!.ToMarkDown();
         }
-        if(tab.Id == "tabHTML")
+        if (tab.Id == "tabHTML")
         {
             readingNotesHTML = Markdown.ToHtml(readingNotesMD!);
         }
@@ -228,7 +229,6 @@ else{
                 return;
             }
             
-            // Save markdown to blob storage only if readingNotesMD is not null or empty
             if (!string.IsNullOrWhiteSpace(readingNotesMD))
             {
                 var markdownSaved = await client.SaveReadingNotesMarkdown(readingNotesMD, readingNotes.Number);
@@ -244,7 +244,6 @@ else{
             if (settings is not null)
             {
                 var cnt = Convert.ToInt32(settings!.ReadingNotesCounter);
-                // Only increment if the current Summary is the most recent one.
                 if (cnt == Convert.ToInt32(readingNotes!.Number))
                 {
                     cnt++;
@@ -261,12 +260,13 @@ else{
     {
         isGenarating = true;
         var summaryText = readingNotes!.ToMarkDown();
-        try{
+        try
+        {
             string prompt = rawPrompt.Replace("{content}", summaryText);
             string introText = await aiService.GenerateSummaryAsync(prompt); 
             readingNotes.Intro = introText;
         }
-        catch(Exception ex)
+        catch (Exception ex)
         {
             toastService.ShowError($"Oops! Error: {ex.Message}");
         }
@@ -277,4 +277,3 @@ else{
     }
 
 }
-

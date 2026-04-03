@@ -1,8 +1,6 @@
 @page "/posteditorlight/{id?}"
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
-@using NoteBookmark.BlazorApp
-@using NoteBookmark.BlazorApp.Components.Layout
 @using NoteBookmark.Domain
 @inject PostNoteClient client
 @inject IJSRuntime JsRuntime
@@ -74,7 +72,8 @@ else
         CloseWindow();
     }
 
-    private void CloseWindow(){
+    private void CloseWindow()
+    {
         JsRuntime.InvokeVoidAsync("window.close");
     }
 }
