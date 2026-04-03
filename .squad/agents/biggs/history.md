@@ -39,3 +39,24 @@
 **For future testing (#120+):**
 - Blazor component tests in SharedUI should be isolated from BlazorApp
 - MAUI will need auth-specific wiring (not depend on OpenIdConnect pieces)
+### Issue #119 — bUnit Regression Tests (2026-04-03)
+
+**Test project:** `NoteBookmark.BlazorApp.Tests` (Microsoft.NET.Sdk.Razor, net10.0)  
+**bUnit version:** 2.7.2 (major API change from 1.x — uses `BunitContext`, `Render<T>`, not `TestContext`/`RenderComponent<T>`)  
+**Results:** 20 passed, 5 skipped, 0 failed
+
+**Key learnings:**
+
+1. **bUnit 2.x requires `BunitContext` not `TestContext`.** Also `Render<T>()` replaces `RenderComponent<T>()`. Found via build errors after upgrading from expected 1.x API.
+
+2. **bUnit 2.x auth requires `AddAuthorization()` (bUnit extension), not `AddAuthorizationCore()`.** The bUnit runtime registers a `PlaceholderAuthorizationService` that throws `MissingBunitAuthorizationException` unless you call the bUnit-specific extension. `AddAuthorization()` returns `BunitAuthorizationContext` on which you call `SetAuthorized("user")`.
+
+3. **FluentUI components need `JSInterop.Mode = Loose` + `AddFluentUIComponents()`.** Without Loose mode, FluentUI's internal JS calls fail silently-loudly. Simple helper `AddFluentUI()` centralizes this setup.
+
+4. **NoteDialog is the hardest component to unit-test.** It accesses `Dialog.Instance.Parameters.Title` during initial render (in markup, not just event handlers). bUnit 2.x rejects null cascade values. Full fix requires refactoring NoteDialog to use `EventCallback<NoteDialogResult>` instead of `Dialog.CloseAsync()`.
+
+5. **PostNoteClient moved to NoteBookmark.SharedUI** as part of Leia's extraction. Previously in BlazorApp.
+
+6. **Components stayed in BlazorApp** (not extracted): `NavMenu`, `MainLayout`, `LoginDisplay`. Only `MinimalLayout`, `SuggestionList`, `NoteDialog` went to SharedUI.
+
+7. **Referencing a `Microsoft.NET.Sdk.Web` project from `Microsoft.NET.Sdk.Razor`** works but requires `<FrameworkReference Include="Microsoft.AspNetCore.App" />` in the test project. Using plain `Microsoft.NET.Sdk` does NOT pick up Razor-compiled component types.
