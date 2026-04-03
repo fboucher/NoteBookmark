@@ -1,0 +1,53 @@
+{
+  "agents": {
+    "wedge": {
+      "persistent_name": "Wedge",
+      "universe": "Star Wars",
+      "created_at": "2026-04-03T15:01:49Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "leia": {
+      "persistent_name": "Leia",
+      "universe": "Star Wars",
+      "created_at": "2026-04-03T15:01:49Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "han": {
+      "persistent_name": "Han",
+      "universe": "Star Wars",
+      "created_at": "2026-04-03T15:01:49Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "luke": {
+      "persistent_name": "Luke",
+      "universe": "Star Wars",
+      "created_at": "2026-04-03T15:01:49Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "biggs": {
+      "persistent_name": "Biggs",
+      "universe": "Star Wars",
+      "created_at": "2026-04-03T15:01:49Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "scribe": {
+      "persistent_name": "Scribe",
+      "universe": "exempt",
+      "created_at": "2026-04-03T15:01:49Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "ralph": {
+      "persistent_name": "Ralph",
+      "universe": "exempt",
+      "created_at": "2026-04-03T15:01:49Z",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}
