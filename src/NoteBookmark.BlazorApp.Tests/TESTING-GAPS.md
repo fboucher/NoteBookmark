@@ -1,22 +1,23 @@
 # Testing Gaps — NoteBookmark.BlazorApp.Tests
 
 > Written by Biggs (Tester/QA) as part of Issue #119 regression coverage.  
-> Purpose: document what we tested, what we couldn't, and what would make it testable.
+> Tests run against Leia's extraction branch `squad/119-extract-sharedui`.  
+> **Baseline verified: 20 passed, 5 skipped, 0 failed.**
 
 ---
 
 ## What We Tested (bUnit unit tests)
 
-| Component | Tests | Notes |
-|---|---|---|
-| `NavMenu` | 5 | Smoke + link presence. No service injection. ✅ Easy to test. |
-| `LoginDisplay` | 4 | Authenticated / anonymous states via FakeAuthStateProvider. ✅ |
-| `SuggestionList` | 4 | Null/empty/populated states. Stub PostNoteClient via fake HttpClient. ✅ |
-| `NoteDialog` | 5 | Create mode, edit mode, tag display, category list. FluentDialog cascade stubbed as null (safe for non-click tests). ✅ |
-| `MinimalLayout` | 3 | Body rendering, footer presence. ✅ |
-| `MainLayout` | 4 | Composite layout; requires FluentUI + auth setup. ✅ Smoke only. |
+| Component | Location After #119 | Tests | Notes |
+|---|---|---|---|
+| `NavMenu` | `BlazorApp.Components.Layout` | 5 | Smoke + link presence. No service injection. ✅ |
+| `LoginDisplay` | `BlazorApp.Components.Shared` | 4 | Auth/anon states via bUnit `AddAuthorization()`. ✅ |
+| `SuggestionList` | **SharedUI.Components.Shared** | 4 | Null/empty/populated. Stub PostNoteClient. ✅ |
+| `MinimalLayout` | **SharedUI.Components.Layout** | 3 | Body render, footer presence. ✅ |
+| `MainLayout` | `BlazorApp.Components.Layout` | 4 | Composite layout smoke tests. ✅ |
+| `NoteDialog` | **SharedUI.Components.Shared** | 5 | ⚠️ All SKIPPED — see Gap §2. |
 
-**Total: 25 tests across 6 components.**
+**Total: 25 tests defined — 20 active, 5 skipped.**
 
 ---
 
@@ -24,85 +25,83 @@
 
 ### 1. SuggestionList — Button Click Interactions
 
-**What's not tested:** Clicking "Add" or "Delete" on a suggestion item.
+**What's not tested:** Clicking "Add" or "Delete" on a suggestion row.
 
-**Why:** These handlers call `PostNoteClient.ExtractPostDetailsAndSave()` and `IToastService.ShowSuccess/ShowError()`. The PostNoteClient is backed by a stub HttpClient in unit tests, but the response shape must match the expected JSON contract. More importantly, `IToastService.ShowSuccess` is registered via `AddFluentUIComponents()` but the FluentToastProvider is not mounted in the test host, so toast display assertions would be vacuous.
+**Why:** These handlers call `PostNoteClient.ExtractPostDetailsAndSave()` and `IToastService`. The stub PostNoteClient returns `[]` for all requests (so the Add handler would receive null and call `toastService.ShowError()`). Testing the toast assertion would require mocking `IToastService` explicitly rather than relying on `AddFluentUIComponents()`.
 
 **What would make it testable:**
-- Mock `IToastService` explicitly and verify `ShowSuccess()`/`ShowError()` was called.
-- Use `PostNoteClient` with a typed stub HttpClient returning a real `PostSuggestion` JSON blob.
-- Register a minimal FluentToastProvider in the test component tree.
+```csharp
+var mockToast = new Mock<IToastService>();
+ctx.Services.AddSingleton(mockToast.Object);
+// ... click Add button
+mockToast.Verify(t => t.ShowSuccess(It.IsAny<string>()), Times.Once);
+```
 
-**Candidate:** Integration test with a lightweight ASP.NET Core test host.
+**Candidate:** Unit test — medium effort.
 
 ---
 
-### 2. NoteDialog — Save / Cancel / Delete Button Actions
+### 2. NoteDialog — All Tests Currently Skipped
 
-**What's not tested:** Clicking Save, Cancel, or Delete inside the dialog.
+**What's not tested:** Any rendering of NoteDialog.
 
-**Why:** These handlers call `Dialog.CloseAsync()` and `Dialog.CancelAsync()` on the cascading `FluentDialog`. In bUnit, we cascade `null` for `FluentDialog` because it's a concrete component requiring the full Fluent dialog infrastructure (a mounted `FluentDialogProvider` and `IDialogService` host). Clicking a button that calls `Dialog.CloseAsync()` on `null` would throw a NullReferenceException.
+**Why:** NoteDialog requires a cascading `FluentDialog` parameter (set by `IDialogService` when `ShowDialogAsync` is called). bUnit 2.x explicitly rejects null cascade values. The `FluentDialog` component cannot be instantiated outside its rendering pipeline because it needs a live `FluentDialogInstance` to serve `Dialog.Instance.Parameters.Title` during initial render.
 
-**What would make it testable:**
-- Extract an `IDialogContext` interface (or adapter) over `FluentDialog` so tests can inject a mock.
-- Or: mount a real `FluentDialogProvider` in the bUnit test context and open `NoteDialog` via `IDialogService.ShowDialogAsync<NoteDialog>(...)`. This is the integration test path.
-- Or: refactor `NoteDialog` to use an `EventCallback<NoteDialogResult>` instead of `Dialog.CloseAsync()` — this would make it fully unit-testable without the Fluent dialog framework.
+**What would make it testable (option A — preferred):**
+Refactor `NoteDialog` to use `EventCallback<NoteDialogResult>` instead of `Dialog.CloseAsync()`. This removes the FluentDialog cascade dependency entirely and makes the component fully unit-testable:
+```csharp
+[Parameter] public EventCallback<NoteDialogResult> OnClose { get; set; }
+```
 
-**Candidate:** Integration test via `IDialogService` OR component refactor.
+**What would make it testable (option B — integration):**
+Mount a full `FluentDialogProvider` in the bUnit test context and open NoteDialog via `IDialogService.ShowDialogAsync<NoteDialog>(...)`. This is the integration test path and requires a live Blazor renderer with dialog infrastructure wired up.
+
+**Candidate:** Refactor (option A) or integration test (option B).
 
 ---
 
 ### 3. MainLayout — LoginDisplay Interaction
 
-**What's not tested:** Clicking "Login" or "Logout" inside the rendered MainLayout triggers the correct navigation.
+**What's not tested:** Clicking "Login" navigates to `/login?returnUrl=...`.
 
-**Why:** `LoginDisplay` calls `Navigation.NavigateTo(...)`. bUnit provides a `FakeNavigationManager`, but verifying navigation from within a composite layout requires inspecting `NavigationManager.Uri` after a button click. This is feasible but was excluded from the smoke-test scope.
+**Why:** The smoke tests only verify that the rendered output contains navigation links. Button click → NavigationManager.NavigateTo verification is feasible in bUnit but was out of scope for the extraction regression pass.
 
 **What would make it testable:**
 ```csharp
-var cut = RenderComponent<MainLayout>(...);
-cut.Find("button[aria-label='Login']").Click(); // or similar selector
-ctx.Services.GetRequiredService<NavigationManager>().Uri.Should().Contain("/login");
+cut.Find("fluent-button:contains('Login')").Click();
+Services.GetRequiredService<NavigationManager>().Uri.Should().Contain("/login");
 ```
-The navigation manager in bUnit doesn't actually navigate (no page load), so this is safe to add as a unit test.
 
 **Candidate:** Unit test — low effort to add.
 
 ---
 
-### 4. Pages (Home, Posts, Search, Settings, etc.)
+### 4. Pages (Posts, Search, Settings, etc.)
 
-**What's not tested:** Any of the page-level components.
+**What's not tested:** Page-level components in SharedUI (Posts, Search, Settings, Summaries, etc.).
 
-**Why:** Pages inject `PostNoteClient`, `IToastService`, `IDialogService`, `NavigationManager`, and in some cases `IHttpContextAccessor` (Login page) or `ResearchService` (Search page). The `Login.razor` page is the hardest — it uses `IHttpContextAccessor` and triggers an OIDC challenge on `OnInitializedAsync()`, which is not available in a bUnit context.
+**Why:** These pages inject multiple services: `PostNoteClient`, `IToastService`, `IDialogService`, `NavigationManager`, and in some cases `ResearchService` (AI) or `IHttpContextAccessor`. They were out of scope for the Issue #119 regression pass (focus was on Shared/Layout components). `Login.razor` and `Logout.razor` require OIDC challenge infrastructure and are **integration test only**.
 
-**What would make it testable:**
-- Pages with only `PostNoteClient` + FluentUI services: testable today with stub client (same pattern as SuggestionList tests).
-- `Login.razor` and `Logout.razor`: require a real ASP.NET Core test host (`WebApplicationFactory`). These are **integration test candidates**.
-- `PostEditor.razor`, `PostEditorLight.razor`, `Summaries.razor`, `SummaryEditor.razor`: not reviewed in this batch — should be assessed for #119 scope.
-
-**Candidate:** Mix — some unit-testable with stubs; Login/Logout require integration tests.
+**Recommended next step:**
+- `Posts.razor` and `Search.razor` are candidates for bUnit unit tests with stub services.
+- `Login.razor` and `Logout.razor` require `WebApplicationFactory` integration tests.
 
 ---
 
-### 5. After SharedUI Extraction (Issue #119)
+### 5. PostNoteClient — Runtime Dependency in SharedUI
 
-Once Leia completes the extraction, these tests need a small update:
+**What's not covered:** `SuggestionList` (and by extension `NoteDialog`) in SharedUI inject `PostNoteClient` which lives in `NoteBookmark.BlazorApp`. This is a **runtime coupling** that survived the extraction — SharedUI has no compile-time reference to BlazorApp, but the Blazor DI injection is resolved at runtime.
 
-1. Add `<ProjectReference>` to `NoteBookmark.SharedUI` (marked with `TODO` in the `.csproj`).
-2. Update `using` statements if component namespaces change (e.g., `NoteBookmark.BlazorApp.Components.Shared` → `NoteBookmark.SharedUI.Components`).
-3. Verify the same tests still pass — **that's the regression proof**.
-4. Re-run `dotnet test src/NoteBookmark.BlazorApp.Tests/` after the extraction merge.
-
-The tests are intentionally written against the component's **public contract** (parameters, rendered output) rather than internal implementation, so they should survive the move with only namespace changes.
+**Risk:** If BlazorApp ever stops registering `PostNoteClient` in DI, SharedUI components will throw at runtime. A future refactor should move `PostNoteClient` to a dedicated `NoteBookmark.Http` or `NoteBookmark.Client` project that both BlazorApp and SharedUI can reference explicitly.
 
 ---
 
 ## Test Environment Notes
 
 - **bUnit version:** 2.7.2
-- **xUnit:** 2.9.3 (from Central Package Management)
+- **xUnit:** 2.9.3 (Central Package Management)
 - **FluentUI:** 4.13.2
-- **JSInterop mode:** `Loose` — FluentUI components call JS internally; we suppress those calls.
-- **PostNoteClient:** not an interface, uses `HttpClient`. Tested via `StubHttpMessageHandler` that returns `[]` for all requests.
-- **AuthorizeView:** tested via `FakeAuthStateProvider` + `AddCascadingAuthenticationState()`.
+- **JSInterop mode:** `Loose` — FluentUI components call JS internally; we suppress unmatched calls.
+- **PostNoteClient:** moved to `NoteBookmark.SharedUI` namespace in Leia's extraction. Tested via `StubHttpMessageHandler` that returns `[]` for all requests.
+- **Auth tests:** use bUnit's `AddAuthorization()` / `BunitAuthorizationContext.SetAuthorized()` — NOT `AddAuthorizationCore()`. bUnit 2.x registers a `PlaceholderAuthorizationService` that throws unless the bUnit-specific auth setup is used.
+- **NoteDialog:** requires a cascading `FluentDialog` — cannot be unit-tested without component refactor or full dialog infrastructure. All 5 NoteDialog tests are skipped with explanatory messages.

@@ -1,5 +1,5 @@
 using Bunit;
-using Microsoft.AspNetCore.Components.Authorization;
+using Bunit.TestDoubles;
 using Microsoft.Extensions.DependencyInjection;
 using NoteBookmark.BlazorApp.Components.Shared;
 using NoteBookmark.BlazorApp.Tests.Helpers;
@@ -7,31 +7,30 @@ using NoteBookmark.BlazorApp.Tests.Helpers;
 namespace NoteBookmark.BlazorApp.Tests.Tests;
 
 /// <summary>
-/// Regression tests for LoginDisplay — one of the components being extracted
-/// into NoteBookmark.SharedUI as part of Issue #119.
-///
-/// LoginDisplay uses AuthorizeView to show different UI for authenticated
-/// vs anonymous users. These tests verify both states render correctly.
+/// Regression tests for LoginDisplay — kept in NoteBookmark.BlazorApp (not extracted in #119).
+/// Verifies that LoginDisplay renders the correct UI for authenticated vs anonymous users.
 /// </summary>
 public sealed class LoginDisplayTests : BunitContext
 {
-    private readonly FakeAuthStateProvider _authProvider;
+    private readonly BunitAuthorizationContext _authCtx;
 
     public LoginDisplayTests()
     {
         this.AddFluentUI();
+        _authCtx = this.AddAuthorization();
+    }
 
-        _authProvider = new FakeAuthStateProvider();
-        Services.AddAuthorizationCore();
-        Services.AddSingleton<AuthenticationStateProvider>(_authProvider);
-        Services.AddCascadingAuthenticationState();
+    [Fact]
+    public void LoginDisplay_RendersWithoutThrowing()
+    {
+        var cut = Render<LoginDisplay>();
+
+        cut.Markup.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
     public void LoginDisplay_WhenAnonymous_RendersLoginButton()
     {
-        _authProvider.SetAnonymousUser();
-
         var cut = Render<LoginDisplay>();
 
         cut.Markup.Should().Contain("Login");
@@ -40,7 +39,7 @@ public sealed class LoginDisplayTests : BunitContext
     [Fact]
     public void LoginDisplay_WhenAuthenticated_ShowsUsername()
     {
-        _authProvider.SetAuthenticatedUser("frank");
+        _authCtx.SetAuthorized("frank");
 
         var cut = Render<LoginDisplay>();
 
@@ -50,20 +49,10 @@ public sealed class LoginDisplayTests : BunitContext
     [Fact]
     public void LoginDisplay_WhenAuthenticated_ShowsLogoutButton()
     {
-        _authProvider.SetAuthenticatedUser("frank");
+        _authCtx.SetAuthorized("frank");
 
         var cut = Render<LoginDisplay>();
 
         cut.Markup.Should().Contain("Logout");
-    }
-
-    [Fact]
-    public void LoginDisplay_RendersWithoutThrowing()
-    {
-        _authProvider.SetAnonymousUser();
-
-        var cut = Render<LoginDisplay>();
-
-        cut.Markup.Should().NotBeNullOrEmpty();
     }
 }

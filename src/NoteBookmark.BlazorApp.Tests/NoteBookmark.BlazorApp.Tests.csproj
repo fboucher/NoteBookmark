@@ -3,9 +3,11 @@
   <PropertyGroup>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <!-- Needed for bUnit to resolve Razor components at test time -->
-    <StaticWebAssetBasePath>/</StaticWebAssetBasePath>
   </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="bunit" />
@@ -21,16 +23,14 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <!-- FluentUI needed to register services in tests -->
-    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components" />
-    <PackageReference Include="Microsoft.FluentUI.AspNetCore.Components.Icons" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- TODO: Also reference NoteBookmark.SharedUI once Issue #119 extraction is complete -->
+    <!-- BlazorApp: NavMenu, MainLayout, LoginDisplay, PostNoteClient -->
     <ProjectReference Include="..\NoteBookmark.BlazorApp\NoteBookmark.BlazorApp.csproj" />
-    <ProjectReference Include="..\NoteBookmark.Domain\NoteBookmark.Domain.csproj" />
+    <!-- SharedUI: MinimalLayout, SuggestionList, NoteDialog (extracted in #119) -->
     <ProjectReference Include="..\NoteBookmark.SharedUI\NoteBookmark.SharedUI.csproj" />
+    <ProjectReference Include="..\NoteBookmark.Domain\NoteBookmark.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,6 +38,9 @@
     <Using Include="FluentAssertions" />
     <Using Include="Moq" />
     <Using Include="Bunit" />
+    <Using Include="NoteBookmark.BlazorApp" />
+    <Using Include="NoteBookmark.SharedUI" />
+    <Using Include="NoteBookmark.Domain" />
   </ItemGroup>
 
 </Project>

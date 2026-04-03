@@ -7,12 +7,12 @@ using NoteBookmark.Domain;
 namespace NoteBookmark.BlazorApp.Tests.Tests;
 
 /// <summary>
-/// Regression tests for SuggestionList — one of the components being extracted
-/// into NoteBookmark.SharedUI as part of Issue #119.
+/// Regression tests for SuggestionList — extracted into NoteBookmark.SharedUI in Issue #119.
+/// Verifies no behaviour change after extraction: the component renders correctly with
+/// null, empty, and populated suggestion lists.
 ///
-/// SuggestionList injects PostNoteClient, IToastService, and IDialogService.
-/// Smoke tests verify it renders without throwing when passed null or empty data.
-/// Button-click behaviour requires integration tests (see TESTING-GAPS.md).
+/// SuggestionList still has a runtime dependency on PostNoteClient (from BlazorApp).
+/// Button-click behaviour requires integration tests — see TESTING-GAPS.md §1.
 /// </summary>
 public sealed class SuggestionListTests : BunitContext
 {
@@ -37,7 +37,6 @@ public sealed class SuggestionListTests : BunitContext
         var cut = Render<SuggestionList>(p => p
             .Add(c => c.Suggestions, new List<PostSuggestion>()));
 
-        // Empty state message from the component
         cut.Markup.Should().Contain("Nothing to see here");
     }
 
@@ -68,7 +67,6 @@ public sealed class SuggestionListTests : BunitContext
         var cut = Render<SuggestionList>(p => p
             .Add(c => c.Suggestions, suggestions));
 
-        // Both Add and Delete action buttons should be present
         cut.FindAll("fluent-button").Should().HaveCountGreaterThanOrEqualTo(2);
     }
 }

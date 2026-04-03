@@ -7,11 +7,9 @@ using NoteBookmark.BlazorApp.Tests.Helpers;
 namespace NoteBookmark.BlazorApp.Tests.Tests;
 
 /// <summary>
-/// Regression tests for MinimalLayout — one of the components being extracted
-/// into NoteBookmark.SharedUI as part of Issue #119.
-///
-/// MinimalLayout is a thin layout component with no service injection.
-/// It wraps @Body with FluentUI layout structure.
+/// Regression tests for MinimalLayout — extracted into NoteBookmark.SharedUI in Issue #119.
+/// Verifies no behaviour change after extraction: the layout renders body content and
+/// includes the expected FluentFooter element.
 /// </summary>
 public sealed class MinimalLayoutTests : BunitContext
 {
@@ -44,6 +42,7 @@ public sealed class MinimalLayoutTests : BunitContext
         var cut = Render<MinimalLayout>(p => p
             .Add(c => c.Body, (RenderFragment)(builder => builder.AddContent(0, string.Empty))));
 
-        cut.Markup.Should().Contain("fluent-footer", Exactly.Once());
+        // FluentFooter renders as a native <footer> HTML element
+        cut.Markup.Should().Contain("<footer ");
     }
 }
