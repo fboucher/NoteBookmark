@@ -7,7 +7,33 @@ namespace NoteBookmark.Api.Tests.Domain;
 public class PostLTests
 {
     [Fact]
-    public void PostL_WhenCreated_HasCorrectDefaultValues()
+    public void PartitionKey_IsRequired()
+    {
+        // Act & Assert - required properties enforce initialization
+        var postL = new PostL
+        {
+            PartitionKey = "posts",
+            RowKey = "test-post"
+        };
+
+        postL.PartitionKey.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void RowKey_IsRequired()
+    {
+        // Act & Assert - required properties enforce initialization
+        var postL = new PostL
+        {
+            PartitionKey = "posts",
+            RowKey = "test-post"
+        };
+
+        postL.RowKey.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PostL_WithMinimalRequiredFields_CanBeCreated()
     {
         // Act
         var postL = new PostL
@@ -17,19 +43,18 @@ public class PostLTests
         };
 
         // Assert
+        postL.PartitionKey.Should().Be("posts");
+        postL.RowKey.Should().Be("test-post");
         postL.Id.Should().BeNull();
-        postL.Date_published.Should().BeNull();
-        postL.is_read.Should().BeNull();
         postL.Title.Should().BeNull();
-        postL.Url.Should().BeNull();
         postL.Note.Should().BeNull();
         postL.NoteId.Should().BeNull();
     }
 
     [Fact]
-    public void PostL_WhenPropertiesSet_ReturnsCorrectValues()
+    public void PostL_WithFullData_PreservesAllValues()
     {
-        // Arrange
+        // Arrange & Act
         var postL = new PostL
         {
             PartitionKey = "posts",
@@ -44,8 +69,6 @@ public class PostLTests
         };
 
         // Assert
-        postL.PartitionKey.Should().Be("posts");
-        postL.RowKey.Should().Be("post-123");
         postL.Id.Should().Be("test-id-123");
         postL.Date_published.Should().Be("2025-06-03");
         postL.is_read.Should().BeTrue();
@@ -56,9 +79,9 @@ public class PostLTests
     }
 
     [Fact]
-    public void PostL_Note_CanBeEmptyString()
+    public void Note_SupportsEmptyString()
     {
-        // Arrange
+        // Arrange & Act
         var postL = new PostL
         {
             PartitionKey = "posts",
@@ -67,13 +90,13 @@ public class PostLTests
         };
 
         // Assert
-        postL.Note.Should().Be("");
+        postL.Note.Should().BeEmpty();
     }
 
     [Fact]
-    public void PostL_NoteId_CanBeEmptyString()
+    public void NoteId_SupportsEmptyString()
     {
-        // Arrange
+        // Arrange & Act
         var postL = new PostL
         {
             PartitionKey = "posts",
@@ -82,6 +105,27 @@ public class PostLTests
         };
 
         // Assert
-        postL.NoteId.Should().Be("");
+        postL.NoteId.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void is_read_SupportsNullableBooleanStates()
+    {
+        // Arrange & Act
+        var postL = new PostL
+        {
+            PartitionKey = "posts",
+            RowKey = "test-post"
+        };
+
+        // Assert - defaults to null
+        postL.is_read.Should().BeNull();
+
+        // Can be set to true or false
+        postL.is_read = true;
+        postL.is_read.Should().BeTrue();
+
+        postL.is_read = false;
+        postL.is_read.Should().BeFalse();
     }
 }

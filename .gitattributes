@@ -3,3 +3,8 @@
 .ai-team/agents/*/history.md merge=union
 .ai-team/log/** merge=union
 .ai-team/orchestration-log/** merge=union
+# Squad: union merge for append-only team state files
+.squad/decisions.md merge=union
+.squad/agents/*/history.md merge=union
+.squad/log/** merge=union
+.squad/orchestration-log/** merge=union
