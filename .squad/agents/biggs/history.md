@@ -60,3 +60,17 @@
 6. **Components stayed in BlazorApp** (not extracted): `NavMenu`, `MainLayout`, `LoginDisplay`. Only `MinimalLayout`, `SuggestionList`, `NoteDialog` went to SharedUI.
 
 7. **Referencing a `Microsoft.NET.Sdk.Web` project from `Microsoft.NET.Sdk.Razor`** works but requires `<FrameworkReference Include="Microsoft.AspNetCore.App" />` in the test project. Using plain `Microsoft.NET.Sdk` does NOT pick up Razor-compiled component types.
+
+---
+
+## Run Complete — 2026-04-03T15:30
+
+**Status:** ✅ COMPLETED  
+**Branch:** squad/119-extract-sharedui  
+**PR:** #129 (draft)
+
+Biggs' regression testing confirmed zero behavioral changes from Leia's component extraction. Test suite created in `NoteBookmark.BlazorApp.Tests` with 20 passing tests and 5 skipped (NoteDialog, awaiting component refactor). Build green.
+
+**Cross-agent note:** Identified component-level refactoring needed in NoteDialog: replace `Dialog.CloseAsync()` with `EventCallback<NoteDialogResult>` to eliminate cascade dependency and enable full test coverage. Recommending this for future dev cycle.
+
+Ready for Wedge to scaffold MAUI app (#120).

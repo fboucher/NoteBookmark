@@ -87,4 +87,6 @@ The test project had a `TODO` comment pointing to this issue. After extraction, 
 **Branch:** squad/119-extract-sharedui  
 **PR:** #129 (draft)
 
-All 11 components extracted, namespaces organized, BlazorApp wiring updated, tests passing, build green. Ready for Wedge to scaffold MAUI app (#120).
+All 11 components extracted, namespaces organized, BlazorApp wiring updated. Biggs' regression testing confirmed zero behavioral changes. Test suite created in `NoteBookmark.BlazorApp.Tests` with 20 passing tests and 5 skipped (NoteDialog, awaiting component refactor). Build green. Ready for Wedge to scaffold MAUI app (#120).
+
+**Cross-agent note:** Biggs identified component-level refactoring needed in NoteDialog (replace `Dialog.CloseAsync()` with `EventCallback<NoteDialogResult>` to eliminate cascade dependency and enable full test coverage).
