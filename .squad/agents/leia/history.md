@@ -90,3 +90,34 @@ The test project had a `TODO` comment pointing to this issue. After extraction, 
 All 11 components extracted, namespaces organized, BlazorApp wiring updated. Biggs' regression testing confirmed zero behavioral changes. Test suite created in `NoteBookmark.BlazorApp.Tests` with 20 passing tests and 5 skipped (NoteDialog, awaiting component refactor). Build green. Ready for Wedge to scaffold MAUI app (#120).
 
 **Cross-agent note:** Biggs identified component-level refactoring needed in NoteDialog (replace `Dialog.CloseAsync()` with `EventCallback<NoteDialogResult>` to eliminate cascade dependency and enable full test coverage).
+
+### Issue #119 — NoteDialog EventCallback Refactor (completed)
+
+**Why:** Biggs' regression tests for NoteDialog were all `[Fact(Skip = ...)]` because bUnit 2.x cannot
+cascade a null `FluentDialog`. `NoteDialog` called `Dialog.CloseAsync()` and `Dialog.Instance.Parameters.Title`,
+making it impossible to render without a live FluentUI dialog infrastructure.
+
+**What changed in NoteDialog:**
+- `FluentDialogHeader`, `FluentDialogBody`, `FluentDialogFooter` replaced with plain `<div>` wrappers
+  (these structural components internally cascade-require `FluentDialog` too)
+- `[CascadingParameter] FluentDialog Dialog` made **nullable** (`FluentDialog?`)
+- `[Parameter] EventCallback<NoteDialogResult> OnClose` added — invoked on save, cancel, delete
+- `[Parameter] string? Title` added — used for standalone / MAUI usage
+- Title expression: `@(Dialog?.Instance?.Parameters?.Title ?? Title)` — works in both contexts
+- Close methods: invoke `OnClose` then `Dialog?.CloseAsync()`/`CancelAsync()` (dual-path for backward compat)
+
+**Posts.razor (caller):** No changes needed. It still opens NoteDialog via `ShowDialogAsync<NoteDialog>()`,
+which provides the Dialog cascade. `dialog.Result` still resolves via `Dialog?.CloseAsync()`.
+
+**NoteDialogResult** (already existed in `NoteBookmark.Domain`):
+```csharp
+public class NoteDialogResult {
+    public string Action { get; set; } = "Save"; // "Save" | "Cancel" | "Delete"
+    public Note? Note { get; set; }
+}
+```
+
+**Test outcome:** 5 skipped → 5 passing. Full suite: 25/25 passing, 0 skipped.
+
+**MAUI compatibility:** NoteDialog now renders standalone without any FluentUI dialog host.
+Can be embedded inline with `OnClose` callback for Blazor Hybrid usage.
