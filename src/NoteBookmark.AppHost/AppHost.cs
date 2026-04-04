@@ -9,7 +9,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var compose = builder.AddDockerComposeEnvironment("docker-env");
 
 // Add Keycloak authentication server
-var keycloak = builder.AddKeycloak("keycloak", port: 8080)
+var keycloak = builder.AddKeycloak("keycloak", 8080)
     .WithDataVolume(); // Persist Keycloak data across container restarts
 
 if (builder.Environment.IsDevelopment())

@@ -39,6 +39,7 @@
     <PackageVersion Include="System.Text.Json" Version="9.0.10" />
     <PackageVersion Include="Reka.SDK" Version="0.1.0" />
     <!-- Test packages -->
+    <PackageVersion Include="bunit" Version="2.7.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="FluentAssertions" Version="8.8.0" />
     <PackageVersion Include="Moq" Version="4.20.72" />

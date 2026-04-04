@@ -5,6 +5,7 @@ using Microsoft.FluentUI.AspNetCore.Components;
 using NoteBookmark.AIServices;
 using NoteBookmark.BlazorApp;
 using NoteBookmark.BlazorApp.Components;
+using NoteBookmark.SharedUI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -161,7 +162,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(typeof(NoteBookmark.SharedUI.PostNoteClient).Assembly);
 
 // Authentication endpoints
 app.MapGet("/authentication/login", async (HttpContext context, string? returnUrl) =>

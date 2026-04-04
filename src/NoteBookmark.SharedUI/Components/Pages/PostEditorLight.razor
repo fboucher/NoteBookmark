@@ -1,0 +1,79 @@
+@page "/posteditorlight/{id?}"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using NoteBookmark.Domain
+@inject PostNoteClient client
+@inject IJSRuntime JsRuntime
+@layout MinimalLayout
+@rendermode InteractiveServer
+
+<PageTitle>Quick Edit Post</PageTitle>
+
+<h3>Edit Post</h3>
+
+@if (post == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <EditForm Model="@post" OnValidSubmit="SavePost">
+        <FluentStack Orientation="Orientation.Vertical">
+            <div>
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+            </div>
+            <div>
+                <FluentTextField Placeholder="Title" @bind-Value="post.Title" @oninput="() => isModified = true" />
+            </div>
+            <div>
+                <FluentTextField Placeholder="URL" @bind-Value="post.Url" @oninput="() => isModified = true" />
+            </div>
+            <div>
+                <FluentTextField Placeholder="Author" @bind-Value="post.Author" @oninput="() => isModified = true" />
+            </div>
+            <div>
+                <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Disabled="!isModified">Save</FluentButton>
+                <FluentButton Type="ButtonType.Button" OnClick="@SaveAndClose">Save and Close</FluentButton>
+            </div>
+            
+        </FluentStack>
+    </EditForm>
+}
+
+
+@code {
+    [Parameter]
+    public string? id { get; set; }
+
+    private Post? post;
+    private bool isModified = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(id))
+        {
+            post = await client.GetPost(id);
+        }
+    }
+
+    private async Task SavePost()
+    {
+        if (post != null)
+        {
+            await client.SavePost(post);
+            isModified = false;
+        }
+    }
+
+    private async Task SaveAndClose()
+    {
+        await SavePost();
+        CloseWindow();
+    }
+
+    private void CloseWindow()
+    {
+        JsRuntime.InvokeVoidAsync("window.close");
+    }
+}

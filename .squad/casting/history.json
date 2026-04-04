@@ -1,0 +1,24 @@
+{
+  "universe_usage_history": [
+    {
+      "universe": "Star Wars",
+      "used_at": "2026-04-03T15:01:49Z",
+      "project": "NoteBookmark"
+    }
+  ],
+  "assignment_cast_snapshots": {
+    "initial-2026-04-03": {
+      "assignment_id": "initial-2026-04-03",
+      "universe": "Star Wars",
+      "cast": {
+        "wedge": "Lead / Architect",
+        "leia": "Blazor / UI Dev",
+        "han": "Backend Dev",
+        "luke": "MAUI Dev",
+        "biggs": "Tester",
+        "scribe": "Session Logger",
+        "ralph": "Work Monitor"
+      }
+    }
+  }
+}
