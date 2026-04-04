@@ -74,3 +74,37 @@ Biggs' regression testing confirmed zero behavioral changes from Leia's componen
 **Cross-agent note:** Identified component-level refactoring needed in NoteDialog: replace `Dialog.CloseAsync()` with `EventCallback<NoteDialogResult>` to eliminate cascade dependency and enable full test coverage. Recommending this for future dev cycle.
 
 Ready for Wedge to scaffold MAUI app (#120).
+
+---
+
+## Issue #121 — Proactive Delta API Integration Tests (2026-04-03)
+
+**Branch:** `squad/121-date-modified-delta-api` (created from v-next, Han picks this up)  
+**File:** `src/NoteBookmark.Api.Tests/Integration/DeltaApiTests.cs`  
+**Status:** ✅ COMMITTED — tests compile, intentionally RED until Han ships
+
+### What was written
+8 integration tests covering `modifiedAfter` query param for both list endpoints:
+
+**Posts (GET /api/posts/?modifiedAfter=):**
+1. `GetPosts_WithModifiedAfter_ReturnsOnlyRecentPosts`
+2. `GetPosts_WithModifiedAfter_FutureTimestamp_ReturnsEmpty`
+3. `GetPosts_WithoutModifiedAfter_ReturnsAllPosts` (non-breaking baseline)
+4. `GetPosts_WithModifiedAfter_MultipleResults`
+
+**Notes (GET /api/notes/?modifiedAfter=):**
+Same 4 patterns mirrored for notes.
+
+### Patterns used
+
+**Timing-based seeding:** Since `DateModified` doesn't exist on `Post` / `Note` domain models yet, tests use `Task.Delay(150ms)` + `DateTime.UtcNow` threshold to separate "old" from "new" entities created via HTTP POST. Han's implementation will set `DateModified` server-side on create, making the filter effective.
+
+**RowKey-presence assertions:** Rather than asserting total list counts (fragile under shared Azurite state), tests assert that specific entities (by RowKey) are present or absent. This survives data leakage between test methods sharing the same `IClassFixture<NoteBookmarkApiTestFactory>` instance.
+
+**Non-breaking baseline test:** `GetPosts_WithoutModifiedAfter_ReturnsAllPosts` documents that omitting the new param must not change existing behaviour — a regression guard for Han.
+
+### Discoveries
+- `PostL` (the response DTO returned by GET /api/posts/) **already has `DateModified`** defined in the domain model — Han only needs to populate it and wire the filter.
+- `Note` does NOT yet have `DateModified` — Han must add it alongside the filter.
+- `NoteEnpoints.cs` has a typo in the filename (missing 'd') — pre-existing, not touched.
+- Build: ✅ 0 errors, 8 pre-existing warnings (unchanged).
