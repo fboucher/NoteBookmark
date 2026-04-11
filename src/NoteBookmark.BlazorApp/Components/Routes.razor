@@ -4,7 +4,7 @@
 <FluentDesignTheme StorageName="theme" @rendermode="@InteractiveServer" />
 
 <CascadingAuthenticationState>
-    <Router AppAssembly="typeof(Program).Assembly">
+    <Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="new[] { typeof(NoteBookmark.SharedUI.PostNoteClient).Assembly }">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>

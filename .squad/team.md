@@ -12,16 +12,22 @@
 
 | Name | Role | Charter | Status |
 |------|------|---------|--------|
-| Danny | 🏗️ Lead | [charter](agents/danny/charter.md) | ✅ Active |
-| Rusty | 🔧 Backend Dev | [charter](agents/rusty/charter.md) | ✅ Active |
-| Linus | 🧪 Tester | [charter](agents/linus/charter.md) | ✅ Active |
-| Scribe | 📋 Scribe | [charter](agents/scribe/charter.md) | ✅ Active |
-| Ralph | 🔄 Work Monitor | [charter](agents/ralph/charter.md) | ✅ Active |
+| Wedge | Lead / Architect | .squad/agents/wedge/charter.md | 🟢 Active |
+| Leia | Blazor / UI Dev | .squad/agents/leia/charter.md | 🟢 Active |
+| Han | Backend Dev | .squad/agents/han/charter.md | 🟢 Active |
+| Luke | MAUI Dev | .squad/agents/luke/charter.md | 🟢 Active |
+| Biggs | Tester | .squad/agents/biggs/charter.md | 🟢 Active |
+| Scribe | Session Logger | .squad/agents/scribe/charter.md | 🟢 Active |
+| Ralph | Work Monitor | .squad/agents/ralph/charter.md | 🔄 Monitor |
+
+## Issue Source
+
+- **Repository:** fboucher/NoteBookmark (inferred from git remote)
+- **Branch:** v-next
+- **Labels in scope:** `app`
+- **Connected:** 2026-04-03
 
 ## Project Context
 
-- **Project:** NoteBookmark — bookmark and note management web app
-- **Stack:** .NET 9 / C#, ASP.NET Core API, Blazor, .NET Aspire, AI services
-- **Owner:** Frank Boucher
-- **Created:** 2026-04-01
-- **Focus:** Unit test issues #102–106
+- **Project:** NoteBookmark
+- **Created:** 2026-04-03

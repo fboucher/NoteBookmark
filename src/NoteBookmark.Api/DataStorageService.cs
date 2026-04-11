@@ -115,7 +115,8 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
                                 Title = post.Title ?? string.Empty, 
                                 Url = post.Url ?? string.Empty, 
                                 Note = joined?.Comment ?? string.Empty, 
-                                NoteId = joined?.RowKey ?? string.Empty 
+                                NoteId = joined?.RowKey ?? string.Empty,
+                                DateModified = post.DateModified
                             };
 
         List<PostL> lstPosts = joinedResults.ToList();
@@ -133,6 +134,7 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
     public bool SavePost(Post post)
     {
         var tblPost = GetPostTable();
+        post.DateModified = DateTime.UtcNow;
         var existingPost = tblPost.Query<Post>(filter: $"RowKey eq '{post.RowKey}'").FirstOrDefault();
         if (existingPost != null)
         {
@@ -168,6 +170,7 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
     public void CreateNote(Note note)
     {
         var tblNote = GetNoteTable();
+        note.DateModified = DateTime.UtcNow;
         var existingNote = tblNote.Query<Note>(filter: $"RowKey eq '{note.RowKey}'").FirstOrDefault();
         if (existingNote != null)
         {

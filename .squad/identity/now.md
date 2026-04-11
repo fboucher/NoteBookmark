@@ -1,9 +1,9 @@
 ---
-updated_at: 2026-03-31T16:27:16.198Z
-focus_area: Initial setup
-active_issues: []
+updated_at: 2026-04-03T15:01:49Z
+focus_area: Issue #119 — Extract NoteBookmark.SharedUI Razor Class Library
+active_issues: [119]
 ---
 
 # What We're Focused On
 
-Getting started. Updated by coordinator at session start.
+Working the `app`-label backlog on `v-next` branch. Starting with Issue #119: extracting reusable Blazor components from `NoteBookmark.BlazorApp` into a new `NoteBookmark.SharedUI` Razor Class Library. The MAUI app (all subsequent issues) depends on this RCL being in place.

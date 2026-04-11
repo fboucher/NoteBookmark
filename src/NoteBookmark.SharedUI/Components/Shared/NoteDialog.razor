@@ -5,16 +5,17 @@
 @rendermode InteractiveServer
 
 <!-- Header -->
-<FluentDialogHeader ShowDismiss="true">
+<div class="note-dialog-header">
     <FluentStack VerticalAlignment="VerticalAlignment.Center">
         <FluentIcon Value="@(new Icons.Regular.Size24.WindowApps())" />
         <FluentLabel Typo="Typography.PaneHeader">
-            @Dialog.Instance.Parameters.Title
+            @(Dialog?.Instance?.Parameters?.Title ?? Title)
         </FluentLabel>
     </FluentStack>
-</FluentDialogHeader>
+</div>
 
-<FluentDialogBody>
+<!-- Body -->
+<div class="note-dialog-body">
     <EditForm Model="@_note" FormName="new_note">
         <DataAnnotationsValidator />
 
@@ -59,10 +60,10 @@
             <FluentValidationSummary />
         </div>
     </EditForm>
-</FluentDialogBody>
+</div>
 
 <!-- Footer -->
-<FluentDialogFooter>
+<div class="note-dialog-footer">
     <FluentButton Appearance="Appearance.Accent"
                   Disabled="@(!_note.Validate())"
                   OnClick="@SaveAsync">
@@ -80,14 +81,20 @@
             Delete
         </FluentButton>
     }
-</FluentDialogFooter>
+</div>
 
 @code {
     [Parameter]
     public Domain.Note Content { get; set; } = default!;
 
     [CascadingParameter]
-    public FluentDialog Dialog { get; set; } = default!;
+    public FluentDialog? Dialog { get; set; }
+
+    [Parameter]
+    public EventCallback<NoteDialogResult> OnClose { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
 
     private Domain.Note _note = default!;
 
@@ -99,17 +106,14 @@
 
     protected override void OnInitialized()
     {
-        // Check if we're editing an existing note or creating a new one
         _isEditMode = !string.IsNullOrEmpty(Content.RowKey) && !Content.RowKey.Equals(Guid.Empty.ToString(), StringComparison.OrdinalIgnoreCase);
 
         if (_isEditMode)
         {
-            // Editing mode - use the existing note data
             _note = Content;
         }
         else
         {
-            // Create mode - create a new note with the PostId
             _note = new Note { PostId = Content.PostId };
         }
 
@@ -125,18 +129,24 @@
 
         if (_note.Validate())
         {
-            await Dialog.CloseAsync(new NoteDialogResult { Action = "Save", Note = _note });
+            var result = new NoteDialogResult { Action = "Save", Note = _note };
+            await OnClose.InvokeAsync(result);
+            await (Dialog?.CloseAsync(result) ?? Task.CompletedTask);
         }
     }
 
     private async Task CancelAsync()
     {
-        await Dialog.CancelAsync();
+        var result = new NoteDialogResult { Action = "Cancel" };
+        await OnClose.InvokeAsync(result);
+        await (Dialog?.CancelAsync() ?? Task.CompletedTask);
     }
 
     private async Task DeleteAsync()
     {
-        await Dialog.CloseAsync(new NoteDialogResult { Action = "Delete", Note = _note });
+        var result = new NoteDialogResult { Action = "Delete", Note = _note };
+        await OnClose.InvokeAsync(result);
+        await (Dialog?.CloseAsync(result) ?? Task.CompletedTask);
     }
 
     private void ParseTagsFromString()

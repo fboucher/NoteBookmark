@@ -1,0 +1,32 @@
+name: Block AI team files on main
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-ai-files:
+    name: No .squad / .copilot files on main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail if PR adds AI team files to main
+        run: |
+          # --diff-filter=AM: only Added or Modified — deletions (cleanup PRs) are allowed
+          FILES=$(git diff --name-only --diff-filter=AM origin/main...HEAD \
+            | grep -E "^\.squad/|^\.copilot/|^\.github/agents/" || true)
+
+          if [ -n "$FILES" ]; then
+            echo "❌ This PR adds AI team files to main."
+            echo "   .squad/, .copilot/, and .github/agents/ belong on dev branches only."
+            echo ""
+            echo "Offending files:"
+            echo "$FILES"
+            exit 1
+          fi
+
+          echo "✅ No AI team files detected in this PR."

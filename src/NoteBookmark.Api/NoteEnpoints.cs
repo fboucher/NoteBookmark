@@ -34,6 +34,9 @@ public static class NoteEnpoints
 		endpoints.MapPut("/note", UpdateNote)
 			.WithDescription("Update an existing note");
 
+		endpoints.MapPatch("/note/{rowKey}", PatchNote)
+			.WithDescription("Partially update a note by its row key");
+
 		endpoints.MapDelete("/note/{rowKey}", DeleteNote)
 			.WithDescription("Delete a note");
 	}
@@ -67,11 +70,18 @@ public static class NoteEnpoints
 	}
 
 	static Results<Ok<List<Note>>, NotFound> GetNotes(TableServiceClient tblClient, 
-														BlobServiceClient blobClient)
+														BlobServiceClient blobClient,
+														DateTime? modifiedAfter = null)
 	{
 		var dataStorageService = new DataStorageService(tblClient, blobClient);
 		var notes = dataStorageService.GetNotes();
-		return notes == null ? TypedResults.NotFound() : TypedResults.Ok(notes);
+		if (notes == null) return TypedResults.NotFound();
+		if (modifiedAfter.HasValue)
+		{
+			var threshold = modifiedAfter.Value.ToUniversalTime();
+			notes = notes.Where(n => n.DateModified > threshold).ToList();
+		}
+		return TypedResults.Ok(notes);
 	}
 
 	static Results<Ok<List<ReadingNote>>, NotFound> GetNotesForSummary(string ReadingNotesId, 
@@ -163,5 +173,30 @@ public static class NoteEnpoints
 		var dataStorageService = new DataStorageService(tblClient, blobClient);
 		var result = dataStorageService.DeleteNote(rowKey);
 		return result ? TypedResults.Ok() : TypedResults.NotFound();
+	}
+
+	static Results<Ok<Note>, NotFound, BadRequest> PatchNote(string rowKey, Note note, 
+															TableServiceClient tblClient, 
+															BlobServiceClient blobClient)
+	{
+		try
+		{
+			var dataStorageService = new DataStorageService(tblClient, blobClient);
+			var existingNote = dataStorageService.GetNote(rowKey);
+			if (existingNote is null)
+			{
+				return TypedResults.NotFound();
+			}
+			note.RowKey = rowKey;
+			note.PartitionKey = existingNote.PartitionKey;
+			dataStorageService.CreateNote(note);
+			var updated = dataStorageService.GetNote(rowKey);
+			return TypedResults.Ok(updated!);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"An error occurred while patching a note: {ex.Message}");
+			return TypedResults.BadRequest();
+		}
 	}
 }
