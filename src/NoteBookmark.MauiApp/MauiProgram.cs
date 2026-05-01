@@ -23,6 +23,7 @@ public static class MauiProgram
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
         builder.Logging.AddDebug();
+    AddOptionalDevelopmentConfiguration(builder.Configuration);
 #endif
 
         // Configuration
@@ -39,5 +40,20 @@ public static class MauiProgram
                 sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(KeycloakAuthService))));
 
         return builder.Build();
+    }
+
+    private static void AddOptionalDevelopmentConfiguration(ConfigurationManager configuration)
+    {
+        try
+        {
+            using var stream = FileSystem.OpenAppPackageFileAsync("appsettings.Development.json")
+                .GetAwaiter()
+                .GetResult();
+            configuration.AddJsonStream(stream);
+        }
+        catch (FileNotFoundException)
+        {
+            // Local development overrides are optional and should stay out of source control.
+        }
     }
 }

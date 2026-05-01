@@ -108,6 +108,9 @@
 
     <ItemGroup>
         <MauiAsset Include="wwwroot\appsettings.json" LogicalName="appsettings.json" />
+        <MauiAsset Include="wwwroot\appsettings.Development.json"
+                   LogicalName="appsettings.Development.json"
+                   Condition="Exists('wwwroot\appsettings.Development.json')" />
     </ItemGroup>
 
 </Project>
