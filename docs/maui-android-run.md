@@ -179,6 +179,11 @@ If the browser returns from Keycloak but the app does not complete sign-in:
 
 - Verify the redirect URI is exactly `notebookmark://auth/callback`
 - Verify the Keycloak client allows that redirect URI
+- Check that `AndroidManifest.xml` uses the correct WebAuthenticator activity class:
+  `microsoft.maui.essentials.WebAuthenticatorCallbackActivity`
+  (not `microsoft.maui.authentication.*` — that name silently drops the callback)
+- Check that `MainActivity` has `LaunchMode = LaunchMode.SingleTask` so the auth
+  redirect returns to the existing app task instead of starting a new one
 
 If your local override file is ignored at runtime:
 
@@ -198,3 +203,21 @@ sudo dotnet workload repair
 
 - The `wasm-tools` workload must be installed in addition to `maui-android` (see Prerequisites)
 - If errors persist about missing `.targets` files in the Android SDK pack, `dotnet workload repair` will reinstall the pack and restore the missing files
+
+## 9. Typing Into The Emulator From Your Keyboard
+
+The Android emulator accepts your computer keyboard input directly when the emulator window has focus — just click the emulator window and type.
+
+If the on-screen keyboard pops up and blocks input, hide it:
+
+- Press **Ctrl+M** in the emulator window to toggle the soft keyboard
+- Or run from a terminal: `adb shell input keyevent 111` (KEYCODE_ESCAPE hides the keyboard)
+
+To send text from a terminal without focusing the emulator window:
+
+```bash
+adb shell input text "your text here"
+```
+
+Note: `adb shell input text` does not handle special characters (spaces, `@`, etc.) well.
+Use URL-encoding or type directly in the emulator window for passwords and email addresses.
