@@ -121,6 +121,13 @@ builder.Services.AddAuthentication(options =>
     // Configure logout to properly pass id_token_hint to Keycloak
     options.Events = new OpenIdConnectEvents
     {
+        OnPushAuthorization = context =>
+        {
+            // Skip PAR when Keycloak rejects the pushed authorization request.
+            // This lets the handler use the normal authorize request flow.
+            context.SkipPush();
+            return Task.CompletedTask;
+        },
         OnRedirectToIdentityProviderForSignOut = async context =>
         {
             // Get the id_token from saved tokens

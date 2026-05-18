@@ -1,0 +1,96 @@
+@page "/login"
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="login-container">
+    <div class="login-card">
+        <h1>NoteBookmark</h1>
+
+        @if (_sessionExpiredOffline)
+        {
+            <div class="alert alert-warning" role="alert">
+                Session expired — go online to re-authenticate.
+            </div>
+        }
+
+        @if (_errorMessage is not null)
+        {
+            <div class="alert alert-danger" role="alert">
+                @_errorMessage
+            </div>
+        }
+
+        <button class="btn btn-primary btn-lg" @onclick="LoginAsync" disabled="@_isLoading">
+            @if (_isLoading)
+            {
+                <span>Signing in…</span>
+            }
+            else
+            {
+                <span>Sign in with Keycloak</span>
+            }
+        </button>
+    </div>
+</div>
+
+@code {
+    private bool _isLoading;
+    private string? _errorMessage;
+    private bool _sessionExpiredOffline;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // If already authenticated, skip login
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        // Detect offline + session-expired scenario
+        if (Connectivity.Current.NetworkAccess != NetworkAccess.Internet)
+        {
+            _sessionExpiredOffline = true;
+        }
+
+        AuthService.AuthStateChanged += OnAuthStateChanged;
+    }
+
+    private async Task LoginAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            await AuthService.LoginAsync();
+            // Navigation happens via AuthStateChanged event
+        }
+        catch (TaskCanceledException)
+        {
+            // User cancelled the browser session — not an error
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Login failed: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnAuthStateChanged(object? sender, bool isAuthenticated)
+    {
+        if (isAuthenticated)
+            Nav.NavigateTo("/", replace: true);
+    }
+
+    public void Dispose()
+    {
+        AuthService.AuthStateChanged -= OnAuthStateChanged;
+    }
+}

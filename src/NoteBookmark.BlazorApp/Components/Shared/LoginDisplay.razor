@@ -26,11 +26,11 @@
         {
             returnUrl = "/";
         }
-        Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: false);
+        Navigation.NavigateTo($"/authentication/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
     }
 
     private void Logout()
     {
-        Navigation.NavigateTo("/logout", forceLoad: false);
+        Navigation.NavigateTo("/authentication/logout", forceLoad: true);
     }
 }

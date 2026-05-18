@@ -1,0 +1,8 @@
+﻿<Router AppAssembly="typeof(MauiProgram).Assembly"
+        AdditionalAssemblies="new[] { typeof(NoteBookmark.SharedUI.PostNoteClient).Assembly }"
+        NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>
