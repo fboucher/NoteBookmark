@@ -9,6 +9,7 @@ public class Note : ITableEntity
         PartitionKey = DateTime.UtcNow.ToString("yyyy-MM");
         RowKey = Guid.NewGuid().ToString();
         DateAdded = DateTime.UtcNow;
+        DateModified = DateTime.UtcNow;
     }
 
 
@@ -17,6 +18,9 @@ public class Note : ITableEntity
 
     [DataMember(Name = "date_added")]
     public DateTime DateAdded { get; set; }
+
+    [DataMember(Name = "date_modified")]
+    public DateTime DateModified { get; set; }
 
     [DataMember(Name = "tags")]
     public string? Tags { get; set; }

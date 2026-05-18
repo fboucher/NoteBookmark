@@ -27,18 +27,32 @@ public static class PostEndpoints
 			.WithDescription("Extract post details from URL and save the post");
 		endpoints.MapDelete("/{id}", DeletePost)
 			.WithDescription("Delete a post by id");
+		endpoints.MapPatch("/{id}", PatchPost)
+			.WithDescription("Partially update a post by id");
 	}
 
-	static List<PostL> GetUnreadPosts(TableServiceClient tblClient, BlobServiceClient blobClient)
+	static List<PostL> GetUnreadPosts(TableServiceClient tblClient, BlobServiceClient blobClient, DateTime? modifiedAfter = null)
 	{
 		var dataStorageService = new DataStorageService(tblClient, blobClient);
-		return dataStorageService.GetFilteredPosts("is_read eq false");
+		var posts = dataStorageService.GetFilteredPosts("is_read eq false");
+		if (modifiedAfter.HasValue)
+		{
+			var threshold = modifiedAfter.Value.ToUniversalTime();
+			posts = posts.Where(p => p.DateModified > threshold).ToList();
+		}
+		return posts;
 	}
 
-	static List<PostL> GetReadPosts(TableServiceClient tblClient, BlobServiceClient blobClient)
+	static List<PostL> GetReadPosts(TableServiceClient tblClient, BlobServiceClient blobClient, DateTime? modifiedAfter = null)
 	{
 		var dataStorageService = new DataStorageService(tblClient, blobClient);
-		return dataStorageService.GetFilteredPosts("is_read eq true");
+		var posts = dataStorageService.GetFilteredPosts("is_read eq true");
+		if (modifiedAfter.HasValue)
+		{
+			var threshold = modifiedAfter.Value.ToUniversalTime();
+			posts = posts.Where(p => p.DateModified > threshold).ToList();
+		}
+		return posts;
 	}
 
 	static Results<Ok<Post>, NotFound> Get(string id, TableServiceClient tblClient, BlobServiceClient blobClient)
@@ -98,6 +112,24 @@ public static class PostEndpoints
 		return TypedResults.NotFound();
 	}
 
+	static Results<Ok<Post>, NotFound, BadRequest> PatchPost(string id, Post post, TableServiceClient tblClient, BlobServiceClient blobClient)
+	{
+		var dataStorageService = new DataStorageService(tblClient, blobClient);
+		var existingPost = dataStorageService.GetPost(id);
+		if (existingPost is null)
+		{
+			return TypedResults.NotFound();
+		}
+		post.RowKey = id;
+		post.PartitionKey = existingPost.PartitionKey;
+		if (dataStorageService.SavePost(post))
+		{
+			var updated = dataStorageService.GetPost(id);
+			return TypedResults.Ok(updated!);
+		}
+		return TypedResults.BadRequest();
+	}
+
 	private static async Task<Post?> ExtractPostDetailsFromUrl(string url)
     {
         var web = new HtmlWeb();
@@ -146,7 +178,8 @@ public static class PostEndpoints
 			Date_published = publicationDate.ToString("yyyy-MM-ddTHH:mm:ssZ"),
 			is_read = false,
 			RowKey = postGuid,
-			Id = postGuid
+			Id = postGuid,
+			DateModified = DateTime.UtcNow
 		};
 		return post;
     }

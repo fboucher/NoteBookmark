@@ -52,6 +52,9 @@ public class Post : ITableEntity
     [DataMember(Name="id")]
     public string? Id { get; set; }
 
+    [DataMember(Name = "date_modified")]
+    public DateTime DateModified { get; set; } = DateTime.UtcNow;
+
     public required string PartitionKey { get; set; }
 
     public required string RowKey { get; set; }

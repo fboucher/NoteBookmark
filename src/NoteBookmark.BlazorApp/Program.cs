@@ -5,6 +5,7 @@ using Microsoft.FluentUI.AspNetCore.Components;
 using NoteBookmark.AIServices;
 using NoteBookmark.BlazorApp;
 using NoteBookmark.BlazorApp.Components;
+using NoteBookmark.SharedUI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -120,6 +121,13 @@ builder.Services.AddAuthentication(options =>
     // Configure logout to properly pass id_token_hint to Keycloak
     options.Events = new OpenIdConnectEvents
     {
+        OnPushAuthorization = context =>
+        {
+            // Skip PAR when Keycloak rejects the pushed authorization request.
+            // This lets the handler use the normal authorize request flow.
+            context.SkipPush();
+            return Task.CompletedTask;
+        },
         OnRedirectToIdentityProviderForSignOut = async context =>
         {
             // Get the id_token from saved tokens
@@ -161,7 +169,8 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .AddAdditionalAssemblies(typeof(NoteBookmark.SharedUI.PostNoteClient).Assembly);
 
 // Authentication endpoints
 app.MapGet("/authentication/login", async (HttpContext context, string? returnUrl) =>

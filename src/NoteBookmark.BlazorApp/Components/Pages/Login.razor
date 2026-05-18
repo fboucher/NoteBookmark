@@ -1,27 +1,23 @@
 @page "/login"
 @attribute [AllowAnonymous]
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Authentication
-@using Microsoft.AspNetCore.Authentication.OpenIdConnect
+@using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Navigation
-@inject IHttpContextAccessor HttpContextAccessor
 @code {
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        // Get the return URL from query string or default to home
         var uri = new Uri(Navigation.Uri);
-        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        var returnUrl = query["returnUrl"] ?? "/";
-        
-        // Trigger authentication challenge via HttpContext
-        var httpContext = HttpContextAccessor.HttpContext;
-        if (httpContext != null)
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        var returnUrl = "/";
+        if (query.TryGetValue("returnUrl", out var returnUrlValues))
         {
-            var authProperties = new AuthenticationProperties
+            var returnUrlString = returnUrlValues.FirstOrDefault();
+            if (!string.IsNullOrEmpty(returnUrlString))
             {
-                RedirectUri = returnUrl
-            };
-            await httpContext.ChallengeAsync(OpenIdConnectDefaults.AuthenticationScheme, authProperties);
+                returnUrl = returnUrlString;
+            }
         }
+
+        Navigation.NavigateTo($"/authentication/login?returnUrl={Uri.EscapeDataString(returnUrl)}", forceLoad: true);
     }
 }

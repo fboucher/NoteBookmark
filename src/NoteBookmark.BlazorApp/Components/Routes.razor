@@ -4,7 +4,7 @@
 <FluentDesignTheme StorageName="theme" @rendermode="@InteractiveServer" />
 
 <CascadingAuthenticationState>
-    <Router AppAssembly="typeof(Program).Assembly">
+    <Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="new[] { typeof(NoteBookmark.SharedUI.PostNoteClient).Assembly }">
         <Found Context="routeData">
             <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
                 <NotAuthorized>
@@ -14,7 +14,7 @@
                             <FluentIcon Value="@(new Icons.Regular.Size48.LockClosed())" Color="Color.Accent" />
                             <h2>Authentication Required</h2>
                             <p>You need to be logged in to access this page.</p>
-                            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => NavigationManager.NavigateTo("/login?returnUrl=" + Uri.EscapeDataString(NavigationManager.ToBaseRelativePath(NavigationManager.Uri)), forceLoad: false))">
+                            <FluentButton Appearance="Appearance.Accent" OnClick="@(() => NavigationManager.NavigateTo("/authentication/login?returnUrl=" + Uri.EscapeDataString(NavigationManager.ToBaseRelativePath(NavigationManager.Uri)), forceLoad: true))">
                                 Login
                             </FluentButton>
                         </FluentStack>

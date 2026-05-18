@@ -36,6 +36,7 @@ public class PostL : ITableEntity
     // Note Properties
     public string? NoteId { get; set; }
     public string? Note { get; set; }
+    public DateTime DateModified { get; set; }
 }
 
 

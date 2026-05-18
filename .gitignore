@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Local MAUI mobile configuration overrides
+src/NoteBookmark.MauiApp/wwwroot/appsettings.Development.json
+
 # User-specific files
 *.rsuser
 *.suo

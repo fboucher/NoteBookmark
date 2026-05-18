@@ -33,6 +33,9 @@ jobs:
             ${{ env.DEFAULT_DOTNET_VERSION }}
             10.0.x
 
+      - name: Restore workloads
+        run: dotnet workload restore
+
       - name: Restore dependencies
         run: dotnet restore
 

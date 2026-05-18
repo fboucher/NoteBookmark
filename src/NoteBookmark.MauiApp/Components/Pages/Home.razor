@@ -1,0 +1,49 @@
+@page "/"
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+@implements IDisposable
+
+@if (!_ready)
+{
+    <p>Loading…</p>
+}
+else
+{
+    <div class="home-container">
+        <h2>Hello, @(AuthService.Username ?? "there")!</h2>
+        <p>You are signed in to NoteBookmark.</p>
+        <button class="btn btn-outline-secondary" @onclick="LogoutAsync">Sign out</button>
+    </div>
+}
+
+@code {
+    private bool _ready;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!await AuthService.IsAuthenticatedAsync())
+        {
+            Nav.NavigateTo("/login", replace: true);
+            return;
+        }
+        _ready = true;
+        AuthService.AuthStateChanged += OnAuthStateChanged;
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthService.LogoutAsync();
+    }
+
+    private void OnAuthStateChanged(object? sender, bool isAuthenticated)
+    {
+        if (!isAuthenticated)
+            Nav.NavigateTo("/login", replace: true);
+    }
+
+    public void Dispose()
+    {
+        AuthService.AuthStateChanged -= OnAuthStateChanged;
+    }
+}
+
