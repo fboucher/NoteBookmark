@@ -8,6 +8,17 @@ main {
     flex: 1;
 }
 
+.offline-banner {
+    background-color: #ff9800;
+    color: white;
+    text-align: center;
+    padding: 10px;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
 .sidebar {
     background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
 }

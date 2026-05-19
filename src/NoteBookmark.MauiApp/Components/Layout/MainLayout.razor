@@ -1,4 +1,7 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using Microsoft.Maui.Networking
+@inject IConnectivity Connectivity
+@implements IDisposable
 
 <div class="page">
     <div class="sidebar">
@@ -6,6 +9,12 @@
     </div>
 
     <main>
+        @if (isOffline)
+        {
+            <div class="offline-banner">
+                You are currently offline. Changes will be saved locally.
+            </div>
+        }
         <div class="top-row px-4">
             <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
         </div>
@@ -15,3 +24,28 @@
         </article>
     </main>
 </div>
+
+@code {
+    private bool isOffline;
+
+    protected override void OnInitialized()
+    {
+        isOffline = Connectivity.NetworkAccess != NetworkAccess.Internet;
+        Connectivity.ConnectivityChanged += OnConnectivityChanged;
+    }
+
+    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    {
+        var wasOffline = isOffline;
+        isOffline = e.NetworkAccess != NetworkAccess.Internet;
+        if (wasOffline != isOffline)
+        {
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        Connectivity.ConnectivityChanged -= OnConnectivityChanged;
+    }
+}

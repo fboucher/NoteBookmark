@@ -45,6 +45,8 @@ public class LocalDataService : ILocalDataService
         _database = new SQLiteAsyncConnection(_databasePath, Flags);
         await _database.CreateTableAsync<LocalPost>();
         await _database.CreateTableAsync<LocalNote>();
+        await _database.CreateTableAsync<LocalSummary>();
+        await _database.CreateTableAsync<LocalSettings>();
     }
 
     public async Task<List<Post>> GetPostsAsync()
@@ -65,15 +67,15 @@ public class LocalDataService : ILocalDataService
         return localPost?.ToDomain();
     }
 
-    public async Task SavePostAsync(Post post)
+    public async Task SavePostAsync(Post post, bool isPendingSync = false)
     {
         await InitAsync();
-        var localPost = LocalPost.FromDomain(post);
+        var localPost = LocalPost.FromDomain(post, isPendingSync);
         var existing = await _database.Table<LocalPost>().Where(p => p.Id == localPost.Id).FirstOrDefaultAsync();
         
         if (existing is not null)
         {
-            localPost.IsPendingSync = existing.IsPendingSync; // Preserve flag unless we are intentionally overwriting it
+            localPost.IsPendingSync = isPendingSync || existing.IsPendingSync; // Preserve flag unless we are intentionally overwriting it
             await _database.UpdateAsync(localPost);
         }
         else
@@ -124,20 +126,76 @@ public class LocalDataService : ILocalDataService
         return localNote?.ToDomain();
     }
 
-    public async Task SaveNoteAsync(Note note)
+    public async Task SaveNoteAsync(Note note, bool isPendingSync = false)
     {
         await InitAsync();
-        var localNote = LocalNote.FromDomain(note);
+        var localNote = LocalNote.FromDomain(note, isPendingSync);
         var existing = await _database.Table<LocalNote>().Where(n => n.RowKey == localNote.RowKey).FirstOrDefaultAsync();
         
         if (existing is not null)
         {
-            localNote.IsPendingSync = existing.IsPendingSync;
+            localNote.IsPendingSync = isPendingSync || existing.IsPendingSync;
             await _database.UpdateAsync(localNote);
         }
         else
         {
             await _database.InsertAsync(localNote);
+        }
+    }
+
+    public async Task<List<Summary>> GetSummariesAsync()
+    {
+        await InitAsync();
+        var localSummaries = await _database.Table<LocalSummary>()
+            .Where(s => !s.IsDeleted)
+            .ToListAsync();
+        return localSummaries.Select(s => s.ToDomain()).ToList();
+    }
+
+    public async Task SaveSummariesAsync(IEnumerable<Summary> summaries)
+    {
+        await InitAsync();
+        var localSummaries = summaries.Select(s => LocalSummary.FromDomain(s)).ToList();
+        
+        await _database.RunInTransactionAsync(conn =>
+        {
+            foreach (var localSummary in localSummaries)
+            {
+                var existing = conn.Table<LocalSummary>().Where(s => s.RowKey == localSummary.RowKey).FirstOrDefault();
+                if (existing is not null)
+                {
+                    localSummary.IsPendingSync = existing.IsPendingSync;
+                    conn.Update(localSummary);
+                }
+                else
+                {
+                    conn.Insert(localSummary);
+                }
+            }
+        });
+    }
+
+    public async Task<Settings?> GetSettingsAsync()
+    {
+        await InitAsync();
+        var localSettings = await _database.Table<LocalSettings>().FirstOrDefaultAsync();
+        return localSettings?.ToDomain();
+    }
+
+    public async Task SaveSettingsAsync(Settings settings)
+    {
+        await InitAsync();
+        var localSettings = LocalSettings.FromDomain(settings);
+        var existing = await _database.Table<LocalSettings>().Where(s => s.RowKey == localSettings.RowKey).FirstOrDefaultAsync();
+        
+        if (existing is not null)
+        {
+            localSettings.IsPendingSync = existing.IsPendingSync;
+            await _database.UpdateAsync(localSettings);
+        }
+        else
+        {
+            await _database.InsertAsync(localSettings);
         }
     }
 
