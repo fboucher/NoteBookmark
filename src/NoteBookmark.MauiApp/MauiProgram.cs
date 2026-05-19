@@ -27,6 +27,8 @@ public static class MauiProgram
     AddOptionalDevelopmentConfiguration(builder.Configuration);
 #endif
 
+        builder.Services.AddSingleton<Microsoft.Maui.Networking.IConnectivity>(Microsoft.Maui.Networking.Connectivity.Current);
+
         // Data Layer
         builder.Services.AddSingleton<NoteBookmark.MauiApp.Data.ILocalDataService, NoteBookmark.MauiApp.Data.LocalDataService>();
         

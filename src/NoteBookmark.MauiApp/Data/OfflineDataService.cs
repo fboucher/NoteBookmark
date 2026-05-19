@@ -1,46 +1,159 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Maui.Networking;
 using NoteBookmark.Domain;
 using NoteBookmark.SharedUI;
 
 namespace NoteBookmark.MauiApp.Data;
 
-public class OfflineDataService(PostNoteClient apiClient, ILocalDataService localDataService) : IDataService
+public class OfflineDataService(PostNoteClient apiClient, ILocalDataService localDataService, IConnectivity connectivity) : IDataService
 {
-    // For now, this just passes through to the API. 
-    // Offline caching and sync logic will be added in subsequent issues.
+    private bool IsOnline => connectivity.NetworkAccess == NetworkAccess.Internet;
 
-    public Task<List<PostL>> GetUnreadPosts() => apiClient.GetUnreadPosts();
-    public Task<List<PostL>> GetReadPosts() => apiClient.GetReadPosts();
-    public Task<List<Summary>> GetSummaries() => apiClient.GetSummaries();
+    public async Task<List<PostL>> GetUnreadPosts()
+    {
+        if (IsOnline)
+        {
+            var posts = await apiClient.GetUnreadPosts();
+            return posts;
+        }
+        else
+        {
+            var allPosts = await localDataService.GetPostsAsync();
+            var allNotes = await localDataService.GetNotesAsync();
+            
+            return allPosts.Where(p => p.is_read != true).Select(p => {
+                var note = allNotes.FirstOrDefault(n => n.PostId == p.RowKey);
+                return new PostL
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Date_published = p.Date_published,
+                    Url = p.Url,
+                    Excerpt = p.Excerpt,
+                    is_read = p.is_read,
+                    PartitionKey = p.PartitionKey,
+                    RowKey = p.RowKey,
+                    NoteId = note?.RowKey,
+                    Note = note?.Comment,
+                    DateModified = p.DateModified
+                };
+            }).ToList();
+        }
+    }
+
+    public async Task<List<PostL>> GetReadPosts()
+    {
+        if (IsOnline)
+        {
+            var posts = await apiClient.GetReadPosts();
+            return posts;
+        }
+        else
+        {
+            var allPosts = await localDataService.GetPostsAsync();
+            var allNotes = await localDataService.GetNotesAsync();
+            
+            return allPosts.Where(p => p.is_read == true).Select(p => {
+                var note = allNotes.FirstOrDefault(n => n.PostId == p.RowKey);
+                return new PostL
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Date_published = p.Date_published,
+                    Url = p.Url,
+                    Excerpt = p.Excerpt,
+                    is_read = p.is_read,
+                    PartitionKey = p.PartitionKey,
+                    RowKey = p.RowKey,
+                    NoteId = note?.RowKey,
+                    Note = note?.Comment,
+                    DateModified = p.DateModified
+                };
+            }).ToList();
+        }
+    }
+
+    public async Task<List<Summary>> GetSummaries()
+    {
+        if (IsOnline)
+        {
+            var summaries = await apiClient.GetSummaries();
+            await localDataService.SaveSummariesAsync(summaries);
+            return summaries;
+        }
+        else
+        {
+            return await localDataService.GetSummariesAsync();
+        }
+    }
     
     public async Task CreateNote(Note note)
     {
-        await apiClient.CreateNote(note);
-        await localDataService.SaveNoteAsync(note);
+        if (IsOnline)
+        {
+            await apiClient.CreateNote(note);
+            await localDataService.SaveNoteAsync(note);
+        }
+        else
+        {
+            await localDataService.SaveNoteAsync(note, isPendingSync: true);
+        }
     }
     
     public async Task<Note?> GetNote(string noteId)
     {
-        var note = await apiClient.GetNote(noteId);
-        if (note != null)
+        if (IsOnline)
         {
-            await localDataService.SaveNoteAsync(note);
+            var note = await apiClient.GetNote(noteId);
+            if (note != null) await localDataService.SaveNoteAsync(note);
+            return note;
         }
-        return note;
+        else
+        {
+            return await localDataService.GetNoteAsync(noteId);
+        }
     }
     
     public async Task<bool> UpdateNote(Note note)
     {
-        var success = await apiClient.UpdateNote(note);
-        if (success)
+        if (IsOnline)
         {
-            await localDataService.SaveNoteAsync(note);
+            var success = await apiClient.UpdateNote(note);
+            if (success) await localDataService.SaveNoteAsync(note);
+            return success;
         }
-        return success;
+        else
+        {
+            await localDataService.SaveNoteAsync(note, isPendingSync: true);
+            return true;
+        }
     }
     
-    public Task<bool> DeleteNote(string noteId) => apiClient.DeleteNote(noteId); // Deletions handled in sync engine later
+    public async Task<bool> DeleteNote(string noteId)
+    {
+        if (IsOnline)
+        {
+            var success = await apiClient.DeleteNote(noteId);
+            if (success)
+            {
+                var note = await localDataService.GetNoteAsync(noteId);
+                if (note != null)
+                {
+                    // For now, deletions are hard deletions or ignored locally. 
+                    // Let's mark it deleted or just let sync engine handle it later.
+                }
+            }
+            return success;
+        }
+        else
+        {
+            // mark deleted locally not fully implemented yet
+            return true;
+        }
+    }
     
     public Task<ReadingNotes> CreateReadingNotes() => apiClient.CreateReadingNotes();
     public Task<ReadingNotes?> GetReadingNotes(string number) => apiClient.GetReadingNotes(number);
@@ -48,26 +161,99 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     
     public async Task<Post?> GetPost(string id)
     {
-        var post = await apiClient.GetPost(id);
-        if (post != null)
+        if (IsOnline)
         {
-            await localDataService.SavePostAsync(post);
+            var post = await apiClient.GetPost(id);
+            if (post != null) await localDataService.SavePostAsync(post);
+            return post;
         }
-        return post;
+        else
+        {
+            return await localDataService.GetPostAsync(id);
+        }
     }
     
     public async Task<bool> SavePost(Post post)
     {
-        var success = await apiClient.SavePost(post);
-        if (success)
+        if (IsOnline)
         {
-            await localDataService.SavePostAsync(post);
+            var success = await apiClient.SavePost(post);
+            if (success) await localDataService.SavePostAsync(post);
+            return success;
         }
-        return success;
+        else
+        {
+            await localDataService.SavePostAsync(post, isPendingSync: true);
+            return true;
+        }
     }
-    public Task<Settings?> GetSettings() => apiClient.GetSettings();
-    public Task<bool> SaveSettings(Settings settings) => apiClient.SaveSettings(settings);
-    public Task<bool> ExtractPostDetailsAndSave(string url) => apiClient.ExtractPostDetailsAndSave(url);
-    public Task<bool> DeletePost(string id) => apiClient.DeletePost(id);
+
+    public async Task<Settings?> GetSettings()
+    {
+        if (IsOnline)
+        {
+            var settings = await apiClient.GetSettings();
+            if (settings != null) await localDataService.SaveSettingsAsync(settings);
+            return settings;
+        }
+        else
+        {
+            return await localDataService.GetSettingsAsync();
+        }
+    }
+
+    public async Task<bool> SaveSettings(Settings settings)
+    {
+        if (IsOnline)
+        {
+            var success = await apiClient.SaveSettings(settings);
+            if (success) await localDataService.SaveSettingsAsync(settings);
+            return success;
+        }
+        else
+        {
+            // For now, offline settings saves don't sync.
+            await localDataService.SaveSettingsAsync(settings);
+            return true;
+        }
+    }
+
+    public async Task<bool> ExtractPostDetailsAndSave(string url)
+    {
+        if (IsOnline)
+        {
+            return await apiClient.ExtractPostDetailsAndSave(url);
+        }
+        return false; // Can't extract offline
+    }
+
+    public async Task<bool> DeletePost(string id)
+    {
+        if (IsOnline)
+        {
+            var success = await apiClient.DeletePost(id);
+            if (success)
+            {
+                var post = await localDataService.GetPostAsync(id);
+                if (post != null)
+                {
+                    post.is_read = true; // Simulating what API does
+                    await localDataService.SavePostAsync(post);
+                }
+            }
+            return success;
+        }
+        else
+        {
+            var post = await localDataService.GetPostAsync(id);
+            if (post != null)
+            {
+                post.is_read = true;
+                await localDataService.SavePostAsync(post, isPendingSync: true);
+            }
+            return true;
+        }
+    }
+
     public Task<bool> SaveReadingNotesMarkdown(string markdown, string number) => apiClient.SaveReadingNotesMarkdown(markdown, number);
 }
