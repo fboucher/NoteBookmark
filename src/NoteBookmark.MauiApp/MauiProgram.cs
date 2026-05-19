@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Hosting;
 using NoteBookmark.MauiApp.Auth;
+using Microsoft.FluentUI.AspNetCore.Components;
 using MauiHostingApp = Microsoft.Maui.Hosting.MauiApp;
 
 namespace NoteBookmark.MauiApp;
@@ -25,6 +26,19 @@ public static class MauiProgram
         builder.Logging.AddDebug();
     AddOptionalDevelopmentConfiguration(builder.Configuration);
 #endif
+
+        // Data Layer
+        builder.Services.AddSingleton<NoteBookmark.MauiApp.Data.ILocalDataService, NoteBookmark.MauiApp.Data.LocalDataService>();
+        
+        var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "https://localhost:7198"; // Default dev port if not found
+        builder.Services.AddHttpClient<NoteBookmark.SharedUI.PostNoteClient>(client => 
+        {
+            client.BaseAddress = new Uri(apiBaseUrl);
+        });
+
+        builder.Services.AddSingleton<NoteBookmark.SharedUI.IDataService, NoteBookmark.MauiApp.Data.OfflineDataService>();
+
+        builder.Services.AddFluentUIComponents();
 
         // Auth
         builder.Services.AddSingleton<IAuthService, LocalAuthService>();

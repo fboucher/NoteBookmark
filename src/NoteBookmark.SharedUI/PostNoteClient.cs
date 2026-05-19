@@ -4,7 +4,7 @@ using NoteBookmark.Domain;
 
 namespace NoteBookmark.SharedUI;
 
-public class PostNoteClient(HttpClient httpClient)
+public class PostNoteClient(HttpClient httpClient) : IDataService
 {
     public async Task<List<PostL>> GetUnreadPosts()
     {
