@@ -92,6 +92,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     
     public async Task CreateNote(Note note)
     {
+        note.DateModified = DateTime.UtcNow;
         if (IsOnline)
         {
             await apiClient.CreateNote(note);
@@ -99,6 +100,8 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         }
         else
         {
+            var settings = await localDataService.GetSettingsAsync();
+            note.PartitionKey = settings?.ReadingNotesCounter ?? note.PartitionKey;
             await localDataService.SaveNoteAsync(note, isPendingSync: true);
         }
     }
@@ -119,6 +122,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     
     public async Task<bool> UpdateNote(Note note)
     {
+        note.DateModified = DateTime.UtcNow;
         if (IsOnline)
         {
             var success = await apiClient.UpdateNote(note);
@@ -139,18 +143,13 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
             var success = await apiClient.DeleteNote(noteId);
             if (success)
             {
-                var note = await localDataService.GetNoteAsync(noteId);
-                if (note != null)
-                {
-                    // For now, deletions are hard deletions or ignored locally. 
-                    // Let's mark it deleted or just let sync engine handle it later.
-                }
+                await localDataService.DeleteNoteAsync(noteId);
             }
             return success;
         }
         else
         {
-            // mark deleted locally not fully implemented yet
+            await localDataService.DeleteNoteAsync(noteId, isPendingSync: true);
             return true;
         }
     }
@@ -175,6 +174,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     
     public async Task<bool> SavePost(Post post)
     {
+        post.DateModified = DateTime.UtcNow;
         if (IsOnline)
         {
             var success = await apiClient.SavePost(post);
@@ -238,6 +238,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
                 if (post != null)
                 {
                     post.is_read = true; // Simulating what API does
+                    post.DateModified = DateTime.UtcNow;
                     await localDataService.SavePostAsync(post);
                 }
             }
@@ -249,6 +250,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
             if (post != null)
             {
                 post.is_read = true;
+                post.DateModified = DateTime.UtcNow;
                 await localDataService.SavePostAsync(post, isPendingSync: true);
             }
             return true;

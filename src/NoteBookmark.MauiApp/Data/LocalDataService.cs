@@ -143,6 +143,32 @@ public class LocalDataService : ILocalDataService
         }
     }
 
+    public async Task DeleteNoteAsync(string rowKey, bool isPendingSync = false)
+    {
+        await InitAsync();
+        var existing = await _database.Table<LocalNote>().Where(n => n.RowKey == rowKey).FirstOrDefaultAsync();
+        if (existing is not null)
+        {
+            existing.IsDeleted = true;
+            existing.IsPendingSync = isPendingSync || existing.IsPendingSync;
+            existing.DateModified = DateTime.UtcNow;
+            await _database.UpdateAsync(existing);
+        }
+    }
+
+    public async Task DeletePostAsync(string id, bool isPendingSync = false)
+    {
+        await InitAsync();
+        var existing = await _database.Table<LocalPost>().Where(p => p.Id == id).FirstOrDefaultAsync();
+        if (existing is not null)
+        {
+            existing.IsDeleted = true;
+            existing.IsPendingSync = isPendingSync || existing.IsPendingSync;
+            existing.DateModified = DateTime.UtcNow;
+            await _database.UpdateAsync(existing);
+        }
+    }
+
     public async Task<List<Summary>> GetSummariesAsync()
     {
         await InitAsync();
