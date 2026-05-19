@@ -173,4 +173,19 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         var response = await httpClient.PostAsJsonAsync($"api/summary/{number}/markdown", request);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<List<PostL>> GetPostsModifiedAfter(DateTime modifiedAfter)
+    {
+        var encoded = System.Web.HttpUtility.UrlEncode(modifiedAfter.ToUniversalTime().ToString("O"));
+        var unread = await httpClient.GetFromJsonAsync<List<PostL>>($"api/posts?modifiedAfter={encoded}") ?? new List<PostL>();
+        var read = await httpClient.GetFromJsonAsync<List<PostL>>($"api/posts/read?modifiedAfter={encoded}") ?? new List<PostL>();
+        return unread.Concat(read).ToList();
+    }
+
+    public async Task<List<Note>> GetNotesModifiedAfter(DateTime modifiedAfter)
+    {
+        var encoded = System.Web.HttpUtility.UrlEncode(modifiedAfter.ToUniversalTime().ToString("O"));
+        var notes = await httpClient.GetFromJsonAsync<List<Note>>($"api/notes?modifiedAfter={encoded}");
+        return notes ?? new List<Note>();
+    }
 }
