@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Maui.Hosting;
 using NoteBookmark.MauiApp.Auth;
@@ -26,18 +26,8 @@ public static class MauiProgram
     AddOptionalDevelopmentConfiguration(builder.Configuration);
 #endif
 
-        // Configuration
-        var config = builder.Configuration;
-        var keycloakConfig = config.GetSection(KeycloakConfig.SectionName).Get<KeycloakConfig>()
-            ?? new KeycloakConfig();
-        builder.Services.AddSingleton(keycloakConfig);
-
         // Auth
-        builder.Services.AddHttpClient(nameof(KeycloakAuthService));
-        builder.Services.AddSingleton<IAuthService, KeycloakAuthService>(sp =>
-            new KeycloakAuthService(
-                sp.GetRequiredService<KeycloakConfig>(),
-                sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(KeycloakAuthService))));
+        builder.Services.AddSingleton<IAuthService, LocalAuthService>();
 
         return builder.Build();
     }
