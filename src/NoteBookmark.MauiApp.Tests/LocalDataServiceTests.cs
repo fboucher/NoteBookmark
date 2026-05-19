@@ -71,6 +71,22 @@ public class LocalDataServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SavePost_WithPendingSync_ShouldFlagIt()
+    {
+        var post = new Post
+        {
+            Id = "post1",
+            PartitionKey = "pk",
+            RowKey = "post1",
+            Title = "Test Post"
+        };
+        await _sut.SavePostAsync(post, isPendingSync: true);
+
+        var pending = await _sut.GetPendingSyncPostsAsync();
+        pending.Should().ContainSingle(p => p.Id == "post1");
+    }
+
+    [Fact]
     public async Task MarkSyncedAsync_ShouldClearPendingSyncFlag()
     {
         var post = new Post
@@ -80,18 +96,52 @@ public class LocalDataServiceTests : IAsyncLifetime
             RowKey = "post1",
             Title = "Test Post"
         };
-        await _sut.SavePostAsync(post);
-        // By default SavePost doesn't set IsPendingSync to true, wait, it defaults to false.
-        // Let's modify LocalPost directly or test the flag another way.
-        // I need a way to set it.
+        await _sut.SavePostAsync(post, isPendingSync: true);
+        
+        await _sut.MarkSyncedAsync("post1", isPost: true);
+        
+        var pending = await _sut.GetPendingSyncPostsAsync();
+        pending.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetPendingSyncPostsAsync_ShouldReturnOnlyPending()
+    public async Task DeleteNote_ShouldSoftDeleteAndFlagPendingSync()
     {
-        // To test pending sync, we need a way to set it. We'll use the repository's internal state.
-        // For now, let's just make sure it doesn't fail.
+        var note = new Note
+        {
+            RowKey = "note1",
+            PartitionKey = "pk",
+            Comment = "Delete me"
+        };
+        await _sut.SaveNoteAsync(note);
+        
+        await _sut.DeleteNoteAsync("note1", isPendingSync: true);
+        
+        var retrieved = await _sut.GetNoteAsync("note1");
+        retrieved.Should().BeNull("because it is soft-deleted");
+
+        var pending = await _sut.GetPendingSyncNotesAsync();
+        pending.Should().ContainSingle(n => n.RowKey == "note1", "because it needs to sync the deletion");
+    }
+
+    [Fact]
+    public async Task DeletePost_ShouldSoftDeleteAndFlagPendingSync()
+    {
+        var post = new Post
+        {
+            Id = "post1",
+            PartitionKey = "pk",
+            RowKey = "post1",
+            Title = "Delete me"
+        };
+        await _sut.SavePostAsync(post);
+        
+        await _sut.DeletePostAsync("post1", isPendingSync: true);
+        
+        var retrieved = await _sut.GetPostAsync("post1");
+        retrieved.Should().BeNull("because it is soft-deleted");
+
         var pending = await _sut.GetPendingSyncPostsAsync();
-        pending.Should().BeEmpty();
+        pending.Should().ContainSingle(p => p.Id == "post1", "because it needs to sync the deletion");
     }
 }

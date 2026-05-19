@@ -13,6 +13,8 @@ public interface ILocalDataService
     Task<List<Note>> GetNotesAsync();
     Task<Note?> GetNoteAsync(string rowKey);
     Task SaveNoteAsync(Note note, bool isPendingSync = false);
+    Task DeleteNoteAsync(string rowKey, bool isPendingSync = false);
+    Task DeletePostAsync(string rowKey, bool isPendingSync = false);
     Task<List<Summary>> GetSummariesAsync();
     Task SaveSummariesAsync(IEnumerable<Summary> summaries);
     Task<Settings?> GetSettingsAsync();
