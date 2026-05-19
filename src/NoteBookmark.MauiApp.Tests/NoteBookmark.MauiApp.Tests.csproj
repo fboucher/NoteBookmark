@@ -26,12 +26,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NoteBookmark.Domain\NoteBookmark.Domain.csproj" />
+    <ProjectReference Include="..\NoteBookmark.SharedUI\NoteBookmark.SharedUI.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="..\NoteBookmark.MauiApp\Data\LocalModels.cs" Link="Data\LocalModels.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\ILocalDataService.cs" Link="Data\ILocalDataService.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\LocalDataService.cs" Link="Data\LocalDataService.cs" />
+    <Compile Include="..\NoteBookmark.MauiApp\Data\ISyncApiClient.cs" Link="Data\ISyncApiClient.cs" />
+    <Compile Include="..\NoteBookmark.MauiApp\Data\SyncService.cs" Link="Data\SyncService.cs" />
+    <Compile Include="..\NoteBookmark.MauiApp\Data\SyncApiClient.cs" Link="Data\SyncApiClient.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -49,6 +49,7 @@ public class LocalPost
         Rendered_pages = Rendered_pages,
         is_read = is_read,
         DateModified = DateModified,
+        IsDeleted = IsDeleted,
         PartitionKey = PartitionKey,
         RowKey = RowKey
     };
@@ -104,7 +105,8 @@ public class LocalNote
         DateModified = DateModified,
         Tags = Tags,
         PostId = PostId,
-        Category = Category
+        Category = Category,
+        IsDeleted = IsDeleted
     };
 
     public static LocalNote FromDomain(Note note, bool isPendingSync = false, bool isDeleted = false) => new LocalNote

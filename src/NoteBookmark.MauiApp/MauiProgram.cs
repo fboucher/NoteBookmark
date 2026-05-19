@@ -39,6 +39,8 @@ public static class MauiProgram
         });
 
         builder.Services.AddSingleton<NoteBookmark.SharedUI.IDataService, NoteBookmark.MauiApp.Data.OfflineDataService>();
+        builder.Services.AddSingleton<NoteBookmark.MauiApp.Data.ISyncApiClient, NoteBookmark.MauiApp.Data.SyncApiClient>();
+        builder.Services.AddSingleton<NoteBookmark.MauiApp.Data.ISyncService, NoteBookmark.MauiApp.Data.SyncService>();
 
         builder.Services.AddFluentUIComponents();
 
