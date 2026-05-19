@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.SharedUI", "sr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.MauiApp", "src\NoteBookmark.MauiApp\NoteBookmark.MauiApp.csproj", "{9FFD0186-2C97-40F7-9CA1-EDEC3C2A0EF3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NoteBookmark.MauiApp.Tests", "src\NoteBookmark.MauiApp.Tests\NoteBookmark.MauiApp.Tests.csproj", "{12B352FC-5462-40F2-B5B3-E46530949573}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -169,6 +171,18 @@ Global
 		{9FFD0186-2C97-40F7-9CA1-EDEC3C2A0EF3}.Release|x64.Build.0 = Release|Any CPU
 		{9FFD0186-2C97-40F7-9CA1-EDEC3C2A0EF3}.Release|x86.ActiveCfg = Release|Any CPU
 		{9FFD0186-2C97-40F7-9CA1-EDEC3C2A0EF3}.Release|x86.Build.0 = Release|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Debug|x64.Build.0 = Debug|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Debug|x86.Build.0 = Debug|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Release|Any CPU.Build.0 = Release|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Release|x64.ActiveCfg = Release|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Release|x64.Build.0 = Release|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Release|x86.ActiveCfg = Release|Any CPU
+		{12B352FC-5462-40F2-B5B3-E46530949573}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -178,6 +192,7 @@ Global
 		{C04232AF-A144-47C9-B4D4-3259C61E5ABC} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{1AD790B0-8C91-468A-B21E-C2C5A4F7E1CA} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{9FFD0186-2C97-40F7-9CA1-EDEC3C2A0EF3} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{12B352FC-5462-40F2-B5B3-E46530949573} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D59FFF09-97C3-47EF-B64D-B014BFA22C80}
