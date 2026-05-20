@@ -13,6 +13,7 @@ namespace NoteBookmark.BlazorApp.Tests.Tests;
 ///
 /// NoteDialog now uses EventCallback&lt;NoteDialogResult&gt; instead of Dialog.CloseAsync(),
 /// removing the FluentDialog cascade dependency and enabling unit tests.
+/// Tests use NoteDialogTestWrapper to provide the required FluentDialog cascading parameter.
 /// </summary>
 public sealed class NoteDialogTests : BunitContext
 {
@@ -26,7 +27,7 @@ public sealed class NoteDialogTests : BunitContext
     {
         var note = new Note { PostId = "post-1" };
 
-        var cut = Render<NoteDialog>(p => p
+        var cut = Render<NoteDialogTestWrapper>(p => p
             .Add(x => x.Content, note)
             .Add(x => x.Title, "Add a note"));
 
@@ -38,12 +39,13 @@ public sealed class NoteDialogTests : BunitContext
     {
         var note = new Note { PostId = "post-1" };
 
-        var cut = Render<NoteDialog>(p => p
+        var cut = Render<NoteDialogTestWrapper>(p => p
             .Add(x => x.Content, note)
             .Add(x => x.Title, "Add a note"));
 
-        cut.Markup.Should().Contain("Save");
-        cut.Markup.Should().Contain("Cancel");
+        var markup = cut.Markup;
+        markup.Should().Contain("Save");
+        markup.Should().Contain("Cancel");
     }
 
     [Fact]
@@ -51,11 +53,14 @@ public sealed class NoteDialogTests : BunitContext
     {
         var note = new Note { PostId = "post-1", RowKey = "existing-row-key" };
 
-        var cut = Render<NoteDialog>(p => p
+        var cut = Render<NoteDialogTestWrapper>(p => p
             .Add(x => x.Content, note)
             .Add(x => x.Title, "Edit note"));
 
-        cut.Markup.Should().Contain("Delete");
+        var markup = cut.Markup;
+        markup.Should().Contain("Delete");
+        markup.Should().Contain("Save");
+        markup.Should().Contain("Cancel");
     }
 
     [Fact]
@@ -63,7 +68,7 @@ public sealed class NoteDialogTests : BunitContext
     {
         var note = new Note { PostId = "post-1", Tags = "csharp, blazor" };
 
-        var cut = Render<NoteDialog>(p => p
+        var cut = Render<NoteDialogTestWrapper>(p => p
             .Add(x => x.Content, note)
             .Add(x => x.Title, "Add a note"));
 
@@ -76,7 +81,7 @@ public sealed class NoteDialogTests : BunitContext
     {
         var note = new Note { PostId = "post-1" };
 
-        var cut = Render<NoteDialog>(p => p
+        var cut = Render<NoteDialogTestWrapper>(p => p
             .Add(x => x.Content, note)
             .Add(x => x.Title, "Add a note"));
 

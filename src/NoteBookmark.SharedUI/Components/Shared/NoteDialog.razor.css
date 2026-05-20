@@ -1,0 +1,20 @@
+::deep .note-dialog-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    gap: 8px;
+}
+
+::deep .note-dialog-footer-left {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+}
+
+::deep .note-dialog-footer-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
