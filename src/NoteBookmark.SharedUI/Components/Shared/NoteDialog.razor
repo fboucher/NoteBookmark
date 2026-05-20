@@ -64,23 +64,27 @@
 
 <!-- Footer -->
 <div class="note-dialog-footer">
-    <FluentButton Appearance="Appearance.Accent"
-                  Disabled="@(!_note.Validate())"
-                  OnClick="@SaveAsync">
-        Save
-    </FluentButton>
-    <FluentButton Appearance="Appearance.Neutral"
-                  OnClick="@CancelAsync">
-        Cancel
-    </FluentButton>
-    @if (_isEditMode)
-    {
-        <FluentButton Appearance="Appearance.Accent"
-                      Color="Color.Danger"
-                      OnClick="@DeleteAsync">
-            Delete
+    <div class="note-dialog-footer-left">
+        @if (_isEditMode)
+        {
+            <FluentButton Appearance="Appearance.Accent"
+                          Color="Color.Danger"
+                          OnClick="@DeleteAsync">
+                Delete
+            </FluentButton>
+        }
+    </div>
+    <div class="note-dialog-footer-right">
+        <FluentButton Appearance="Appearance.Neutral"
+                      OnClick="@CancelAsync">
+            Cancel
         </FluentButton>
-    }
+        <FluentButton Appearance="Appearance.Accent"
+                      Disabled="@(!_note.Validate())"
+                      OnClick="@SaveAsync">
+            Save
+        </FluentButton>
+    </div>
 </div>
 
 @code {
