@@ -4,15 +4,6 @@
 
 @rendermode InteractiveServer
 
-<!-- Header -->
-<div class="note-dialog-header">
-    <FluentStack VerticalAlignment="VerticalAlignment.Center">
-        <FluentIcon Value="@(new Icons.Regular.Size24.WindowApps())" />
-        <FluentLabel Typo="Typography.PaneHeader">
-            @(Dialog?.Instance?.Parameters?.Title ?? Title)
-        </FluentLabel>
-    </FluentStack>
-</div>
 
 <!-- Body -->
 <div class="note-dialog-body">
@@ -62,30 +53,18 @@
     </EditForm>
 </div>
 
-<!-- Footer -->
-<div class="note-dialog-footer">
-    <div class="note-dialog-footer-left">
-        @if (_isEditMode)
+<FluentDialogFooter>
+    @if (_isEditMode)
         {
-            <FluentButton Appearance="Appearance.Accent"
-                          Color="Color.Danger"
-                          OnClick="@DeleteAsync">
-                Delete
-            </FluentButton>
+            <FluentButton Appearance="Appearance.Accent" Color="Color.Danger" OnClick="@DeleteAsync">Delete</FluentButton>
         }
-    </div>
-    <div class="note-dialog-footer-right">
-        <FluentButton Appearance="Appearance.Neutral"
-                      OnClick="@CancelAsync">
-            Cancel
-        </FluentButton>
-        <FluentButton Appearance="Appearance.Accent"
-                      Disabled="@(!_note.Validate())"
-                      OnClick="@SaveAsync">
-            Save
-        </FluentButton>
-    </div>
-</div>
+    <FluentSpacer />
+
+    <FluentButton   Appearance="Appearance.Accent"
+                    OnClick="@SaveAsync"
+                    Disabled="@(!_note.Validate())">Save</FluentButton>
+    <FluentButton Appearance="Appearance.Neutral" OnClick="@CancelAsync">Cancel</FluentButton>
+</FluentDialogFooter>
 
 @code {
     [Parameter]
