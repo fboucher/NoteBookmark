@@ -95,7 +95,8 @@
             Title = "Add a note",
             PreventDismissOnOverlayClick = true,
             PreventScroll = true,
-
+            PrimaryAction = "Save",
+            SecondaryAction = "Cancel"
         });
 
         var result = await dialog.Result;
