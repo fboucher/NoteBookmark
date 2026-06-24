@@ -23,8 +23,10 @@ public static class MauiProgram
 
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();
-        builder.Logging.AddDebug();
-    AddOptionalDevelopmentConfiguration(builder.Configuration);
+        builder.Logging
+            .AddDebug()
+            .SetMinimumLevel(LogLevel.Debug);
+        AddOptionalDevelopmentConfiguration(builder.Configuration);
 #endif
 
         builder.Services.AddSingleton<Microsoft.Maui.Networking.IConnectivity>(Microsoft.Maui.Networking.Connectivity.Current);
@@ -36,7 +38,27 @@ public static class MauiProgram
         builder.Services.AddHttpClient<NoteBookmark.SharedUI.PostNoteClient>(client => 
         {
             client.BaseAddress = new Uri(apiBaseUrl);
-        });
+        })
+#if DEBUG
+        .ConfigureHttpMessageHandlerBuilder(builder =>
+        {
+            // In DEBUG builds on Android/mobile, accept self-signed certificates
+            var handler = new HttpClientHandler();
+#pragma warning disable CS0618 // Type or member is obsolete
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) =>
+            {
+                // Accept self-signed certificates in development only
+                if (cert?.Subject.Contains("CN=") == true)
+                {
+                    return true;
+                }
+                return errors == System.Net.Security.SslPolicyErrors.None;
+            };
+#pragma warning restore CS0618 // Type or member is obsolete
+            builder.PrimaryHandler = handler;
+        })
+#endif
+        ;
 
         builder.Services.AddSingleton<NoteBookmark.SharedUI.IDataService, NoteBookmark.MauiApp.Data.OfflineDataService>();
         builder.Services.AddSingleton<NoteBookmark.MauiApp.Data.ISyncApiClient, NoteBookmark.MauiApp.Data.SyncApiClient>();

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Maui.Networking;
 using NoteBookmark.MauiApp.Auth;
 using NoteBookmark.MauiApp.Data;
+using System.Diagnostics;
 
 namespace NoteBookmark.MauiApp;
 
@@ -17,6 +18,20 @@ public partial class App : Application
         _syncService = syncService;
         _connectivity = connectivity;
         _connectivity.ConnectivityChanged += OnConnectivityChanged;
+
+        // Global exception handler for unhandled exceptions
+#if DEBUG
+        AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+        {
+            Debug.WriteLine($"[FATAL] Unhandled Exception: {e.ExceptionObject}");
+        };
+
+        TaskScheduler.UnobservedTaskException += (sender, e) =>
+        {
+            Debug.WriteLine($"[FATAL] Unobserved Task Exception: {e.Exception}");
+            e.SetObserved();
+        };
+#endif
     }
 
     protected override Window CreateWindow(IActivationState? activationState)

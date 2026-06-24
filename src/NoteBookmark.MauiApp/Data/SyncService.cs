@@ -116,21 +116,23 @@ public class SyncService(ISyncApiClient apiClient, ILocalDataService localDataSe
         await SetPreferenceAsync(LastSyncTimestampKey, DateTime.UtcNow.ToString("O"));
     }
 
-    private static async Task<string?> GetPreferenceAsync(string key)
+    private static Task<string?> GetPreferenceAsync(string key)
     {
 #if NOT_MAUI
-        return null;
+        return Task.FromResult<string?>(null);
 #else
-        return await Microsoft.Maui.Storage.Preferences.GetAsync(key, defaultValue: string.Empty);
+        var value = Microsoft.Maui.Storage.Preferences.Default.Get(key, string.Empty);
+        return Task.FromResult<string?>(value);
 #endif
     }
 
-    private static async Task SetPreferenceAsync(string key, string value)
+    private static Task SetPreferenceAsync(string key, string value)
     {
 #if NOT_MAUI
-        await Task.CompletedTask;
+        return Task.CompletedTask;
 #else
-        await Microsoft.Maui.Storage.Preferences.SetAsync(key, value);
+        Microsoft.Maui.Storage.Preferences.Default.Set(key, value);
+        return Task.CompletedTask;
 #endif
     }
 }

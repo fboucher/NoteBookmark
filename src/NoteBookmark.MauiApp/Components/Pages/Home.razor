@@ -18,5 +18,10 @@
     {
         await AuthService.LogoutAsync();
     }
+
+    void IDisposable.Dispose()
+    {
+        // Cleanup resources if needed
+    }
 }
 
