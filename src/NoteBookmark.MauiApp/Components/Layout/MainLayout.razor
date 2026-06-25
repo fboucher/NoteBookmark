@@ -1,7 +1,9 @@
 @inherits LayoutComponentBase
 @using Microsoft.Maui.Networking
+@using Microsoft.FluentUI.AspNetCore.Components
 @inject IConnectivity Connectivity
 @implements IDisposable
+
 
 <div class="page">
     <div class="sidebar">
@@ -24,6 +26,9 @@
         </article>
     </main>
 </div>
+
+<FluentToastProvider />
+<FluentDialogProvider />
 
 @code {
     private bool isOffline;
