@@ -66,6 +66,46 @@ public static class MauiProgram
 
         builder.Services.AddFluentUIComponents();
 
+        // AI Services
+        builder.Services.AddTransient<NoteBookmark.AIServices.SummaryService>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<NoteBookmark.AIServices.SummaryService>>();
+            var dataService = sp.GetRequiredService<NoteBookmark.SharedUI.IDataService>();
+            
+            Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> provider = async () =>
+            {
+                var settings = await dataService.GetSettings();
+                return (
+                    settings?.AiApiKey ?? string.Empty,
+                    settings?.AiBaseUrl ?? string.Empty,
+                    settings?.AiModelName ?? string.Empty
+                );
+            };
+            
+            return new NoteBookmark.AIServices.SummaryService(logger, provider);
+        });
+
+        builder.Services.AddHttpClient(nameof(NoteBookmark.AIServices.ResearchService));
+        builder.Services.AddTransient<NoteBookmark.AIServices.ResearchService>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<NoteBookmark.AIServices.ResearchService>>();
+            var dataService = sp.GetRequiredService<NoteBookmark.SharedUI.IDataService>();
+            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+            var client = httpClientFactory.CreateClient(nameof(NoteBookmark.AIServices.ResearchService));
+
+            Func<Task<(string ApiKey, string BaseUrl, string ModelName)>> provider = async () =>
+            {
+                var settings = await dataService.GetSettings();
+                return (
+                    settings?.AiApiKey ?? string.Empty,
+                    settings?.AiBaseUrl ?? string.Empty,
+                    settings?.AiModelName ?? string.Empty
+                );
+            };
+
+            return new NoteBookmark.AIServices.ResearchService(client, logger, provider);
+        });
+
         // Auth
         builder.Services.AddSingleton<IAuthService, LocalAuthService>();
 
