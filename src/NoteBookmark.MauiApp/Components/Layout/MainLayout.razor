@@ -2,6 +2,7 @@
 @using Microsoft.Maui.Networking
 @using Microsoft.FluentUI.AspNetCore.Components
 @inject IConnectivity Connectivity
+@inject NavigationManager Navigation
 @implements IDisposable
 
 
@@ -37,6 +38,8 @@
     {
         isOffline = Connectivity.NetworkAccess != NetworkAccess.Internet;
         Connectivity.ConnectivityChanged += OnConnectivityChanged;
+        Navigation.LocationChanged += OnLocationChanged;
+        EnsureApiBaseUrlConfigured(Navigation.Uri);
     }
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
@@ -49,8 +52,35 @@
         }
     }
 
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        EnsureApiBaseUrlConfigured(e.Location);
+    }
+
+    private void EnsureApiBaseUrlConfigured(string location)
+    {
+        if (ApiBaseUrlSettings.HasConfiguredValue() || IsSetupRoute(location))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo("/setup", replace: true);
+    }
+
+    private static bool IsSetupRoute(string location)
+    {
+        if (!Uri.TryCreate(location, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var path = uri.AbsolutePath.TrimEnd('/');
+        return string.Equals(path, "/setup", StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         Connectivity.ConnectivityChanged -= OnConnectivityChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 }
