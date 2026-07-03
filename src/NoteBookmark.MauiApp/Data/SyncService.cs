@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NoteBookmark.Domain;
@@ -68,9 +69,14 @@ public class SyncService(
             {
                 remoteNote = await apiClient.GetNote(id);
             }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                remoteNote = null;
+            }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Failed to retrieve remote note {RowKey} for conflict check.", id);
+                logger.LogError(ex, "Failed to retrieve remote note {RowKey} due to network/server error. Aborting push.", id);
+                throw;
             }
 
             bool hasConflict = false;
@@ -103,8 +109,10 @@ public class SyncService(
                     id, remoteNote?.DateModified, note.DateModified, lastSync);
 
                 var message = remoteNote is not null 
-                    ? $"Sync conflict: Comment was modified online. Local edits saved to server, overwriting remote changes." 
-                    : $"Sync conflict: Comment was deleted online. Local comment has been recreated on server.";
+                    ? (note.IsDeleted
+                        ? "Sync conflict: Comment was modified online but deleted locally. Deletion propagated to server."
+                        : "Sync conflict: Comment was modified online. Local edits saved to server, overwriting remote changes.")
+                    : "Sync conflict: Comment was deleted online. Local comment has been recreated on server.";
                 
                 ConflictDetected?.Invoke(this, new SyncConflictEventArgs(message));
 
@@ -149,31 +157,6 @@ public class SyncService(
                 {
                     logger.LogError("Failed to push comment {RowKey} to server.", id);
                 }
-            }
-        }
-
-        // Push posts (if any pending)
-        var pendingPosts = await localDataService.GetPendingSyncPostsAsync();
-        foreach (var post in pendingPosts)
-        {
-            var id = post.Id ?? post.RowKey;
-            bool success;
-            if (post.IsDeleted)
-            {
-                success = await apiClient.DeletePost(id);
-            }
-            else
-            {
-                success = await apiClient.SavePost(post);
-            }
-
-            if (success)
-            {
-                await localDataService.MarkSyncedAsync(id, isPost: true);
-            }
-            else
-            {
-                logger.LogError("Failed to push post {Id} to server.", id);
             }
         }
     }

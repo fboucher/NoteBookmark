@@ -32,31 +32,6 @@ public class SyncServiceTests
         SyncService.ClearInMemoryPreferences();
     }
 
-    [Fact]
-    public async Task PushPhase_ShouldSendPendingPostsAndClearFlag()
-    {
-        var pendingPost = new Post
-        {
-            Id = "post1",
-            RowKey = "post1",
-            PartitionKey = "pk",
-            Title = "Pending",
-            DateModified = DateTime.UtcNow,
-            IsDeleted = false
-        };
-        _localDataServiceMock.Setup(c => c.GetPendingSyncPostsAsync())
-            .ReturnsAsync(new List<Post> { pendingPost });
-        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync())
-            .ReturnsAsync(new List<Note>());
-        _apiClientMock.Setup(c => c.SavePost(It.IsAny<Post>())).ReturnsAsync(true);
-        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<PostL>());
-        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
-
-        await _sut.SyncAsync();
-
-        _apiClientMock.Verify(c => c.SavePost(pendingPost), Times.Once);
-        _localDataServiceMock.Verify(c => c.MarkSyncedAsync("post1", true), Times.Once);
-    }
 
     [Fact]
     public async Task PushPhase_ShouldSendPendingNotesAndClearFlag()
@@ -83,31 +58,6 @@ public class SyncServiceTests
         _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
     }
 
-    [Fact]
-    public async Task PushPhase_ShouldSendSoftDeletedPostsAsDelete()
-    {
-        var deletedPost = new Post
-        {
-            Id = "post1",
-            RowKey = "post1",
-            PartitionKey = "pk",
-            Title = "Deleted",
-            DateModified = DateTime.UtcNow,
-            IsDeleted = true
-        };
-        _localDataServiceMock.Setup(c => c.GetPendingSyncPostsAsync())
-            .ReturnsAsync(new List<Post> { deletedPost });
-        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync())
-            .ReturnsAsync(new List<Note>());
-        _apiClientMock.Setup(c => c.DeletePost("post1")).ReturnsAsync(true);
-        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<PostL>());
-        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
-
-        await _sut.SyncAsync();
-
-        _apiClientMock.Verify(c => c.DeletePost("post1"), Times.Once);
-        _localDataServiceMock.Verify(c => c.MarkSyncedAsync("post1", true), Times.Once);
-    }
 
     [Fact]
     public async Task PushPhase_ShouldSendSoftDeletedNotesAsDelete()
@@ -277,13 +227,12 @@ public class SyncServiceTests
     [Fact]
     public async Task SyncAsync_ShouldNotRunConcurrently()
     {
-        _localDataServiceMock.Setup(c => c.GetPendingSyncPostsAsync())
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync())
             .Returns(async () =>
             {
                 await Task.Delay(50);
-                return new List<Post>();
+                return new List<Note>();
             });
-        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note>());
         _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<PostL>());
         _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
 
@@ -291,7 +240,7 @@ public class SyncServiceTests
         var task2 = _sut.SyncAsync();
         await Task.WhenAll(task1, task2);
 
-        _localDataServiceMock.Verify(c => c.GetPendingSyncPostsAsync(), Times.Once);
+        _localDataServiceMock.Verify(c => c.GetPendingSyncNotesAsync(), Times.Once);
     }
 
     [Fact]
@@ -403,4 +352,63 @@ public class SyncServiceTests
         _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
         _localDataServiceMock.Verify(c => c.SaveNoteAsync(It.IsAny<Note>(), It.IsAny<bool>()), Times.Never);
     }
+
+    [Fact]
+    public async Task PushPhase_ShouldPropagateNetworkException_WhenGetNoteFailsDueToNetworkError()
+    {
+        var lastSync = new DateTime(2026, 7, 3, 10, 0, 0, DateTimeKind.Utc);
+        SyncService.SetInMemoryPreference("LastSyncTimestamp", lastSync.ToString("O"));
+
+        var pendingNote = new Note
+        {
+            RowKey = "note1",
+            PartitionKey = "pk",
+            Comment = "Local Change",
+            DateModified = DateTime.UtcNow,
+            DateAdded = lastSync.AddHours(-1)
+        };
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note> { pendingNote });
+
+        _apiClientMock.Setup(c => c.GetNote("note1")).ThrowsAsync(new System.Net.Http.HttpRequestException("Connection refused", null, System.Net.HttpStatusCode.ServiceUnavailable));
+
+        Func<Task> act = async () => await _sut.SyncAsync();
+        await act.Should().ThrowAsync<System.Net.Http.HttpRequestException>();
+    }
+
+    [Fact]
+    public async Task PushPhase_ShouldTreatNotFoundHttpRequestExceptionAsDeleted_WhenGetNoteFailsWith404()
+    {
+        var lastSync = new DateTime(2026, 7, 3, 10, 0, 0, DateTimeKind.Utc);
+        SyncService.SetInMemoryPreference("LastSyncTimestamp", lastSync.ToString("O"));
+
+        var pendingNote = new Note
+        {
+            RowKey = "note1",
+            PartitionKey = "pk",
+            Comment = "Local Change",
+            DateModified = DateTime.UtcNow,
+            DateAdded = lastSync.AddHours(-1)
+        };
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note> { pendingNote });
+
+        _apiClientMock.Setup(c => c.GetNote("note1")).ThrowsAsync(new System.Net.Http.HttpRequestException("Not found", null, System.Net.HttpStatusCode.NotFound));
+        _apiClientMock.Setup(c => c.UpdateNote(It.IsAny<Note>())).ReturnsAsync(true);
+
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(new List<PostL>());
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+
+        string? conflictMessage = null;
+        _sut.ConflictDetected += (sender, args) =>
+        {
+            conflictMessage = args.Message;
+        };
+
+        await _sut.SyncAsync();
+
+        conflictMessage.Should().NotBeNull();
+        conflictMessage.Should().Contain("deleted online");
+        _apiClientMock.Verify(c => c.UpdateNote(pendingNote), Times.Once);
+        _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
+    }
 }
+
