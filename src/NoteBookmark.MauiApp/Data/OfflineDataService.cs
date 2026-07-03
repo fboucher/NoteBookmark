@@ -260,4 +260,5 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     public Task<bool> SaveReadingNotesMarkdown(string markdown, string number) => apiClient.SaveReadingNotesMarkdown(markdown, number);
 
     public Task SyncAsync() => syncService.SyncAsync();
+    public bool IsOffline => connectivity.NetworkAccess != NetworkAccess.Internet;
 }
