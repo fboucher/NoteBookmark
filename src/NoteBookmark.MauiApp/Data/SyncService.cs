@@ -1,22 +1,33 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using NoteBookmark.Domain;
 
 namespace NoteBookmark.MauiApp.Data;
+
+public class SyncConflictEventArgs(string message) : EventArgs
+{
+    public string Message { get; } = message;
+}
 
 public interface ISyncService
 {
     Task SyncAsync();
     bool IsSyncing { get; }
+    event EventHandler<SyncConflictEventArgs>? ConflictDetected;
 }
 
-public class SyncService(ISyncApiClient apiClient, ILocalDataService localDataService) : ISyncService
+public class SyncService(
+    ISyncApiClient apiClient, 
+    ILocalDataService localDataService,
+    ILogger<SyncService> logger) : ISyncService
 {
     private const string LastSyncTimestampKey = "LastSyncTimestamp";
     private bool _isSyncing;
 
     public bool IsSyncing => _isSyncing;
+    public event EventHandler<SyncConflictEventArgs>? ConflictDetected;
 
     public async Task SyncAsync()
     {
@@ -25,8 +36,17 @@ public class SyncService(ISyncApiClient apiClient, ILocalDataService localDataSe
         _isSyncing = true;
         try
         {
-            await PushAsync();
-            await PullAsync();
+            var lastSyncStr = await GetPreferenceAsync(LastSyncTimestampKey);
+            DateTime? lastSync = null;
+            if (!string.IsNullOrEmpty(lastSyncStr) && DateTime.TryParse(lastSyncStr, out var parsed))
+            {
+                lastSync = parsed.ToUniversalTime();
+            }
+
+            await PushAsync(lastSync);
+            await PullAsync(lastSync);
+
+            await SetPreferenceAsync(LastSyncTimestampKey, DateTime.UtcNow.ToString("O"));
         }
         finally
         {
@@ -34,9 +54,96 @@ public class SyncService(ISyncApiClient apiClient, ILocalDataService localDataSe
         }
     }
 
-    private async Task PushAsync()
+    private async Task PushAsync(DateTime? lastSync)
     {
-        // Push posts
+        // Push notes
+        var pendingNotes = await localDataService.GetPendingSyncNotesAsync();
+        foreach (var note in pendingNotes)
+        {
+            var id = note.RowKey;
+            
+            // Conflict Detection
+            Note? remoteNote = null;
+            try
+            {
+                remoteNote = await apiClient.GetNote(id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to retrieve remote note {RowKey} for conflict check.", id);
+            }
+
+            bool hasConflict = false;
+            if (remoteNote is not null)
+            {
+                // Remote note exists. Check if it was modified since the last sync.
+                if (lastSync.HasValue && remoteNote.DateModified > lastSync.Value)
+                {
+                    hasConflict = true;
+                }
+            }
+            else
+            {
+                // Remote note is null. Was it deleted on the server or is it a new local note created offline?
+                if (lastSync.HasValue && note.DateAdded <= lastSync.Value)
+                {
+                    // It existed at the last sync, but now it's gone from the server -> deleted online.
+                    // If we also deleted it locally, there is no conflict.
+                    if (!note.IsDeleted)
+                    {
+                        hasConflict = true;
+                    }
+                }
+            }
+
+            if (hasConflict)
+            {
+                // Conflict detected! Log details
+                logger.LogWarning("Conflict detected for comment {RowKey}. Remote DateModified: {RemoteMod}, Local DateModified: {LocalMod}, LastSync: {LastSync}",
+                    id, remoteNote?.DateModified, note.DateModified, lastSync);
+
+                var message = remoteNote is not null 
+                    ? $"Sync conflict: Comment was modified online. Local changes discarded." 
+                    : $"Sync conflict: Comment was deleted online. Local edits discarded.";
+                
+                ConflictDetected?.Invoke(this, new SyncConflictEventArgs(message));
+
+                // Server Wins: Apply remote changes to local DB
+                if (remoteNote is not null)
+                {
+                    await localDataService.SaveNoteAsync(remoteNote, isPendingSync: false);
+                }
+                else
+                {
+                    await localDataService.DeleteNoteAsync(id, isPendingSync: false);
+                    await localDataService.MarkSyncedAsync(id, isPost: false);
+                }
+            }
+            else
+            {
+                // No conflict. Push to server.
+                bool success;
+                if (note.IsDeleted)
+                {
+                    success = await apiClient.DeleteNote(id);
+                }
+                else
+                {
+                    success = await apiClient.UpdateNote(note);
+                }
+
+                if (success)
+                {
+                    await localDataService.MarkSyncedAsync(id, isPost: false);
+                }
+                else
+                {
+                    logger.LogError("Failed to push comment {RowKey} to server.", id);
+                }
+            }
+        }
+
+        // Push posts (if any pending)
         var pendingPosts = await localDataService.GetPendingSyncPostsAsync();
         foreach (var post in pendingPosts)
         {
@@ -55,46 +162,39 @@ public class SyncService(ISyncApiClient apiClient, ILocalDataService localDataSe
             {
                 await localDataService.MarkSyncedAsync(id, isPost: true);
             }
-        }
-
-        // Push notes
-        var pendingNotes = await localDataService.GetPendingSyncNotesAsync();
-        foreach (var note in pendingNotes)
-        {
-            bool success;
-            if (note.IsDeleted)
-            {
-                success = await apiClient.DeleteNote(note.RowKey);
-            }
             else
             {
-                success = await apiClient.UpdateNote(note);
-            }
-
-            if (success)
-            {
-                await localDataService.MarkSyncedAsync(note.RowKey, isPost: false);
+                logger.LogError("Failed to push post {Id} to server.", id);
             }
         }
     }
 
-    private async Task PullAsync()
+    private async Task PullAsync(DateTime? lastSync)
     {
-        var lastSyncStr = await GetPreferenceAsync(LastSyncTimestampKey);
-        DateTime? lastSync = null;
-        if (!string.IsNullOrEmpty(lastSyncStr) && DateTime.TryParse(lastSyncStr, out var parsed))
+        // 1. Get all remote posts
+        var allRemotePosts = await apiClient.GetPostsModifiedAfter(DateTime.MinValue) ?? new List<PostL>();
+        var remotePostIds = allRemotePosts.Select(p => p.Id ?? p.RowKey).ToHashSet();
+
+        // 2. Any post that was deleted on the online database while offline should be deleted locally.
+        var localPosts = await localDataService.GetPostsAsync() ?? new List<Post>();
+        foreach (var localPost in localPosts)
         {
-            lastSync = parsed.ToUniversalTime();
+            var id = localPost.Id ?? localPost.RowKey;
+            if (!remotePostIds.Contains(id))
+            {
+                await localDataService.DeletePostAsync(id, isPendingSync: false);
+                await localDataService.MarkSyncedAsync(id, isPost: true);
+            }
         }
 
-        // Pull posts
-        var remotePostList = await apiClient.GetPostsModifiedAfter(lastSync ?? DateTime.MinValue);
-        foreach (var remotePostL in remotePostList)
+        // 3. Pull new/modified posts
+        foreach (var remotePostL in allRemotePosts)
         {
-            var localPost = await localDataService.GetPostAsync(remotePostL.Id ?? remotePostL.RowKey);
+            var id = remotePostL.Id ?? remotePostL.RowKey;
+            var localPost = await localDataService.GetPostAsync(id);
             if (localPost is null || remotePostL.DateModified > localPost.DateModified)
             {
-                var fullPost = await apiClient.GetPost(remotePostL.Id ?? remotePostL.RowKey);
+                var fullPost = await apiClient.GetPost(id);
                 if (fullPost is not null)
                 {
                     await localDataService.SavePostAsync(fullPost, isPendingSync: false);
@@ -102,24 +202,39 @@ public class SyncService(ISyncApiClient apiClient, ILocalDataService localDataSe
             }
         }
 
-        // Pull notes
+        // 4. Pull notes modified since lastSync
         var remoteNotes = await apiClient.GetNotesModifiedAfter(lastSync ?? DateTime.MinValue);
-        foreach (var remoteNote in remoteNotes)
+        if (remoteNotes.Any())
         {
-            var localNote = await localDataService.GetNoteAsync(remoteNote.RowKey);
-            if (localNote is null || remoteNote.DateModified > localNote.DateModified)
+            var pendingNotes = await localDataService.GetPendingSyncNotesAsync();
+            var pendingNoteKeys = pendingNotes.Select(n => n.RowKey).ToHashSet();
+
+            foreach (var remoteNote in remoteNotes)
             {
-                await localDataService.SaveNoteAsync(remoteNote, isPendingSync: false);
+                var localNote = await localDataService.GetNoteAsync(remoteNote.RowKey);
+                if (localNote is null || remoteNote.DateModified > localNote.DateModified)
+                {
+                    if (localNote is null || !pendingNoteKeys.Contains(remoteNote.RowKey))
+                    {
+                        await localDataService.SaveNoteAsync(remoteNote, isPendingSync: false);
+                    }
+                }
             }
         }
-
-        await SetPreferenceAsync(LastSyncTimestampKey, DateTime.UtcNow.ToString("O"));
     }
+
+#if NOT_MAUI
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _inMemoryPreferences = new();
+    
+    public static void SetInMemoryPreference(string key, string value) => _inMemoryPreferences[key] = value;
+    public static void ClearInMemoryPreferences() => _inMemoryPreferences.Clear();
+#endif
 
     private static Task<string?> GetPreferenceAsync(string key)
     {
 #if NOT_MAUI
-        return Task.FromResult<string?>(null);
+        _inMemoryPreferences.TryGetValue(key, out var value);
+        return Task.FromResult<string?>(value);
 #else
         var value = Microsoft.Maui.Storage.Preferences.Default.Get(key, string.Empty);
         return Task.FromResult<string?>(value);
@@ -129,6 +244,7 @@ public class SyncService(ISyncApiClient apiClient, ILocalDataService localDataSe
     private static Task SetPreferenceAsync(string key, string value)
     {
 #if NOT_MAUI
+        _inMemoryPreferences[key] = value;
         return Task.CompletedTask;
 #else
         Microsoft.Maui.Storage.Preferences.Default.Set(key, value);
