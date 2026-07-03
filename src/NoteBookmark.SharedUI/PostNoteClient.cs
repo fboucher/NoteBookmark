@@ -29,7 +29,11 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         var rnCounter = await httpClient.GetStringAsync("api/settings/GetNextReadingNotesCounter");
         note.PartitionKey = rnCounter;
         var response = await httpClient.PostAsJsonAsync("api/notes/note", note);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"Server returned Bad Request: {errorContent}", null, response.StatusCode);
+        }
     }
 
     public async Task<Note?> GetNote(string noteId)
