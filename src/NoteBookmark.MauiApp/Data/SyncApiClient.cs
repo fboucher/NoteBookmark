@@ -18,15 +18,8 @@ public class SyncApiClient(PostNoteClient client) : ISyncApiClient
     public Task<bool> UpdateNote(Note note) => client.UpdateNote(note);
     public async Task<bool> CreateNote(Note note)
     {
-        try
-        {
-            await client.CreateNote(note);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        await client.CreateNote(note);
+        return true;
     }
     public Task<bool> DeleteNote(string rowKey) => client.DeleteNote(rowKey);
 }
