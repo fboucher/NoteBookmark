@@ -103,20 +103,29 @@ public class SyncService(
                     id, remoteNote?.DateModified, note.DateModified, lastSync);
 
                 var message = remoteNote is not null 
-                    ? $"Sync conflict: Comment was modified online. Local changes discarded." 
-                    : $"Sync conflict: Comment was deleted online. Local edits discarded.";
+                    ? $"Sync conflict: Comment was modified online. Local edits saved to server, overwriting remote changes." 
+                    : $"Sync conflict: Comment was deleted online. Local comment has been recreated on server.";
                 
                 ConflictDetected?.Invoke(this, new SyncConflictEventArgs(message));
 
-                // Server Wins: Apply remote changes to local DB
-                if (remoteNote is not null)
+                // Client Wins: Overwrite server with local version
+                bool success;
+                if (note.IsDeleted)
                 {
-                    await localDataService.SaveNoteAsync(remoteNote, isPendingSync: false);
+                    success = await apiClient.DeleteNote(id);
                 }
                 else
                 {
-                    await localDataService.DeleteNoteAsync(id, isPendingSync: false);
+                    success = await apiClient.UpdateNote(note);
+                }
+
+                if (success)
+                {
                     await localDataService.MarkSyncedAsync(id, isPost: false);
+                }
+                else
+                {
+                    logger.LogError("Failed to push comment {RowKey} to server on conflict.", id);
                 }
             }
             else

@@ -354,7 +354,7 @@ public class SyncServiceTests
     }
 
     [Fact]
-    public async Task PushPhase_ShouldDetectConflictAndApplyServerWins_WhenNoteModifiedOnServerSinceLastSync()
+    public async Task PushPhase_ShouldDetectConflictAndApplyClientWins_WhenNoteModifiedOnServerSinceLastSync()
     {
         // 1. Setup lastSync timestamp using the in-memory preferences helper
         var lastSync = new DateTime(2026, 7, 3, 10, 0, 0, DateTimeKind.Utc);
@@ -381,6 +381,7 @@ public class SyncServiceTests
             DateModified = lastSync.AddMinutes(5) // Modified on server since last sync
         };
         _apiClientMock.Setup(c => c.GetNote("note1")).ReturnsAsync(remoteNote);
+        _apiClientMock.Setup(c => c.UpdateNote(It.IsAny<Note>())).ReturnsAsync(true);
         
         // Mocks for pull
         _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(new List<PostL>());
@@ -395,10 +396,11 @@ public class SyncServiceTests
 
         await _sut.SyncAsync();
 
-        // 5. Verify conflict detected, toast event fired, server version saved locally, and local edits NOT pushed
+        // 5. Verify conflict detected, toast event fired, local edits pushed to server, and local database updated as synced
         conflictMessage.Should().NotBeNull();
         conflictMessage.Should().Contain("conflict");
-        _localDataServiceMock.Verify(c => c.SaveNoteAsync(remoteNote, false), Times.Once);
-        _apiClientMock.Verify(c => c.UpdateNote(It.IsAny<Note>()), Times.Never);
+        _apiClientMock.Verify(c => c.UpdateNote(pendingNote), Times.Once);
+        _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
+        _localDataServiceMock.Verify(c => c.SaveNoteAsync(It.IsAny<Note>(), It.IsAny<bool>()), Times.Never);
     }
 }
