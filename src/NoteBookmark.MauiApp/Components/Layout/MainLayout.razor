@@ -1,8 +1,11 @@
 @inherits LayoutComponentBase
 @using Microsoft.Maui.Networking
 @using Microsoft.FluentUI.AspNetCore.Components
+@using NoteBookmark.MauiApp.Data
 @inject IConnectivity Connectivity
 @inject NavigationManager Navigation
+@inject ISyncService SyncService
+@inject IToastService ToastService
 @implements IDisposable
 
 
@@ -40,6 +43,15 @@
         Connectivity.ConnectivityChanged += OnConnectivityChanged;
         Navigation.LocationChanged += OnLocationChanged;
         EnsureApiBaseUrlConfigured(Navigation.Uri);
+        SyncService.ConflictDetected += OnSyncConflictDetected;
+    }
+
+    private void OnSyncConflictDetected(object? sender, SyncConflictEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            ToastService.ShowWarning(e.Message);
+        });
     }
 
     private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
@@ -82,5 +94,6 @@
     {
         Connectivity.ConnectivityChanged -= OnConnectivityChanged;
         Navigation.LocationChanged -= OnLocationChanged;
+        SyncService.ConflictDetected -= OnSyncConflictDetected;
     }
 }

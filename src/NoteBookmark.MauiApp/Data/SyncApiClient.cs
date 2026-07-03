@@ -12,6 +12,7 @@ public class SyncApiClient(PostNoteClient client) : ISyncApiClient
     public Task<List<PostL>> GetPostsModifiedAfter(DateTime modifiedAfter) => client.GetPostsModifiedAfter(modifiedAfter);
     public Task<List<Note>> GetNotesModifiedAfter(DateTime modifiedAfter) => client.GetNotesModifiedAfter(modifiedAfter);
     public Task<Post?> GetPost(string id) => client.GetPost(id);
+    public Task<Note?> GetNote(string rowKey) => client.GetNote(rowKey);
     public Task<bool> SavePost(Post post) => client.SavePost(post);
     public Task<bool> DeletePost(string id) => client.DeletePost(id);
     public Task<bool> UpdateNote(Note note) => client.UpdateNote(note);
