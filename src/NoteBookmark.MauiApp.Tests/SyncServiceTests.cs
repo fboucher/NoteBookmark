@@ -350,7 +350,7 @@ public class SyncServiceTests
         conflictMessage.Should().Contain("conflict");
         _apiClientMock.Verify(c => c.UpdateNote(pendingNote), Times.Once);
         _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
-        _localDataServiceMock.Verify(c => c.SaveNoteAsync(It.IsAny<Note>(), It.IsAny<bool>()), Times.Never);
+        _localDataServiceMock.Verify(c => c.SaveNoteAsync(It.Is<Note>(n => !n.CreatedOffline), false), Times.Once);
     }
 
     [Fact]
@@ -408,6 +408,36 @@ public class SyncServiceTests
         conflictMessage.Should().NotBeNull();
         conflictMessage.Should().Contain("deleted online");
         _apiClientMock.Verify(c => c.CreateNote(pendingNote), Times.Once);
+        _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
+    }
+
+    [Fact]
+    public async Task PushPhase_ShouldSyncNoteDirectlyAndClearCreatedOfflineFlag_WhenNoteCreatedOffline()
+    {
+        var lastSync = new DateTime(2026, 7, 3, 10, 0, 0, DateTimeKind.Utc);
+        SyncService.SetInMemoryPreference("LastSyncTimestamp", lastSync.ToString("O"));
+
+        var pendingNote = new Note
+        {
+            RowKey = "note1",
+            PartitionKey = "pk",
+            Comment = "Created Offline",
+            DateModified = DateTime.UtcNow,
+            DateAdded = lastSync.AddMinutes(5),
+            CreatedOffline = true
+        };
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note> { pendingNote });
+        _apiClientMock.Setup(c => c.CreateNote(It.IsAny<Note>())).ReturnsAsync(true);
+
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(new List<PostL>());
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+
+        await _sut.SyncAsync();
+
+        // Verify GetNote was never called because CreatedOffline is true (bypassing conflict check)
+        _apiClientMock.Verify(c => c.GetNote("note1"), Times.Never);
+        _apiClientMock.Verify(c => c.CreateNote(It.Is<Note>(n => !n.CreatedOffline)), Times.Once);
+        _localDataServiceMock.Verify(c => c.SaveNoteAsync(It.Is<Note>(n => !n.CreatedOffline), false), Times.Once);
         _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
     }
 }

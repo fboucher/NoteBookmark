@@ -102,6 +102,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         {
             var settings = await localDataService.GetSettingsAsync();
             note.PartitionKey = settings?.ReadingNotesCounter ?? note.PartitionKey;
+            note.CreatedOffline = true;
             await localDataService.SaveNoteAsync(note, isPendingSync: true);
         }
     }

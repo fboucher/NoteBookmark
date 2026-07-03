@@ -65,39 +65,43 @@ public class SyncService(
             
             // Conflict Detection
             Note? remoteNote = null;
-            try
-            {
-                remoteNote = await apiClient.GetNote(id);
-            }
-            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                remoteNote = null;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to retrieve remote note {RowKey} due to network/server error. Aborting push.", id);
-                throw;
-            }
-
             bool hasConflict = false;
-            if (remoteNote is not null)
+
+            if (!note.CreatedOffline)
             {
-                // Remote note exists. Check if it was modified since the last sync.
-                if (lastSync.HasValue && remoteNote.DateModified > lastSync.Value)
+                try
                 {
-                    hasConflict = true;
+                    remoteNote = await apiClient.GetNote(id);
                 }
-            }
-            else
-            {
-                // Remote note is null. Was it deleted on the server or is it a new local note created offline?
-                if (lastSync.HasValue && note.DateAdded <= lastSync.Value)
+                catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    // It existed at the last sync, but now it's gone from the server -> deleted online.
-                    // If we also deleted it locally, there is no conflict.
-                    if (!note.IsDeleted)
+                    remoteNote = null;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to retrieve remote note {RowKey} due to network/server error. Aborting push.", id);
+                    throw;
+                }
+
+                if (remoteNote is not null)
+                {
+                    // Remote note exists. Check if it was modified since the last sync.
+                    if (lastSync.HasValue && remoteNote.DateModified > lastSync.Value)
                     {
                         hasConflict = true;
+                    }
+                }
+                else
+                {
+                    // Remote note is null. Was it deleted on the server or is it a new local note created offline?
+                    if (lastSync.HasValue && note.DateAdded <= lastSync.Value)
+                    {
+                        // It existed at the last sync, but now it's gone from the server -> deleted online.
+                        // If we also deleted it locally, there is no conflict.
+                        if (!note.IsDeleted)
+                        {
+                            hasConflict = true;
+                        }
                     }
                 }
             }
@@ -131,6 +135,8 @@ public class SyncService(
 
                 if (success)
                 {
+                    note.CreatedOffline = false;
+                    await localDataService.SaveNoteAsync(note, isPendingSync: false);
                     await localDataService.MarkSyncedAsync(id, isPost: false);
                 }
                 else
@@ -155,6 +161,8 @@ public class SyncService(
 
                 if (success)
                 {
+                    note.CreatedOffline = false;
+                    await localDataService.SaveNoteAsync(note, isPendingSync: false);
                     await localDataService.MarkSyncedAsync(id, isPost: false);
                 }
                 else
