@@ -24,6 +24,9 @@ public class Note : ITableEntity
 
     public bool IsDeleted { get; set; }
 
+    [DataMember(Name = "created_offline")]
+    public bool CreatedOffline { get; set; }
+
     [DataMember(Name = "tags")]
     public string? Tags { get; set; }
 

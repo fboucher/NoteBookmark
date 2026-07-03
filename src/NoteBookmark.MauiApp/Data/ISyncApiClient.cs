@@ -15,5 +15,6 @@ public interface ISyncApiClient
     Task<bool> SavePost(Post post);
     Task<bool> DeletePost(string id);
     Task<bool> UpdateNote(Note note);
+    Task<bool> CreateNote(Note note);
     Task<bool> DeleteNote(string rowKey);
 }

@@ -15,8 +15,9 @@
 
 <FluentStack Orientation="Orientation.Vertical">
     <FluentStack Orientation="Orientation.Horizontal">
-        <FluentButton OnClick="AddNewPost" IconEnd="@(new Icons.Regular.Size20.Add())" Title="Add new post"></FluentButton>
-        <FluentTextField @bind-Value="newPostUrl" Placeholder="Enter URL" style="width: 100%;"/>
+        <FluentButton OnClick="AddNewPost" Disabled="@client.IsOffline" IconEnd="@(new Icons.Regular.Size20.Add())" Title="Add new post"></FluentButton>
+        <FluentTextField @bind-Value="newPostUrl" Disabled="@client.IsOffline" Placeholder="@(client.IsOffline ? "Cannot add posts offline" : "Enter URL")" style="width: 100%;"/>
+        <FluentButton OnClick="SyncNow" IconStart="@(new Icons.Regular.Size20.ArrowSync())" Loading="isSyncing" Title="Sync posts and comments">Sync</FluentButton>
     </FluentStack>
     <FluentSwitch ValueChanged="OnShowReadChanged" Label="Show">
         <span slot="checked-message">Read Only</span>
@@ -220,6 +221,29 @@
         if (string.IsNullOrWhiteSpace(titleFilter))
         {
             titleFilter = string.Empty;
+        }
+    }
+
+    private bool isSyncing = false;
+
+    private async Task SyncNow()
+    {
+        if (isSyncing) return;
+        isSyncing = true;
+        try
+        {
+            toastService.ShowInfo("Synchronization started...");
+            await client.SyncAsync();
+            toastService.ShowSuccess("Synchronization completed successfully!");
+            await LoadPosts();
+        }
+        catch (Exception ex)
+        {
+            toastService.ShowError($"Synchronization failed: {ex.Message}");
+        }
+        finally
+        {
+            isSyncing = false;
         }
     }
 }

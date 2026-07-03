@@ -29,7 +29,11 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         var rnCounter = await httpClient.GetStringAsync("api/settings/GetNextReadingNotesCounter");
         note.PartitionKey = rnCounter;
         var response = await httpClient.PostAsJsonAsync("api/notes/note", note);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"Server returned Bad Request: {errorContent}", null, response.StatusCode);
+        }
     }
 
     public async Task<Note?> GetNote(string noteId)
@@ -184,8 +188,18 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
 
     public async Task<List<Note>> GetNotesModifiedAfter(DateTime modifiedAfter)
     {
-        var encoded = System.Web.HttpUtility.UrlEncode(modifiedAfter.ToUniversalTime().ToString("O"));
-        var notes = await httpClient.GetFromJsonAsync<List<Note>>($"api/notes?modifiedAfter={encoded}");
-        return notes ?? new List<Note>();
+        try
+        {
+            var encoded = System.Web.HttpUtility.UrlEncode(modifiedAfter.ToUniversalTime().ToString("O"));
+            var notes = await httpClient.GetFromJsonAsync<List<Note>>($"api/notes?modifiedAfter={encoded}");
+            return notes ?? new List<Note>();
+        }
+        catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return new List<Note>();
+        }
     }
+
+    public Task SyncAsync() => Task.CompletedTask;
+    public bool IsOffline => false;
 }

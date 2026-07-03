@@ -170,6 +170,9 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
     public void CreateNote(Note note)
     {
         var tblNote = GetNoteTable();
+        note.DateAdded = note.DateAdded.Kind == DateTimeKind.Unspecified 
+            ? DateTime.SpecifyKind(note.DateAdded, DateTimeKind.Utc) 
+            : note.DateAdded.ToUniversalTime();
         note.DateModified = DateTime.UtcNow;
         var existingNote = tblNote.Query<Note>(filter: $"RowKey eq '{note.RowKey}'").FirstOrDefault();
         if (existingNote != null)

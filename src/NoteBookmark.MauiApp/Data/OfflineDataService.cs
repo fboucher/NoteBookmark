@@ -8,7 +8,7 @@ using NoteBookmark.SharedUI;
 
 namespace NoteBookmark.MauiApp.Data;
 
-public class OfflineDataService(PostNoteClient apiClient, ILocalDataService localDataService, IConnectivity connectivity) : IDataService
+public class OfflineDataService(PostNoteClient apiClient, ILocalDataService localDataService, IConnectivity connectivity, ISyncService syncService) : IDataService
 {
     private bool IsOnline => connectivity.NetworkAccess == NetworkAccess.Internet;
 
@@ -17,6 +17,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         if (IsOnline)
         {
             var posts = await apiClient.GetUnreadPosts();
+            await MergeLocalNotesIntoRemotePosts(posts);
             return posts;
         }
         else
@@ -49,6 +50,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         if (IsOnline)
         {
             var posts = await apiClient.GetReadPosts();
+            await MergeLocalNotesIntoRemotePosts(posts);
             return posts;
         }
         else
@@ -102,6 +104,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         {
             var settings = await localDataService.GetSettingsAsync();
             note.PartitionKey = settings?.ReadingNotesCounter ?? note.PartitionKey;
+            note.CreatedOffline = true;
             await localDataService.SaveNoteAsync(note, isPendingSync: true);
         }
     }
@@ -258,4 +261,29 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     }
 
     public Task<bool> SaveReadingNotesMarkdown(string markdown, string number) => apiClient.SaveReadingNotesMarkdown(markdown, number);
+
+    public Task SyncAsync() => syncService.SyncAsync();
+    public bool IsOffline => connectivity.NetworkAccess != NetworkAccess.Internet;
+
+    private async Task MergeLocalNotesIntoRemotePosts(List<PostL> remotePosts)
+    {
+        if (remotePosts == null || !remotePosts.Any()) return;
+
+        var localNotes = await localDataService.GetNotesAsync();
+        if (localNotes == null || !localNotes.Any()) return;
+
+        var localNotesByPostId = localNotes
+            .GroupBy(n => n.PostId!)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        foreach (var post in remotePosts)
+        {
+            var id = post.Id ?? post.RowKey;
+            if (localNotesByPostId.TryGetValue(id, out var localNote))
+            {
+                post.Note = localNote.Comment;
+                post.NoteId = localNote.RowKey;
+            }
+        }
+    }
 }

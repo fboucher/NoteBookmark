@@ -23,4 +23,6 @@ public interface IDataService
     Task<bool> ExtractPostDetailsAndSave(string url);
     Task<bool> DeletePost(string id);
     Task<bool> SaveReadingNotesMarkdown(string markdown, string number);
+    Task SyncAsync();
+    bool IsOffline { get; }
 }

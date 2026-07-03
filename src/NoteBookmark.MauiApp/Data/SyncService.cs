@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NoteBookmark.Domain;
@@ -64,34 +65,43 @@ public class SyncService(
             
             // Conflict Detection
             Note? remoteNote = null;
-            try
-            {
-                remoteNote = await apiClient.GetNote(id);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to retrieve remote note {RowKey} for conflict check.", id);
-            }
-
             bool hasConflict = false;
-            if (remoteNote is not null)
+
+            if (!note.CreatedOffline)
             {
-                // Remote note exists. Check if it was modified since the last sync.
-                if (lastSync.HasValue && remoteNote.DateModified > lastSync.Value)
+                try
                 {
-                    hasConflict = true;
+                    remoteNote = await apiClient.GetNote(id);
                 }
-            }
-            else
-            {
-                // Remote note is null. Was it deleted on the server or is it a new local note created offline?
-                if (lastSync.HasValue && note.DateAdded <= lastSync.Value)
+                catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    // It existed at the last sync, but now it's gone from the server -> deleted online.
-                    // If we also deleted it locally, there is no conflict.
-                    if (!note.IsDeleted)
+                    remoteNote = null;
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to retrieve remote note {RowKey} due to network/server error. Aborting push.", id);
+                    throw;
+                }
+
+                if (remoteNote is not null)
+                {
+                    // Remote note exists. Check if it was modified since the last sync.
+                    if (lastSync.HasValue && remoteNote.DateModified > lastSync.Value)
                     {
                         hasConflict = true;
+                    }
+                }
+                else
+                {
+                    // Remote note is null. Was it deleted on the server or is it a new local note created offline?
+                    if (lastSync.HasValue && note.DateAdded <= lastSync.Value)
+                    {
+                        // It existed at the last sync, but now it's gone from the server -> deleted online.
+                        // If we also deleted it locally, there is no conflict.
+                        if (!note.IsDeleted)
+                        {
+                            hasConflict = true;
+                        }
                     }
                 }
             }
@@ -103,8 +113,10 @@ public class SyncService(
                     id, remoteNote?.DateModified, note.DateModified, lastSync);
 
                 var message = remoteNote is not null 
-                    ? $"Sync conflict: Comment was modified online. Local edits saved to server, overwriting remote changes." 
-                    : $"Sync conflict: Comment was deleted online. Local comment has been recreated on server.";
+                    ? (note.IsDeleted
+                        ? "Sync conflict: Comment was modified online but deleted locally. Deletion propagated to server."
+                        : "Sync conflict: Comment was modified online. Local edits saved to server, overwriting remote changes.")
+                    : "Sync conflict: Comment was deleted online. Local comment has been recreated on server.";
                 
                 ConflictDetected?.Invoke(this, new SyncConflictEventArgs(message));
 
@@ -116,11 +128,15 @@ public class SyncService(
                 }
                 else
                 {
-                    success = await apiClient.UpdateNote(note);
+                    success = remoteNote is null 
+                        ? await apiClient.CreateNote(note) 
+                        : await apiClient.UpdateNote(note);
                 }
 
                 if (success)
                 {
+                    note.CreatedOffline = false;
+                    await localDataService.SaveNoteAsync(note, isPendingSync: false);
                     await localDataService.MarkSyncedAsync(id, isPost: false);
                 }
                 else
@@ -138,42 +154,21 @@ public class SyncService(
                 }
                 else
                 {
-                    success = await apiClient.UpdateNote(note);
+                    success = remoteNote is null 
+                        ? await apiClient.CreateNote(note) 
+                        : await apiClient.UpdateNote(note);
                 }
 
                 if (success)
                 {
+                    note.CreatedOffline = false;
+                    await localDataService.SaveNoteAsync(note, isPendingSync: false);
                     await localDataService.MarkSyncedAsync(id, isPost: false);
                 }
                 else
                 {
                     logger.LogError("Failed to push comment {RowKey} to server.", id);
                 }
-            }
-        }
-
-        // Push posts (if any pending)
-        var pendingPosts = await localDataService.GetPendingSyncPostsAsync();
-        foreach (var post in pendingPosts)
-        {
-            var id = post.Id ?? post.RowKey;
-            bool success;
-            if (post.IsDeleted)
-            {
-                success = await apiClient.DeletePost(id);
-            }
-            else
-            {
-                success = await apiClient.SavePost(post);
-            }
-
-            if (success)
-            {
-                await localDataService.MarkSyncedAsync(id, isPost: true);
-            }
-            else
-            {
-                logger.LogError("Failed to push post {Id} to server.", id);
             }
         }
     }

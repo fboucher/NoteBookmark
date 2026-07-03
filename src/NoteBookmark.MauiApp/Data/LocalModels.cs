@@ -95,6 +95,7 @@ public class LocalNote
     // Sync fields
     public bool IsPendingSync { get; set; }
     public bool IsDeleted { get; set; }
+    public bool CreatedOffline { get; set; }
 
     public Note ToDomain() => new Note
     {
@@ -106,7 +107,8 @@ public class LocalNote
         Tags = Tags,
         PostId = PostId,
         Category = Category,
-        IsDeleted = IsDeleted
+        IsDeleted = IsDeleted,
+        CreatedOffline = CreatedOffline
     };
 
     public static LocalNote FromDomain(Note note, bool isPendingSync = false, bool isDeleted = false) => new LocalNote
@@ -120,7 +122,8 @@ public class LocalNote
         PostId = note.PostId,
         Category = note.Category,
         IsPendingSync = isPendingSync,
-        IsDeleted = isDeleted
+        IsDeleted = isDeleted,
+        CreatedOffline = note.CreatedOffline
     };
 }
 
