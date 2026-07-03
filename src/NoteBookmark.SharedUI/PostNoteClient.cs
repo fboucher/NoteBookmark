@@ -188,4 +188,6 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         var notes = await httpClient.GetFromJsonAsync<List<Note>>($"api/notes?modifiedAfter={encoded}");
         return notes ?? new List<Note>();
     }
+
+    public Task SyncAsync() => Task.CompletedTask;
 }

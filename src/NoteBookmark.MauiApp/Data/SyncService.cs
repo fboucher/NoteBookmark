@@ -124,7 +124,9 @@ public class SyncService(
                 }
                 else
                 {
-                    success = await apiClient.UpdateNote(note);
+                    success = remoteNote is null 
+                        ? await apiClient.CreateNote(note) 
+                        : await apiClient.UpdateNote(note);
                 }
 
                 if (success)
@@ -146,7 +148,9 @@ public class SyncService(
                 }
                 else
                 {
-                    success = await apiClient.UpdateNote(note);
+                    success = remoteNote is null 
+                        ? await apiClient.CreateNote(note) 
+                        : await apiClient.UpdateNote(note);
                 }
 
                 if (success)

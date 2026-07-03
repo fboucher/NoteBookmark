@@ -48,13 +48,13 @@ public class SyncServiceTests
             .ReturnsAsync(new List<Post>());
         _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync())
             .ReturnsAsync(new List<Note> { pendingNote });
-        _apiClientMock.Setup(c => c.UpdateNote(It.IsAny<Note>())).ReturnsAsync(true);
+        _apiClientMock.Setup(c => c.CreateNote(It.IsAny<Note>())).ReturnsAsync(true);
         _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<PostL>());
         _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
 
         await _sut.SyncAsync();
 
-        _apiClientMock.Verify(c => c.UpdateNote(pendingNote), Times.Once);
+        _apiClientMock.Verify(c => c.CreateNote(pendingNote), Times.Once);
         _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
     }
 
@@ -392,7 +392,7 @@ public class SyncServiceTests
         _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note> { pendingNote });
 
         _apiClientMock.Setup(c => c.GetNote("note1")).ThrowsAsync(new System.Net.Http.HttpRequestException("Not found", null, System.Net.HttpStatusCode.NotFound));
-        _apiClientMock.Setup(c => c.UpdateNote(It.IsAny<Note>())).ReturnsAsync(true);
+        _apiClientMock.Setup(c => c.CreateNote(It.IsAny<Note>())).ReturnsAsync(true);
 
         _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(new List<PostL>());
         _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
@@ -407,7 +407,7 @@ public class SyncServiceTests
 
         conflictMessage.Should().NotBeNull();
         conflictMessage.Should().Contain("deleted online");
-        _apiClientMock.Verify(c => c.UpdateNote(pendingNote), Times.Once);
+        _apiClientMock.Verify(c => c.CreateNote(pendingNote), Times.Once);
         _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
     }
 }
