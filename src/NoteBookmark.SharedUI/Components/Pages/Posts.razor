@@ -74,12 +74,29 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadPosts();
+        _ = StartBackgroundSync();
     }
 
     private async Task LoadPosts()
     {
         List<PostL> loadedPosts = showRead ? await client.GetReadPosts(): await client.GetUnreadPosts();
         posts = loadedPosts.AsQueryable();
+    }
+
+    private async Task StartBackgroundSync()
+    {
+        if (client.IsOffline) return;
+
+        try
+        {
+            await client.SyncAsync();
+            await LoadPosts();
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            // Ignore background sync errors
+        }
     }
 
     private async Task OpenUrlInNewWindow(string? url)

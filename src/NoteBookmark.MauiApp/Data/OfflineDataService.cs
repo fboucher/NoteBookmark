@@ -99,6 +99,12 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         {
             await apiClient.CreateNote(note);
             await localDataService.SaveNoteAsync(note);
+            var post = await localDataService.GetPostAsync(note.PostId!);
+            if (post != null)
+            {
+                post.is_read = true;
+                await localDataService.SavePostAsync(post, isPendingSync: false);
+            }
         }
         else
         {
@@ -106,6 +112,13 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
             note.PartitionKey = settings?.ReadingNotesCounter ?? note.PartitionKey;
             note.CreatedOffline = true;
             await localDataService.SaveNoteAsync(note, isPendingSync: true);
+            var post = await localDataService.GetPostAsync(note.PostId!);
+            if (post != null)
+            {
+                post.is_read = true;
+                post.DateModified = DateTime.UtcNow;
+                await localDataService.SavePostAsync(post, isPendingSync: true);
+            }
         }
     }
     
