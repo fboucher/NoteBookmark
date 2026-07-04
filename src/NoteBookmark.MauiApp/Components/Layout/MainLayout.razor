@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @using Microsoft.Maui.Networking
+@using Microsoft.Maui.ApplicationModel
 @using Microsoft.FluentUI.AspNetCore.Components
 @using NoteBookmark.MauiApp.Data
 @inject IConnectivity Connectivity
@@ -22,12 +23,19 @@
             </div>
         }
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <a href="https://github.com/fboucher/NoteBookmark" target="_blank">About</a>
         </div>
 
         <article class="content px-4">
             @Body
         </article>
+
+        <FluentFooter>
+            <a href="https://github.com/fboucher/NoteBookmark" target="_blank">See the code</a>
+            <FluentSpacer />
+            <a href="https://fboucheros.com" target="_blank">About Frank</a>
+            &nbsp;&nbsp;·&nbsp;&nbsp;@appVersion
+        </FluentFooter>
     </main>
 </div>
 
@@ -36,6 +44,7 @@
 
 @code {
     private bool isOffline;
+    private string appVersion = "1.0.0";
 
     protected override void OnInitialized()
     {
@@ -44,6 +53,15 @@
         Navigation.LocationChanged += OnLocationChanged;
         EnsureApiBaseUrlConfigured(Navigation.Uri);
         SyncService.ConflictDetected += OnSyncConflictDetected;
+
+        try
+        {
+            appVersion = AppInfo.Current.VersionString;
+        }
+        catch
+        {
+            // Fallback for environment constraints or test suites
+        }
     }
 
     private void OnSyncConflictDetected(object? sender, SyncConflictEventArgs e)
