@@ -5,7 +5,7 @@ namespace NoteBookmark.MauiApp.Auth;
 
 public class LocalAuthService : IAuthService
 {
-    public string? Username => "Owner";
+    public string? Username => "Reader";
 
     public event EventHandler<bool>? AuthStateChanged;
 

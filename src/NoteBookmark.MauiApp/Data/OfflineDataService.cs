@@ -277,6 +277,7 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
 
     public Task SyncAsync() => syncService.SyncAsync();
     public bool IsOffline => connectivity.NetworkAccess != NetworkAccess.Internet;
+    public bool CanSync => true;
 
     private async Task MergeLocalNotesIntoRemotePosts(List<PostL> remotePosts)
     {

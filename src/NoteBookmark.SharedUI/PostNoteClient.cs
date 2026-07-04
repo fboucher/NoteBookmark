@@ -202,4 +202,5 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
 
     public Task SyncAsync() => Task.CompletedTask;
     public bool IsOffline => false;
+    public bool CanSync => false;
 }

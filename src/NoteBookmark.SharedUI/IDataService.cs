@@ -25,4 +25,5 @@ public interface IDataService
     Task<bool> SaveReadingNotesMarkdown(string markdown, string number);
     Task SyncAsync();
     bool IsOffline { get; }
+    bool CanSync { get; }
 }
