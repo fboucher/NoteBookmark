@@ -2,8 +2,6 @@
 @using System.ComponentModel.DataAnnotations
 @implements IDialogContentComponent<Domain.Note>
 
-@rendermode InteractiveServer
-
 
 <!-- Body -->
 <div class="note-dialog-body">
@@ -29,7 +27,7 @@
             <div>
                 <FluentStack Orientation="Orientation.Vertical">
                     <label>Tags</label>
-                    <FluentStack Orientation="Orientation.Horizontal" Wrap="true" HorizontalGap="4"">
+                    <FluentStack Orientation="Orientation.Horizontal" Wrap="true" HorizontalGap="4">
                         @foreach (var tag in _currentTags)
                         {
                             <FluentBadge Appearance="Appearance.Neutral" OnDismissClick="@((e) => RemoveTag(tag))">

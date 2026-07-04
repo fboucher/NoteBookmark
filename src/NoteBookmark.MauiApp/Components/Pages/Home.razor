@@ -3,31 +3,15 @@
 @inject NavigationManager Nav
 @implements IDisposable
 
-@if (!_ready)
-{
-    <p>Loading…</p>
-}
-else
-{
-    <div class="home-container">
-        <h2>Hello, @(AuthService.Username ?? "there")!</h2>
-        <p>You are signed in to NoteBookmark.</p>
-        <button class="btn btn-outline-secondary" @onclick="LogoutAsync">Sign out</button>
-    </div>
-}
+<div class="home-container">
+    <h2>Hello, @(AuthService.Username ?? "there")!</h2>
+    <p>You are signed in to NoteBookmark.</p>
+</div>
 
 @code {
-    private bool _ready;
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        if (!await AuthService.IsAuthenticatedAsync())
-        {
-            Nav.NavigateTo("/login", replace: true);
-            return;
-        }
-        _ready = true;
-        AuthService.AuthStateChanged += OnAuthStateChanged;
+        // No-op
     }
 
     private async Task LogoutAsync()
@@ -35,15 +19,9 @@ else
         await AuthService.LogoutAsync();
     }
 
-    private void OnAuthStateChanged(object? sender, bool isAuthenticated)
+    void IDisposable.Dispose()
     {
-        if (!isAuthenticated)
-            Nav.NavigateTo("/login", replace: true);
-    }
-
-    public void Dispose()
-    {
-        AuthService.AuthStateChanged -= OnAuthStateChanged;
+        // Cleanup resources if needed
     }
 }
 

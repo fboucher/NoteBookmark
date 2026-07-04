@@ -1,0 +1,17 @@
+{
+  "solution": {
+    "path": "NoteBookmark.sln",
+    "projects": [
+      "src\\NoteBookmark.Api\\NoteBookmark.Api.csproj",
+      "src\\NoteBookmark.Api.Tests\\NoteBookmark.Api.Tests.csproj",
+      "src\\NoteBookmark.AIServices\\NoteBookmark.AIServices.csproj",
+      "src\\NoteBookmark.AIServices.Tests\\NoteBookmark.AIServices.Tests.csproj",
+      "src\\NoteBookmark.AppHost\\NoteBookmark.AppHost.csproj",
+      "src\\NoteBookmark.BlazorApp\\NoteBookmark.BlazorApp.csproj",
+      "src\\NoteBookmark.BlazorApp.Tests\\NoteBookmark.BlazorApp.Tests.csproj",
+      "src\\NoteBookmark.Domain\\NoteBookmark.Domain.csproj",
+      "src\\NoteBookmark.ServiceDefaults\\NoteBookmark.ServiceDefaults.csproj",
+      "src\\NoteBookmark.SharedUI\\NoteBookmark.SharedUI.csproj"
+    ]
+  }
+}
