@@ -31,7 +31,9 @@ public static class BlazorTestContextExtensions
         {
             BaseAddress = new Uri("http://localhost/")
         };
-        ctx.Services.AddSingleton(new PostNoteClient(httpClient));
+        var client = new PostNoteClient(httpClient);
+        ctx.Services.AddSingleton(client);
+        ctx.Services.AddSingleton<NoteBookmark.SharedUI.IDataService>(client);
         return ctx;
     }
 }

@@ -41,7 +41,7 @@ public static class NoteEnpoints
 			.WithDescription("Delete a note");
 	}
 
-	static Results<Created<Note>, BadRequest> CreateNote(Note note, 
+	static Results<Created<Note>, BadRequest<string>> CreateNote(Note note, 
 														TableServiceClient tblClient, 
 														BlobServiceClient blobClient)
 	{
@@ -49,7 +49,7 @@ public static class NoteEnpoints
 		{
 			if (!note.Validate())
 			{
-				return TypedResults.BadRequest();
+				return TypedResults.BadRequest("Validation failed: Comment must not be empty.");
 			}
 			
 			var dataStorageService = new DataStorageService(tblClient, blobClient);
@@ -65,7 +65,7 @@ public static class NoteEnpoints
 		catch (Exception ex)
 		{
 			Console.WriteLine($"An error occurred while creating a note: {ex.Message}");
-			return TypedResults.BadRequest();
+			return TypedResults.BadRequest(ex.ToString());
 		}
 	}
 

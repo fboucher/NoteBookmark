@@ -14,7 +14,14 @@ namespace NoteBookmark.BlazorApp.Components.Shared
 
             var informational = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
             if (!string.IsNullOrEmpty(informational))
+            {
+                var parts = informational.Split('+');
+                if (parts.Length > 1 && parts[1].Length >= 5)
+                {
+                    return $"{parts[0]}+{parts[1].Substring(0, 5)}";
+                }
                 return informational;
+            }
 
             var file = asm.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
             if (!string.IsNullOrEmpty(file))

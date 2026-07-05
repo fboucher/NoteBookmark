@@ -2,8 +2,7 @@
 @attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
 @using NoteBookmark.Domain
-@inject PostNoteClient client
-@rendermode InteractiveServer
+@inject IDataService client
 @inject NavigationManager Navigation
 @inject IJSRuntime jsRuntime
 

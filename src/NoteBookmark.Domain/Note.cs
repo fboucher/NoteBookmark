@@ -22,6 +22,11 @@ public class Note : ITableEntity
     [DataMember(Name = "date_modified")]
     public DateTime DateModified { get; set; }
 
+    public bool IsDeleted { get; set; }
+
+    [DataMember(Name = "created_offline")]
+    public bool CreatedOffline { get; set; }
+
     [DataMember(Name = "tags")]
     public string? Tags { get; set; }
 

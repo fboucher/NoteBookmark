@@ -1,4 +1,14 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@using Microsoft.Maui.Networking
+@using Microsoft.Maui.ApplicationModel
+@using Microsoft.FluentUI.AspNetCore.Components
+@using NoteBookmark.MauiApp.Data
+@inject IConnectivity Connectivity
+@inject NavigationManager Navigation
+@inject ISyncService SyncService
+@inject IToastService ToastService
+@implements IDisposable
+
 
 <div class="page">
     <div class="sidebar">
@@ -6,12 +16,102 @@
     </div>
 
     <main>
+        @if (isOffline)
+        {
+            <div class="offline-banner">
+                You are currently offline. Changes will be saved locally.
+            </div>
+        }
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <a href="https://github.com/fboucher/NoteBookmark" target="_blank">About</a>
         </div>
 
         <article class="content px-4">
             @Body
         </article>
+
+        <FluentFooter>
+            <a href="https://github.com/fboucher/NoteBookmark" target="_blank">See the code</a>
+            <FluentSpacer />
+            <a href="https://fboucheros.com" target="_blank">About Frank</a>
+            &nbsp;&nbsp;·&nbsp;&nbsp;@appVersion
+        </FluentFooter>
     </main>
 </div>
+
+<FluentToastProvider />
+<FluentDialogProvider />
+
+@code {
+    private bool isOffline;
+    private string appVersion = "1.0.0";
+
+    protected override void OnInitialized()
+    {
+        isOffline = Connectivity.NetworkAccess != NetworkAccess.Internet;
+        Connectivity.ConnectivityChanged += OnConnectivityChanged;
+        Navigation.LocationChanged += OnLocationChanged;
+        EnsureApiBaseUrlConfigured(Navigation.Uri);
+        SyncService.ConflictDetected += OnSyncConflictDetected;
+
+        try
+        {
+            appVersion = AppInfo.Current.VersionString;
+        }
+        catch
+        {
+            // Fallback for environment constraints or test suites
+        }
+    }
+
+    private void OnSyncConflictDetected(object? sender, SyncConflictEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            ToastService.ShowWarning(e.Message);
+        });
+    }
+
+    private void OnConnectivityChanged(object? sender, ConnectivityChangedEventArgs e)
+    {
+        var wasOffline = isOffline;
+        isOffline = e.NetworkAccess != NetworkAccess.Internet;
+        if (wasOffline != isOffline)
+        {
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        EnsureApiBaseUrlConfigured(e.Location);
+    }
+
+    private void EnsureApiBaseUrlConfigured(string location)
+    {
+        if (ApiBaseUrlSettings.HasConfiguredValue() || IsSetupRoute(location))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo("/setup", replace: true);
+    }
+
+    private static bool IsSetupRoute(string location)
+    {
+        if (!Uri.TryCreate(location, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        var path = uri.AbsolutePath.TrimEnd('/');
+        return string.Equals(path, "/setup", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public void Dispose()
+    {
+        Connectivity.ConnectivityChanged -= OnConnectivityChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+        SyncService.ConflictDetected -= OnSyncConflictDetected;
+    }
+}

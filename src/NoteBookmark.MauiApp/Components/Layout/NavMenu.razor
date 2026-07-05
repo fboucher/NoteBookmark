@@ -1,4 +1,4 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">NoteBookmark.MauiApp</a>
     </div>
@@ -10,17 +10,37 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <FluentIcon Value="@(new Icons.Regular.Size20.Home())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Home
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+            <NavLink class="nav-link" href="posts">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Glasses())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Posts
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+            <NavLink class="nav-link" href="summaries">
+                <FluentIcon Value="@(new Icons.Regular.Size20.BookNumber())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Summaries
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="summaryeditor">
+                <FluentIcon Value="@(new Icons.Regular.Size20.ArrowAutofitHeightIn())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Generate Summary
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="search">
+                <FluentIcon Value="@(new Icons.Regular.Size20.SearchSparkle())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Search
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="appsettings">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Settings())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> App Settings
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="settings">
+                <FluentIcon Value="@(new Icons.Regular.Size20.Server())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Server Settings
             </NavLink>
         </div>
     </nav>

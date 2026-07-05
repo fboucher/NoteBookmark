@@ -4,7 +4,7 @@ using NoteBookmark.Domain;
 
 namespace NoteBookmark.SharedUI;
 
-public class PostNoteClient(HttpClient httpClient)
+public class PostNoteClient(HttpClient httpClient) : IDataService
 {
     public async Task<List<PostL>> GetUnreadPosts()
     {
@@ -29,7 +29,11 @@ public class PostNoteClient(HttpClient httpClient)
         var rnCounter = await httpClient.GetStringAsync("api/settings/GetNextReadingNotesCounter");
         note.PartitionKey = rnCounter;
         var response = await httpClient.PostAsJsonAsync("api/notes/note", note);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"Server returned Bad Request: {errorContent}", null, response.StatusCode);
+        }
     }
 
     public async Task<Note?> GetNote(string noteId)
@@ -173,4 +177,30 @@ public class PostNoteClient(HttpClient httpClient)
         var response = await httpClient.PostAsJsonAsync($"api/summary/{number}/markdown", request);
         return response.IsSuccessStatusCode;
     }
+
+    public async Task<List<PostL>> GetPostsModifiedAfter(DateTime modifiedAfter)
+    {
+        var encoded = System.Web.HttpUtility.UrlEncode(modifiedAfter.ToUniversalTime().ToString("O"));
+        var unread = await httpClient.GetFromJsonAsync<List<PostL>>($"api/posts?modifiedAfter={encoded}") ?? new List<PostL>();
+        var read = await httpClient.GetFromJsonAsync<List<PostL>>($"api/posts/read?modifiedAfter={encoded}") ?? new List<PostL>();
+        return unread.Concat(read).ToList();
+    }
+
+    public async Task<List<Note>> GetNotesModifiedAfter(DateTime modifiedAfter)
+    {
+        try
+        {
+            var encoded = System.Web.HttpUtility.UrlEncode(modifiedAfter.ToUniversalTime().ToString("O"));
+            var notes = await httpClient.GetFromJsonAsync<List<Note>>($"api/notes?modifiedAfter={encoded}");
+            return notes ?? new List<Note>();
+        }
+        catch (System.Net.Http.HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return new List<Note>();
+        }
+    }
+
+    public Task SyncAsync() => Task.CompletedTask;
+    public bool IsOffline => false;
+    public bool CanSync => false;
 }

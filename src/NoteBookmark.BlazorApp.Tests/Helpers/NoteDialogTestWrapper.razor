@@ -1,0 +1,25 @@
+@using NoteBookmark.SharedUI.Components.Shared
+@using NoteBookmark.Domain
+@using Microsoft.FluentUI.AspNetCore.Components
+
+<FluentDialog @ref="dialogRef">
+    <NoteDialog Content="@Content" Title="@Title" OnClose="@HandleClose" />
+</FluentDialog>
+
+@code {
+    [Parameter]
+    public Note? Content { get; set; }
+
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public EventCallback<NoteDialogResult> OnClose { get; set; }
+
+    private FluentDialog? dialogRef;
+
+    private async Task HandleClose(NoteDialogResult result)
+    {
+        await OnClose.InvokeAsync(result);
+    }
+}

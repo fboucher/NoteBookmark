@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
     <PropertyGroup>
         <!-- Clear the net10.0 default set by Directory.Build.props to prevent a spurious
@@ -38,8 +38,9 @@
         <ApplicationId>com.companyname.notebookmark.mauiapp</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <ApplicationDisplayVersion>1.2.0</ApplicationDisplayVersion>
+        <ApplicationVersion>2</ApplicationVersion>
+        <Version>1.2.0</Version>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>
@@ -49,6 +50,15 @@
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
         <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
         <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+    </PropertyGroup>
+
+    <!-- Android release signing configuration (secrets injected via environment variables in CI) -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(Configuration)' == 'Release'">
+        <AndroidKeyStore Condition="'$(ANDROID_KEYSTORE_PATH)' != ''">true</AndroidKeyStore>
+        <AndroidSigningKeyStore Condition="'$(ANDROID_KEYSTORE_PATH)' != ''">$(ANDROID_KEYSTORE_PATH)</AndroidSigningKeyStore>
+        <AndroidSigningKeyAlias Condition="'$(ANDROID_KEYSTORE_ALIAS)' != ''">$(ANDROID_KEYSTORE_ALIAS)</AndroidSigningKeyAlias>
+        <AndroidSigningKeyPass Condition="'$(ANDROID_KEYSTORE_PASSWORD)' != ''">$(ANDROID_KEYSTORE_PASSWORD)</AndroidSigningKeyPass>
+        <AndroidSigningStorePass Condition="'$(ANDROID_KEYSTORE_PASSWORD)' != ''">$(ANDROID_KEYSTORE_PASSWORD)</AndroidSigningStorePass>
     </PropertyGroup>
 
     <ItemGroup>
@@ -74,6 +84,8 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+        <PackageReference Include="sqlite-net-pcl" />
+        <PackageReference Include="SQLitePCLRaw.bundle_green" />
     </ItemGroup>
 
     <ItemGroup>
