@@ -1,9 +1,10 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:NoteBookmark.MauiApp"
              xmlns:components="clr-namespace:NoteBookmark.MauiApp.Components"
-             x:Class="NoteBookmark.MauiApp.MainPage">
+             x:Class="NoteBookmark.MauiApp.MainPage"
+             Padding="{OnPlatform Android='0,24,0,0', iOS='0'}">
 
     <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
         <BlazorWebView.RootComponents>
