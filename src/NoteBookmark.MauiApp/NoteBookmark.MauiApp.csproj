@@ -39,7 +39,7 @@
 
         <!-- Versions -->
         <ApplicationDisplayVersion>1.2.0</ApplicationDisplayVersion>
-        <ApplicationVersion>1.2.0</ApplicationVersion>
+        <ApplicationVersion>2</ApplicationVersion>
         <Version>1.2.0</Version>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
