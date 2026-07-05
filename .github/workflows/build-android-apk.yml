@@ -43,7 +43,7 @@ jobs:
           -c Release
           -p:AndroidPackageFormat=apk
         env:
-          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/android.keystore
+          ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && format('{0}/android.keystore', github.workspace) || '' }}
           ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
