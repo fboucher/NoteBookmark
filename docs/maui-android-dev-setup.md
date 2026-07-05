@@ -147,13 +147,47 @@ dotnet build src/NoteBookmark.MauiApp \
 ```
 
 
-## Running the emulator
+## Running the Emulator & App
 
-```bash
-$ANDROID_HOME/emulator/emulator -avd maui_dev
-```
+### Windows (PowerShell Setup)
+If you are developing on Windows, you can start the emulator, backend services, and build the app directly from the command line:
 
-KVM hardware acceleration is enabled automatically when `/dev/kvm` is available, which makes the emulator fast and responsive.
+1. **Start the Emulator**:
+   Run this in PowerShell to boot your Android tablet emulator:
+   ```powershell
+   & "C:\Program Files (x86)\Android\android-sdk\emulator\emulator.exe" -avd tablet_h-dpi_13_5in_-_api_30_0
+   ```
+
+2. **Start Backend Services**:
+   Use the Aspire CLI to run the orchestrated backend API, Keycloak, and storage services:
+   ```bash
+   aspire run ./src/NoteBookmark.AppHost/NoteBookmark.AppHost.csproj
+   ```
+
+3. **Deploy the MAUI App**:
+   Run this command to build and launch the app inside the running emulator:
+   ```bash
+   dotnet build src/NoteBookmark.MauiApp/NoteBookmark.MauiApp.csproj -t:Run -f net10.0-android -p:AndroidSdkDirectory="C:\Program Files (x86)\Android\android-sdk"
+   ```
+   *Alternatively, you can open the solution in Visual Studio or your preferred IDE to deploy and debug.*
+
+### Linux (Bash Setup)
+1. **Start the Emulator**:
+   ```bash
+   $ANDROID_HOME/emulator/emulator -avd maui_dev
+   ```
+   *Note: KVM hardware acceleration is enabled automatically when `/dev/kvm` is available, which makes the emulator fast and responsive.*
+
+2. **Start Backend Services**:
+   ```bash
+   dotnet run --project src/NoteBookmark.AppHost/NoteBookmark.AppHost.csproj
+   ```
+
+3. **Deploy the MAUI App**:
+   Ensure your emulator is running, then run:
+   ```bash
+   dotnet build src/NoteBookmark.MauiApp/NoteBookmark.MauiApp.csproj -t:Run -f net10.0-android -p:AndroidSdkDirectory=$HOME/Android/Sdk
+   ```
 
 
 ## Troubleshooting
