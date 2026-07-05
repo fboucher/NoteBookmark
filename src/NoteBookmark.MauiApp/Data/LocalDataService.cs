@@ -21,7 +21,7 @@ public class LocalDataService : ILocalDataService
         SQLiteOpenFlags.SharedCache;
 
     private readonly string _databasePath;
-    private SQLiteAsyncConnection _database;
+    private SQLiteAsyncConnection? _database;
 
     public LocalDataService()
     {
@@ -37,6 +37,7 @@ public class LocalDataService : ILocalDataService
         _databasePath = dbPath;
     }
 
+    [System.Diagnostics.CodeAnalysis.MemberNotNull(nameof(_database))]
     private async Task InitAsync()
     {
         if (_database is not null)

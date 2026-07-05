@@ -54,7 +54,6 @@
     private List<PostSuggestion>? suggestions;
     private GridSort<PostSuggestion> defSort = GridSort<PostSuggestion>.ByDescending(c => c.PublicationDate);
     private string newPostUrl = string.Empty;
-    private bool showRead = false;
     private bool isSearching = false;
 
     private SearchCriterias _criterias = new SearchCriterias(string.Empty);
@@ -64,7 +63,7 @@
         Domain.Settings? settings = await client.GetSettings();
         if (settings != null)
         {
-            _criterias = new SearchCriterias(settings.SearchPrompt);
+            _criterias = new SearchCriterias(settings.SearchPrompt ?? string.Empty);
             _criterias.AllowedDomains = settings.FavoriteDomains;
             _criterias.BlockedDomains = settings.BlockedDomains;
         }
