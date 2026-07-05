@@ -53,9 +53,9 @@
     </PropertyGroup>
 
     <!-- Android release signing configuration (secrets injected via environment variables in CI) -->
-    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(Configuration)' == 'Release'">
-        <AndroidKeyStore Condition="'$(ANDROID_KEYSTORE_PATH)' != ''">true</AndroidKeyStore>
-        <AndroidSigningKeyStore Condition="'$(ANDROID_KEYSTORE_PATH)' != ''">$(ANDROID_KEYSTORE_PATH)</AndroidSigningKeyStore>
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(Configuration)' == 'Release' and '$(ANDROID_KEYSTORE_PATH)' != '' and Exists('$(ANDROID_KEYSTORE_PATH)')">
+        <AndroidKeyStore>true</AndroidKeyStore>
+        <AndroidSigningKeyStore>$(ANDROID_KEYSTORE_PATH)</AndroidSigningKeyStore>
         <AndroidSigningKeyAlias Condition="'$(ANDROID_KEYSTORE_ALIAS)' != ''">$(ANDROID_KEYSTORE_ALIAS)</AndroidSigningKeyAlias>
         <AndroidSigningKeyPass Condition="'$(ANDROID_KEYSTORE_PASSWORD)' != ''">$(ANDROID_KEYSTORE_PASSWORD)</AndroidSigningKeyPass>
         <AndroidSigningStorePass Condition="'$(ANDROID_KEYSTORE_PASSWORD)' != ''">$(ANDROID_KEYSTORE_PASSWORD)</AndroidSigningStorePass>
