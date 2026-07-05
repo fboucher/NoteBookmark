@@ -17,6 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Build Android Release APK
 
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,9 +33,7 @@ jobs:
         run: dotnet workload install maui-android
 
       - name: Decode keystore
-        if: secrets.ANDROID_KEYSTORE_BASE64 != ''
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: env.ANDROID_KEYSTORE_BASE64 != ''
         run: |
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ${{ github.workspace }}/android.keystore
 
