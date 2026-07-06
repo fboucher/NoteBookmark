@@ -32,10 +32,10 @@
         <MauiXamlInflator>SourceGen</MauiXamlInflator>
 
         <!-- Display name -->
-        <ApplicationTitle>NoteBookmark.MauiApp</ApplicationTitle>
+        <ApplicationTitle>Note Bookmark</ApplicationTitle>
 
         <!-- App Identifier -->
-        <ApplicationId>com.companyname.notebookmark.mauiapp</ApplicationId>
+        <ApplicationId>c5m.notebookmark.mauiapp</ApplicationId>
 
         <!-- Versions -->
         <ApplicationDisplayVersion>1.2.0</ApplicationDisplayVersion>
