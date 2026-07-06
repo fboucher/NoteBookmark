@@ -23,6 +23,12 @@
         <EnableDefaultCssItems>false</EnableDefaultCssItems>
         <Nullable>enable</Nullable>
 
+        <!-- Package Metadata -->
+        <Company>C5M</Company>
+        <Authors>Frank Boucher</Authors>
+        <Product>Note Bookmark</Product>
+        <Description>Mobile app to collect reading thoughts and bookmark links.</Description>
+
         <!-- Enable XAML source generation for faster build times and improved performance.
              This generates C# code from XAML at compile time instead of runtime inflation.
              To disable, remove this line.
