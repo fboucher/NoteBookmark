@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   DEFAULT_DOTNET_VERSION: "10.0.x"
@@ -53,3 +53,9 @@ jobs:
         with:
           name: notebookmark-android-apk
           path: src/NoteBookmark.MauiApp/bin/Release/net10.0-android/publish/*.apk
+
+      - name: Upload APK to Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src/NoteBookmark.MauiApp/bin/Release/net10.0-android/publish/*.apk
