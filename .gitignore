@@ -525,3 +525,16 @@ src/NoteBookmark.BlazorApp/Data/
 .squad/sessions/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Squad: user inbox messages (ephemeral, user-local)
+.squad/inbox/
+
+# SquadDash: maintenance state (auto-managed)
+code-health-state.json
+
+# SquadDash: maintenance reports (runtime, not for version control)
+.squad/code-health-reports/
+# Squad: ignore runtime state (logs, inbox, sessions)
+# Note: .squad/casting/* is identity and MUST be committed to main, not ignored
+.squad/.scratch/
+.squad/.cache/
