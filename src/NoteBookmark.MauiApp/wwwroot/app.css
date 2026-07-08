@@ -93,3 +93,29 @@ h1:focus {
 .flex-column, .navbar-brand {
     padding-left: env(safe-area-inset-left, 0px);
 }
+
+footer {
+    background-color: var(--neutral-layer-4, #f7f7f7);
+    color: var(--neutral-foreground-rest, #2b2b2b);
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--neutral-stroke-divider-rest, #d6d5d5);
+    font-size: 0.85rem;
+}
+
+footer a {
+    color: var(--neutral-foreground-rest, #006bb7);
+    text-decoration: none;
+}
+
+footer a:focus {
+    outline: 1px dashed;
+    outline-offset: 3px;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
