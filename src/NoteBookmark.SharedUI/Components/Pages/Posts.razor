@@ -49,11 +49,14 @@
                     </div>
             </ColumnOptions>
         </PropertyColumn>
+@if(showPublishedDate)
+{
         <PropertyColumn Title="Published" 
                         Property="@(c => (c!.Date_published ?? "0000-00-00").Substring(0,10))"  
                         Sortable="true" SortBy="@defSort" 
                         IsDefaultSortColumn="true" 
                         Width="125px"/>
+}
         <TemplateColumn Width="65px">   
             <FluentButton OnClick="@(async () => await DeletePost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Delete())" />
         </TemplateColumn>
@@ -64,6 +67,8 @@
 </FluentDataGrid>
 <FluentPaginator State="@pagination" />
 
+<FluentCheckbox @bind-Value=showPublishedDate Label="Show Published Date" @onclick="ToggleShowPublishedDate" />
+
 
 @code {
     private IQueryable<PostL>? posts;
@@ -73,6 +78,7 @@
     private bool showRead = false;
     private PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
     private string titleFilter = string.Empty;
+    private bool showPublishedDate = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -265,5 +271,10 @@
         {
             isSyncing = false;
         }
+    }
+
+    private void ToggleShowPublishedDate()
+    {
+        showPublishedDate = !showPublishedDate;
     }
 }
