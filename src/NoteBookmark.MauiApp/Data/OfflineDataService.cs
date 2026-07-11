@@ -8,7 +8,7 @@ using NoteBookmark.SharedUI;
 
 namespace NoteBookmark.MauiApp.Data;
 
-public class OfflineDataService(PostNoteClient apiClient, ILocalDataService localDataService, IConnectivity connectivity, ISyncService syncService) : IDataService
+public class OfflineDataService(PostNoteClient apiClient, ILocalDataService localDataService, IConnectivity connectivity, ISyncService syncService, ILocalHtmlStorageService localHtmlStorageService) : IDataService
 {
     private bool IsOnline => connectivity.NetworkAccess == NetworkAccess.Internet;
 
@@ -274,6 +274,9 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     }
 
     public Task<bool> SaveReadingNotesMarkdown(string markdown, string number) => apiClient.SaveReadingNotesMarkdown(markdown, number);
+
+    public Task<string?> GetPostHtmlAsync(string postId)
+        => localHtmlStorageService.GetPostHtmlAsync(postId);
 
     public Task SyncAsync() => syncService.SyncAsync();
     public bool IsOffline => connectivity.NetworkAccess != NetworkAccess.Internet;
