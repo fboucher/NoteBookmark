@@ -178,6 +178,14 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<string?> GetPostHtmlAsync(string postId)
+    {
+        var response = await httpClient.GetAsync($"api/posts/{postId}/html");
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public async Task<List<PostL>> GetPostsModifiedAfter(DateTime modifiedAfter)
     {
         var encoded = System.Web.HttpUtility.UrlEncode(modifiedAfter.ToUniversalTime().ToString("O"));
