@@ -16,6 +16,7 @@ public class SyncServiceTests
     private readonly Mock<ISyncApiClient> _apiClientMock;
     private readonly Mock<ILocalDataService> _localDataServiceMock;
     private readonly Mock<ILogger<SyncService>> _loggerMock;
+    private readonly Mock<ILocalHtmlStorageService> _localHtmlStorageServiceMock;
     private readonly SyncService _sut;
 
     public SyncServiceTests()
@@ -23,11 +24,14 @@ public class SyncServiceTests
         _apiClientMock = new Mock<ISyncApiClient>();
         _localDataServiceMock = new Mock<ILocalDataService>();
         _loggerMock = new Mock<ILogger<SyncService>>();
+        _localHtmlStorageServiceMock = new Mock<ILocalHtmlStorageService>();
         
         _apiClientMock.Setup(c => c.GetNote(It.IsAny<string>())).ReturnsAsync((Note?)null);
+        _apiClientMock.Setup(c => c.GetPostHtmlAsync(It.IsAny<string>())).ReturnsAsync((string?)null);
         _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post>());
+        _localHtmlStorageServiceMock.Setup(s => s.GetCachedPostIds()).Returns(new List<string>());
         
-        _sut = new SyncService(_apiClientMock.Object, _localDataServiceMock.Object, _loggerMock.Object);
+        _sut = new SyncService(_apiClientMock.Object, _localDataServiceMock.Object, _loggerMock.Object, _localHtmlStorageServiceMock.Object);
         
         SyncService.ClearInMemoryPreferences();
     }
