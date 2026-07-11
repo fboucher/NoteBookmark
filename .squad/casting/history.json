@@ -4,6 +4,16 @@
       "universe": "Marvel Cinematic Universe",
       "agent": "tony-stark",
       "date": "2026-07-10"
+    },
+    {
+      "universe": "SquadDash Universe",
+      "agent": "lyra-morn",
+      "date": "2026-07-10"
+    },
+    {
+      "universe": "SquadDash Universe",
+      "agent": "elias-ward",
+      "date": "2026-07-10"
     }
   ],
   "assignment_cast_snapshots": {
@@ -11,6 +21,18 @@
       "name": "Tony Stark",
       "role": "Backend Engineer",
       "universe": "Marvel Cinematic Universe",
+      "cast_date": "2026-07-10"
+    },
+    "lyra-morn": {
+      "name": "Lyra Morn",
+      "role": "UI Architecture & Accessibility",
+      "universe": "SquadDash Universe",
+      "cast_date": "2026-07-10"
+    },
+    "elias-ward": {
+      "name": "Elias Ward",
+      "role": "Fault Isolation & Release Safeguards",
+      "universe": "SquadDash Universe",
       "cast_date": "2026-07-10"
     }
   }

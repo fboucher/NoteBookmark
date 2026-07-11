@@ -9,8 +9,13 @@ How to decide who handles what.
 | Backend API & data services | Tony Stark | Endpoints, DataStorageService, domain models, Azure storage, AI service wiring |
 | Domain modeling | Tony Stark | PostL, Post, Note, Summary, Settings, IDataService contract changes |
 | AI backend integration | Tony Stark | SummaryService, ResearchService, AISettingsProvider, AI feature endpoints |
-| Code review | Tony Stark | Backend API, data layer, domain model changes |
-| Testing | Tony Stark | API-level integration tests; coordinates with any testing specialist added later |
+| UI components & pages | Lyra Morn | SharedUI Razor pages, FluentUI components, accessibility, light/dark theming |
+| MAUI UI divergence | Lyra Morn | Platform-specific UI differences between MAUI and Blazor |
+| Sync fault tolerance & offline safety | Elias Ward | Graceful degradation, per-item error isolation, online/offline guards |
+| Code review — backend | Tony Stark | API, data layer, domain model changes |
+| Code review — UI | Lyra Morn | Razor components, FluentUI usage, interaction quality |
+| Code review — fault isolation | Elias Ward | Sync paths, error handling, degradation boundaries |
+| Testing | Tony Stark | API integration tests; Lyra Morn for bUnit UI tests; Elias Ward for sync edge-case unit tests |
 | Scope & priorities | Squad | What to build next, trade-offs, decisions |
 | Session logging | Scribe | Automatic — never needs routing |
 | RAI review | Rai | Content safety, bias checks, credential detection, ethical review |
