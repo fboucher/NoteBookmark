@@ -1,47 +1,39 @@
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">NoteBookmark.MauiApp</a>
+@using Microsoft.FluentUI.AspNetCore.Components
+
+<div class="navmenu-container">
+    <!-- Hamburger button visible only on mobile screens -->
+    <div class="mobile-header">
+        <FluentButton Id="hamburger-button" 
+                      Icon="@(isMenuOpen ? new Icons.Regular.Size20.Dismiss() : new Icons.Regular.Size20.Navigation())" 
+                      Appearance="Appearance.Stealth" 
+                      OnClick="ToggleMenu" 
+                      aria-label="Toggle menu" />
+    </div>
+
+    <!-- Navigation Menu wrapper -->
+    <div class="nav-menu-wrapper @(isMenuOpen ? "open" : "collapsed")">
+        <FluentNavMenu Id="main-menu" Collapsible="true" Width="250" Title="Navigation menu">
+            <FluentNavLink Href="/" Match="NavLinkMatch.All" Icon="@(new Icons.Regular.Size20.Home())" IconColor="Color.Accent" OnClick="CloseMenu">Home</FluentNavLink>
+            <FluentNavLink Href="posts" Icon="@(new Icons.Regular.Size20.Glasses())" IconColor="Color.Accent" OnClick="CloseMenu">Posts</FluentNavLink>
+            <FluentNavLink Href="summaries" Icon="@(new Icons.Regular.Size20.BookNumber())" IconColor="Color.Accent" OnClick="CloseMenu">Summaries</FluentNavLink>
+            <FluentNavLink Href="summaryeditor" Icon="@(new Icons.Regular.Size20.ArrowAutofitHeightIn())" IconColor="Color.Accent" OnClick="CloseMenu">Generate Summary</FluentNavLink>
+            <FluentNavLink Href="search" Icon="@(new Icons.Regular.Size20.SearchSparkle())" IconColor="Color.Accent" OnClick="CloseMenu">Search</FluentNavLink>
+            <FluentNavLink Href="appsettings" Icon="@(new Icons.Regular.Size20.Settings())" IconColor="Color.Accent" OnClick="CloseMenu">App Settings</FluentNavLink>
+            <FluentNavLink Href="settings" Icon="@(new Icons.Regular.Size20.Server())" IconColor="Color.Accent" OnClick="CloseMenu">Server Settings</FluentNavLink>
+        </FluentNavMenu>
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+@code {
+    private bool isMenuOpen = false;
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <FluentIcon Value="@(new Icons.Regular.Size20.Home())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="posts">
-                <FluentIcon Value="@(new Icons.Regular.Size20.Glasses())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Posts
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="summaries">
-                <FluentIcon Value="@(new Icons.Regular.Size20.BookNumber())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Summaries
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="summaryeditor">
-                <FluentIcon Value="@(new Icons.Regular.Size20.ArrowAutofitHeightIn())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Generate Summary
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="search">
-                <FluentIcon Value="@(new Icons.Regular.Size20.SearchSparkle())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Search
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="appsettings">
-                <FluentIcon Value="@(new Icons.Regular.Size20.Settings())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> App Settings
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="settings">
-                <FluentIcon Value="@(new Icons.Regular.Size20.Server())" Color="Color.Fill" Style="margin-right: 0.75rem;" /> Server Settings
-            </NavLink>
-        </div>
-    </nav>
-</div>
+    private void ToggleMenu()
+    {
+        isMenuOpen = !isMenuOpen;
+    }
+
+    private void CloseMenu()
+    {
+        isMenuOpen = false;
+    }
+}

@@ -10,34 +10,35 @@
 @implements IDisposable
 
 
-<div class="page">
-    <div class="sidebar">
+<FluentLayout>
+    <FluentHeader>
+        Note Bookmark
+        <FluentSpacer />
+        <a href="https://github.com/fboucher/NoteBookmark" target="_blank" style="color: var(--neutral-foreground-rest); text-decoration: none;">About</a>
+    </FluentHeader>
+
+    <FluentStack Class="main" Orientation="Orientation.Horizontal" Width="100%">
         <NavMenu />
-    </div>
-
-    <main>
-        @if (isOffline)
-        {
-            <div class="offline-banner">
-                You are currently offline. Changes will be saved locally.
+        <FluentBodyContent Class="body-content">
+            @if (isOffline)
+            {
+                <FluentMessageBar Intent="MessageIntent.Warning" Title="Offline Mode" AllowDismiss="false">
+                    You are currently offline. Changes will be saved locally.
+                </FluentMessageBar>
+            }
+            <div class="content px-4">
+                @Body
             </div>
-        }
-        <div class="top-row px-4">
-            <a href="https://github.com/fboucher/NoteBookmark" target="_blank">About</a>
-        </div>
+        </FluentBodyContent>
+    </FluentStack>
 
-        <article class="content px-4">
-            @Body
-        </article>
-
-        <FluentFooter>
-            <a href="https://github.com/fboucher/NoteBookmark" target="_blank">See the code</a>
-            <FluentSpacer />
-            <a href="https://fboucheros.com" target="_blank">About Frank</a>
-            &nbsp;&nbsp;·&nbsp;&nbsp;@appVersion
-        </FluentFooter>
-    </main>
-</div>
+    <FluentFooter>
+        <a href="https://github.com/fboucher/NoteBookmark" target="_blank">See the code</a>
+        <FluentSpacer />
+        <a href="https://fboucheros.com" target="_blank">About Frank</a>
+        &nbsp;&nbsp;·&nbsp;&nbsp;@appVersion
+    </FluentFooter>
+</FluentLayout>
 
 <FluentToastProvider />
 <FluentDialogProvider />
