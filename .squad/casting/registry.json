@@ -1,0 +1,34 @@
+{
+  "agents": {
+    "tony-stark": {
+      "name": "Tony Stark",
+      "handle": "tony-stark",
+      "role": "Backend Engineer",
+      "universe": "Marvel Cinematic Universe",
+      "status": "active",
+      "joined": "2026-07-10",
+      "charter": ".squad/agents/tony-stark/charter.md",
+      "history": ".squad/agents/tony-stark/history.md"
+    },
+    "lyra-morn": {
+      "name": "Lyra Morn",
+      "handle": "lyra-morn",
+      "role": "UI Architecture & Accessibility",
+      "universe": "SquadDash Universe",
+      "status": "active",
+      "joined": "2026-07-10",
+      "charter": ".squad/agents/lyra-morn/charter.md",
+      "history": ".squad/agents/lyra-morn/history.md"
+    },
+    "elias-ward": {
+      "name": "Elias Ward",
+      "handle": "elias-ward",
+      "role": "Fault Isolation & Release Safeguards",
+      "universe": "SquadDash Universe",
+      "status": "active",
+      "joined": "2026-07-10",
+      "charter": ".squad/agents/elias-ward/charter.md",
+      "history": ".squad/agents/elias-ward/history.md"
+    }
+  }
+}
