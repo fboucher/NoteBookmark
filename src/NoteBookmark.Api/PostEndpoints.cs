@@ -21,6 +21,8 @@ public static class PostEndpoints
 			.WithDescription("Get all read posts");
 		endpoints.MapGet("/{id}", Get)
 			.WithDescription("Get a post by id");
+		endpoints.MapGet("/{postId}/html", GetPostHtml)
+			.WithDescription("Get cleaned HTML for a post");
 		endpoints.MapPost("/", SavePost)
 			.WithDescription("Save or Create a post");
 		endpoints.MapPost("/extractPostDetails", ExtractPostDetails)
@@ -53,6 +55,18 @@ public static class PostEndpoints
 			posts = posts.Where(p => p.DateModified > threshold).ToList();
 		}
 		return posts;
+	}
+
+	static async Task<Results<ContentHttpResult, NotFound<ErrorMessage>>> GetPostHtml(
+		string postId, BlobServiceClient blobClient)
+	{
+		var containerClient = blobClient.GetBlobContainerClient("cleanedposts");
+		var blob = containerClient.GetBlobClient($"{postId}.html");
+		if (!await blob.ExistsAsync())
+			return TypedResults.NotFound(new ErrorMessage("Post HTML not found"));
+		var download = await blob.DownloadContentAsync();
+		var html = download.Value.Content.ToString();
+		return TypedResults.Content(html, "text/html");
 	}
 
 	static Results<Ok<Post>, NotFound> Get(string id, TableServiceClient tblClient, BlobServiceClient blobClient)
@@ -186,3 +200,4 @@ public static class PostEndpoints
 }
 
 public record ExtractPostRequest(string url, string? tags = null, string? category = null);
+public record ErrorMessage(string error);

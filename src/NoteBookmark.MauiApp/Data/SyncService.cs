@@ -22,7 +22,8 @@ public interface ISyncService
 public class SyncService(
     ISyncApiClient apiClient, 
     ILocalDataService localDataService,
-    ILogger<SyncService> logger) : ISyncService
+    ILogger<SyncService> logger,
+    ILocalHtmlStorageService localHtmlStorageService) : ISyncService
 {
     private const string LastSyncTimestampKey = "LastSyncTimestamp";
     private bool _isSyncing;
@@ -46,6 +47,7 @@ public class SyncService(
 
             await PushAsync(lastSync);
             await PullAsync(lastSync);
+            await SyncHtmlAsync();
 
             await SetPreferenceAsync(LastSyncTimestampKey, DateTime.UtcNow.ToString("O"));
         }
@@ -223,6 +225,42 @@ public class SyncService(
                         await localDataService.SaveNoteAsync(remoteNote, isPendingSync: false);
                     }
                 }
+            }
+        }
+    }
+
+    private async Task SyncHtmlAsync()
+    {
+        var posts = await localDataService.GetPostsAsync();
+        var postMap = posts.ToDictionary(p => p.Id ?? p.RowKey);
+        var cachedIds = localHtmlStorageService.GetCachedPostIds().ToHashSet();
+
+        // Prune cached HTML for posts that are read or no longer exist
+        foreach (var cachedId in cachedIds)
+        {
+            if (!postMap.TryGetValue(cachedId, out var post) || post.is_read == true)
+            {
+                localHtmlStorageService.RemovePostHtml(cachedId);
+            }
+        }
+
+        // Download HTML for unread posts not yet cached
+        foreach (var post in posts.Where(p => p.is_read != true))
+        {
+            var id = post.Id ?? post.RowKey;
+            if (localHtmlStorageService.IsPostHtmlCached(id)) continue;
+
+            try
+            {
+                var html = await apiClient.GetPostHtmlAsync(id);
+                if (html != null)
+                {
+                    await localHtmlStorageService.SavePostHtmlAsync(id, html);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to download HTML for post {PostId}", id);
             }
         }
     }

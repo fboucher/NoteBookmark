@@ -22,4 +22,5 @@ public class SyncApiClient(PostNoteClient client) : ISyncApiClient
         return true;
     }
     public Task<bool> DeleteNote(string rowKey) => client.DeleteNote(rowKey);
+    public Task<string?> GetPostHtmlAsync(string postId) => client.GetPostHtmlAsync(postId);
 }

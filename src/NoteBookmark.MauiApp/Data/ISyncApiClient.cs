@@ -17,4 +17,5 @@ public interface ISyncApiClient
     Task<bool> UpdateNote(Note note);
     Task<bool> CreateNote(Note note);
     Task<bool> DeleteNote(string rowKey);
+    Task<string?> GetPostHtmlAsync(string postId);
 }

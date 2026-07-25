@@ -8,6 +8,7 @@
 @inject IToastService toastService
 @inject IDialogService DialogService
 @inject NavigationManager Navigation
+@inject ILocalHtmlCache localHtmlCache
 
 <PageTitle>Posts</PageTitle>
 
@@ -30,7 +31,7 @@
 
 <FluentDataGrid Id="postgrid" Items="@filteredUrlList" Pagination="@pagination" RowSize="DataGridRowSize.Medium" >
     <ChildContent>       
-        <TemplateColumn Width="150px">
+        <TemplateColumn Width="175px">
             <FluentButton OnClick="@(async () => await OpenUrlInNewWindow(context!.Url))" IconEnd="@(new Icons.Regular.Size20.Open())" />
             <FluentButton OnClick="@(() => EditNote(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Edit())" />
             @if (String.IsNullOrEmpty(context!.NoteId))
@@ -40,6 +41,10 @@
             else
             {
                 <FluentButton OnClick="@(() => EditNoteForPost(context!.NoteId))" IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
+            }
+            @if (localHtmlCache.IsHtmlCached(context!.RowKey))
+            {
+                <FluentButton OnClick="@(() => ReadPost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Book())" Title="Read post" />
             }
         </TemplateColumn>
         <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
@@ -277,4 +282,6 @@
     {
         showPublishedDate = !showPublishedDate;
     }
+
+    private void ReadPost(string postId) => Navigation.NavigateTo($"postreader/{postId}");
 }

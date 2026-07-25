@@ -1,0 +1,71 @@
+@page "/postreader/{PostId}"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using NoteBookmark.Domain
+@using Microsoft.FluentUI.AspNetCore.Components
+@inject IDataService DataService
+@inject NavigationManager Navigation
+
+<PageTitle>@(post?.Title ?? "Reading...")</PageTitle>
+
+<FluentStack Orientation="Orientation.Vertical" Style="max-width: 700px; margin: 0 auto; padding: 1rem;">
+    <FluentStack Orientation="Orientation.Horizontal">
+        <FluentButton OnClick="@(() => Navigation.NavigateTo("/posts"))"
+                      IconStart="@(new Icons.Regular.Size20.ArrowLeft())"
+                      Title="Back to posts">Back</FluentButton>
+    </FluentStack>
+
+    @if (isLoading)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        @if (post != null)
+        {
+            <h1 style="margin-bottom: 0.25rem;">@post.Title</h1>
+            <FluentStack Orientation="Orientation.Horizontal" Style="color: var(--neutral-fill-stealth-rest); gap: 0.5rem; margin-bottom: 1rem;">
+                @if (!string.IsNullOrEmpty(post.Author))
+                {
+                    <span>@post.Author</span>
+                }
+                @if (!string.IsNullOrEmpty(post.Date_published) && post.Date_published.Length >= 10)
+                {
+                    <span>· @post.Date_published[..10]</span>
+                }
+            </FluentStack>
+        }
+
+        @if (htmlContent != null)
+        {
+            <div style="line-height: 1.7; max-width: 700px; overflow-wrap: break-word;">
+                @((MarkupString)htmlContent)
+            </div>
+        }
+        else
+        {
+            <p><em>Content not available.</em></p>
+        }
+    }
+</FluentStack>
+
+@code {
+    [Parameter]
+    public string PostId { get; set; } = string.Empty;
+
+    private Post? post;
+    private string? htmlContent;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var postTask = DataService.GetPost(PostId);
+        var htmlTask = DataService.GetPostHtmlAsync(PostId);
+
+        await Task.WhenAll(postTask, htmlTask);
+
+        post = await postTask;
+        htmlContent = await htmlTask;
+        isLoading = false;
+    }
+}
