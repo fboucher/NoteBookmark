@@ -22,6 +22,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/big-pickle
+          use_github_token: true
           prompt: |
             You are a triage agent. Triaging open GitHub issues in this repo.
 
