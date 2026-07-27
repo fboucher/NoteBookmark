@@ -91,7 +91,7 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
             
             if (string.IsNullOrEmpty(note.Category))
             {
-                note.Category = NoteCategories.GetCategory(tags[0]);
+                note.Category = NoteCategories.GetCategory(tags.Length > 0 ? tags[0] : null);
             }
 
             string category = note.Category;
