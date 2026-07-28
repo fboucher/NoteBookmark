@@ -5,6 +5,7 @@
 @using NoteBookmark.Domain
 @inject IDataService client
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <FluentDesignTheme @bind-Mode="@Mode"
 				   @bind-OfficeColor="@OfficeColor"
@@ -45,6 +46,14 @@
             <DataAnnotationsValidator />
             <ValidationSummary />
             <FluentStack Orientation="Orientation.Vertical" Width="100%">
+
+                <FluentStack Orientation="Orientation.Horizontal" Width="100%">
+                    <FluentSelect Label="Font Size" Width="150px"
+                                  Items="@fontSizeOptions"
+                                  OptionText="@(i => i.Text)"
+                                  OptionValue="@(i => i.Value)"
+                                  @bind-Value="settings!.FontSize" />
+                </FluentStack>
 
                 <FluentStack Orientation="Orientation.Horizontal"  Width="100%" VerticalAlignment="VerticalAlignment.Center">
                     <FluentTextField Label="Last Bookmark Date" @bind-Value="settings!.LastBookmarkDate" />
@@ -103,9 +112,22 @@
 
     private Domain.Settings? settings;
 
+    private record FontSizeOption(string Text, string Value);
+
+    private static readonly List<FontSizeOption> fontSizeOptions = new()
+    {
+        new("Small", "small"),
+        new("Medium", "medium"),
+        new("Large", "large")
+    };
+
     protected override async Task OnInitializedAsync()
     {
         settings = await client.GetSettings();
+        if (settings != null && string.IsNullOrWhiteSpace(settings.FontSize))
+        {
+            settings.FontSize = FontSizeHelper.DefaultFontSize;
+        }
     }
 
     private async Task SaveSettings()
@@ -113,6 +135,16 @@
         if (settings != null)
         {
             await client.SaveSettings(settings);
+            try
+            {
+                var cssSize = FontSizeHelper.ToCssValue(settings.FontSize);
+                await JSRuntime.InvokeVoidAsync("document.documentElement.style.setProperty", "--app-font-size", cssSize);
+                await JSRuntime.InvokeVoidAsync("document.body.style.setProperty", "--app-font-size", cssSize);
+            }
+            catch
+            {
+                // Prerender / non-JS environment safe
+            }
             Navigation.NavigateTo("/");
         }
     }

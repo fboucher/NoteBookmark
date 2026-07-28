@@ -44,6 +44,9 @@ public class Settings: ITableEntity
 
     [DataMember(Name="ai_model_name")]
     public string? AiModelName { get; set; }
+
+    [DataMember(Name="font_size")]
+    public string? FontSize { get; set; }
     
     public required string PartitionKey { get ; set; }
     public required string RowKey { get ; set; }

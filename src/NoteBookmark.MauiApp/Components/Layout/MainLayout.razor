@@ -3,10 +3,13 @@
 @using Microsoft.Maui.ApplicationModel
 @using Microsoft.FluentUI.AspNetCore.Components
 @using NoteBookmark.MauiApp.Data
+@using NoteBookmark.SharedUI
 @inject IConnectivity Connectivity
 @inject NavigationManager Navigation
 @inject ISyncService SyncService
 @inject IToastService ToastService
+@inject IDataService DataService
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 
@@ -66,6 +69,24 @@
         catch
         {
             // Fallback for environment constraints or test suites
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var settings = await DataService.GetSettings();
+                var cssSize = FontSizeHelper.ToCssValue(settings?.FontSize);
+                await JSRuntime.InvokeVoidAsync("document.documentElement.style.setProperty", "--app-font-size", cssSize);
+                await JSRuntime.InvokeVoidAsync("document.body.style.setProperty", "--app-font-size", cssSize);
+            }
+            catch
+            {
+                // Fallback for headless environments or prerendering
+            }
         }
     }
 
