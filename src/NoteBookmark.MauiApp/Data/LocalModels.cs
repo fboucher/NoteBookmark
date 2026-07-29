@@ -179,6 +179,7 @@ public class LocalSettings
     public string? AiApiKey { get; set; }
     public string? AiBaseUrl { get; set; }
     public string? AiModelName { get; set; }
+    public string? FontSize { get; set; }
     public bool IsPendingSync { get; set; }
 
     public Settings ToDomain() => new Settings
@@ -193,7 +194,8 @@ public class LocalSettings
         SearchPrompt = SearchPrompt,
         AiApiKey = AiApiKey,
         AiBaseUrl = AiBaseUrl,
-        AiModelName = AiModelName
+        AiModelName = AiModelName,
+        FontSize = FontSize
     };
 
     public static LocalSettings FromDomain(Settings s, bool isPendingSync = false) => new LocalSettings
@@ -209,6 +211,7 @@ public class LocalSettings
         AiApiKey = s.AiApiKey,
         AiBaseUrl = s.AiBaseUrl,
         AiModelName = s.AiModelName,
+        FontSize = s.FontSize,
         IsPendingSync = isPendingSync
     };
 }

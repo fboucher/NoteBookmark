@@ -194,7 +194,8 @@ public class SettingsTests
             SearchPrompt = "Find {topic}",
             AiApiKey = "test-key",
             AiBaseUrl = "https://api.openai.com",
-            AiModelName = "gpt-4"
+            AiModelName = "gpt-4",
+            FontSize = "large"
         };
 
         // Assert
@@ -207,5 +208,22 @@ public class SettingsTests
         settings.AiApiKey.Should().Be("test-key");
         settings.AiBaseUrl.Should().Be("https://api.openai.com");
         settings.AiModelName.Should().Be("gpt-4");
+        settings.FontSize.Should().Be("large");
+    }
+
+    [Theory]
+    [InlineData("small")]
+    [InlineData("medium")]
+    [InlineData("large")]
+    public void FontSize_CanBeSetAndRetrieved(string fontSize)
+    {
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            FontSize = fontSize
+        };
+
+        settings.FontSize.Should().Be(fontSize);
     }
 }

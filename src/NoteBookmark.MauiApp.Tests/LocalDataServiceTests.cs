@@ -144,4 +144,21 @@ public class LocalDataServiceTests : IAsyncLifetime
         var pending = await _sut.GetPendingSyncPostsAsync();
         pending.Should().ContainSingle(p => p.Id == "post1", "because it needs to sync the deletion");
     }
+
+    [Fact]
+    public async Task SaveSettings_ShouldStoreAndRetrieveFontSize()
+    {
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            FontSize = "large"
+        };
+
+        await _sut.SaveSettingsAsync(settings);
+
+        var retrieved = await _sut.GetSettingsAsync();
+        retrieved.Should().NotBeNull();
+        retrieved!.FontSize.Should().Be("large");
+    }
 }
