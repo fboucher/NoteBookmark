@@ -444,5 +444,30 @@ public class SyncServiceTests
         _localDataServiceMock.Verify(c => c.SaveNoteAsync(It.Is<Note>(n => !n.CreatedOffline), false), Times.Once);
         _localDataServiceMock.Verify(c => c.MarkSyncedAsync("note1", false), Times.Once);
     }
+
+    [Fact]
+    public async Task SyncAsync_ShouldRaiseSyncProgressChanged_WhenDownloadingPostHtml()
+    {
+        var post1 = new Post { Id = "post1", RowKey = "post1", PartitionKey = "pk", Title = "Post 1", is_read = false };
+        var post2 = new Post { Id = "post2", RowKey = "post2", PartitionKey = "pk", Title = "Post 2", is_read = false };
+
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note>());
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post> { post1, post2 });
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<PostL>());
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+        _apiClientMock.Setup(c => c.GetPostHtmlAsync(It.IsAny<string>())).ReturnsAsync("<html>Post content</html>");
+
+        _localHtmlStorageServiceMock.Setup(s => s.GetCachedPostIds()).Returns(new List<string>());
+        _localHtmlStorageServiceMock.Setup(s => s.IsPostHtmlCached(It.IsAny<string>())).Returns(false);
+
+        var progressEvents = new List<SyncProgressEventArgs>();
+        _sut.SyncProgressChanged += (sender, args) => progressEvents.Add(args);
+
+        await _sut.SyncAsync();
+
+        progressEvents.Should().NotBeEmpty();
+        progressEvents.Should().Contain(e => e.Status.Contains("Downloading offline text"));
+        progressEvents.Last().Status.Should().Be("Synchronization complete!");
+    }
 }
 
