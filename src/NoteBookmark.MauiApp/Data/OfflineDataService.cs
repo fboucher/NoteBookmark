@@ -279,6 +279,11 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         => localHtmlStorageService.GetPostHtmlAsync(postId);
 
     public Task SyncAsync() => syncService.SyncAsync();
+    public event EventHandler<SyncProgressEventArgs>? SyncProgressChanged
+    {
+        add => syncService.SyncProgressChanged += value;
+        remove => syncService.SyncProgressChanged -= value;
+    }
     public bool IsOffline => connectivity.NetworkAccess != NetworkAccess.Internet;
     public bool CanSync => true;
 

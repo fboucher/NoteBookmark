@@ -25,6 +25,7 @@ public interface IDataService
     Task<bool> SaveReadingNotesMarkdown(string markdown, string number);
     Task<string?> GetPostHtmlAsync(string postId);
     Task SyncAsync();
+    event System.EventHandler<SyncProgressEventArgs>? SyncProgressChanged;
     bool IsOffline { get; }
     bool CanSync { get; }
 }
