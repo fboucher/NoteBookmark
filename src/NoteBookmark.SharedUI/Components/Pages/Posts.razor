@@ -42,9 +42,9 @@
             {
                 <FluentButton OnClick="@(() => EditNoteForPost(context!.NoteId))" IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
             }
-            @if (localHtmlCache.IsHtmlCached(context!.RowKey))
+            @if (localHtmlCache.IsHtmlCached(context!.Id ?? context!.RowKey))
             {
-                <FluentButton OnClick="@(() => ReadPost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Book())" Title="Read post" />
+                <FluentButton OnClick="@(() => ReadPost(context!.Id ?? context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Book())" Title="Read post" />
             }
         </TemplateColumn>
         <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
