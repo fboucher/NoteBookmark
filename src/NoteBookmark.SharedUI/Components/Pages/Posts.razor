@@ -9,6 +9,7 @@
 @inject IDialogService DialogService
 @inject NavigationManager Navigation
 @inject ILocalHtmlCache localHtmlCache
+@inject IUrlLauncher urlLauncher
 @implements IDisposable
 
 <PageTitle>Posts</PageTitle>
@@ -130,7 +131,7 @@
 
     private async Task OpenUrlInNewWindow(string? url)
     {
-        await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+        await urlLauncher.OpenUrlAsync(url);
     }
 
     private async Task CreateNoteForPost(string postId)
