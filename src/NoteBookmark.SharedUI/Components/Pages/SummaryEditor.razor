@@ -45,34 +45,49 @@ else{
                                     IconStart="@(new Icons.Filled.Size20.StarEmphasis())">Generate</FluentButton>
 
                     <div>
-                        @foreach (var note in readingNotes!.Notes)
+                        @{
+                            var categoryKeys = readingNotes!.Notes.Keys.ToList();
+                        }
+                        @for (int catIdx = 0; catIdx < categoryKeys.Count; catIdx++)
                         {
-                            string category = note.Key;
-                            List<ReadingNote> rnList = note.Value;
+                            string category = categoryKeys[catIdx];
+                            List<ReadingNote> rnList = readingNotes.Notes[category];
+                            bool isFirstCategory = catIdx == 0;
+                            bool isLastCategory = catIdx == categoryKeys.Count - 1;
                             <div style="margin-bottom: 30px;">
-                                <FluentStack Orientation="Orientation.Horizontal">
+                                <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
                                     <h4>@category</h4>
-                                    <FluentButton Title="Delete ReadingNote" OnClick="@(() => DeleteCategory(category))" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.Delete())"></FluentButton>
+                                    <FluentButton Title="Move Category Up" OnClick="@(() => MoveCategoryUp(category))" Disabled="isFirstCategory" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.ArrowUp())"></FluentButton>
+                                    <FluentButton Title="Move Category Down" OnClick="@(() => MoveCategoryDown(category))" Disabled="isLastCategory" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.ArrowDown())"></FluentButton>
+                                    <FluentButton Title="Delete Category" OnClick="@(() => DeleteCategory(category))" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.Delete())"></FluentButton>
                                 </FluentStack>
                                 
-                                @foreach (ReadingNote rn in rnList)
+                                @for (int noteIdx = 0; noteIdx < rnList.Count; noteIdx++)
                                 {
-                                    <div style="margin: 20px; padding: 20px; width: 100%; border: groove;  border-radius: 5px; background-color: gray">
-                                        <FluentButton Title="Delete ReadingNote" OnClick="@(() => DeleteReadingNote(category, rn.RowKey!))" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.Delete())" ></FluentButton>
+                                    var rn = rnList[noteIdx];
+                                    int currentNoteIndex = noteIdx;
+                                    bool isFirstNote = noteIdx == 0;
+                                    bool isLastNote = noteIdx == rnList.Count - 1;
+                                    <div style="margin: 20px; padding: 20px; width: 100%; border: groove; border-radius: 5px; background-color: gray">
+                                        <FluentStack Orientation="Orientation.Horizontal" Style="margin-bottom: 10px;">
+                                            <FluentButton Title="Move Note Up" OnClick="@(() => MoveNoteUp(category, currentNoteIndex))" Disabled="isFirstNote" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.ArrowUp())"></FluentButton>
+                                            <FluentButton Title="Move Note Down" OnClick="@(() => MoveNoteDown(category, currentNoteIndex))" Disabled="isLastNote" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.ArrowDown())"></FluentButton>
+                                            <FluentButton Title="Delete ReadingNote" OnClick="@(() => DeleteReadingNote(category, rn.RowKey!))" Type="ButtonType.Button" Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.Delete())" ></FluentButton>
+                                        </FluentStack>
+
                                         <FluentTextField Label="Post Title" @bind-Value="rn.Title" style="width: 100%;"/>
 
                                         <FluentTextField Label="Post Autor" @bind-Value="rn.Author" style="width: 100%;"/>
 
                                         <FluentStack Orientation="Orientation.Horizontal" Width="100%">
                                             <FluentTextField Label="Post URL" @bind-Value="rn.Url" style="width: 80%;"/>
-                                            <FluentButton OnClick="@(async () => await OpenUrlInNewWindow(@rn.Url))" IconEnd="@(new Icons.Regular.Size16.Open())"/>
+                                            <FluentButton OnClick="@(async () => await OpenUrlInNewWindow(rn.Url))" IconEnd="@(new Icons.Regular.Size16.Open())"/>
                                         </FluentStack>
 
                                         <FluentTextArea Label="Comment" @bind-Value="rn.Comment" Resize="TextAreaResize.Both" Cols="100"/>
 
                                         <FluentTextField Label="Tags" @bind-Value="rn.Tags" style="width: 100%;"/>
                                     </div>
-
                                 }
                                 <FluentButton OnClick="@(() => AddExtraNote(category))" Type="ButtonType.Button" Appearance="Appearance.Accent" style="margin: 20px;">Add Note</FluentButton>
                             </div>
@@ -274,4 +289,23 @@ else{
         }
     }
 
+    private void MoveCategoryUp(string category)
+    {
+        readingNotes?.MoveCategoryUp(category);
+    }
+
+    private void MoveCategoryDown(string category)
+    {
+        readingNotes?.MoveCategoryDown(category);
+    }
+
+    private void MoveNoteUp(string category, int index)
+    {
+        readingNotes?.MoveNoteUp(category, index);
+    }
+
+    private void MoveNoteDown(string category, int index)
+    {
+        readingNotes?.MoveNoteDown(category, index);
+    }
 }

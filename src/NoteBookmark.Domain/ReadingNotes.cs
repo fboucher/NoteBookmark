@@ -38,6 +38,86 @@ public class ReadingNotes
     public string Intro { get; set; } = string.Empty;
     public Dictionary<string, List<ReadingNote>> Notes { get; set; }
 
+    public bool MoveCategoryUp(string category)
+    {
+        if (Notes == null || !Notes.ContainsKey(category)) return false;
+
+        var keys = Notes.Keys.ToList();
+        int index = keys.IndexOf(category);
+        if (index <= 0) return false;
+
+        var newDict = new Dictionary<string, List<ReadingNote>>();
+        for (int i = 0; i < keys.Count; i++)
+        {
+            if (i == index - 1)
+            {
+                newDict[category] = Notes[category];
+                newDict[keys[i]] = Notes[keys[i]];
+            }
+            else if (i == index)
+            {
+                continue;
+            }
+            else
+            {
+                newDict[keys[i]] = Notes[keys[i]];
+            }
+        }
+        Notes = newDict;
+        return true;
+    }
+
+    public bool MoveCategoryDown(string category)
+    {
+        if (Notes == null || !Notes.ContainsKey(category)) return false;
+
+        var keys = Notes.Keys.ToList();
+        int index = keys.IndexOf(category);
+        if (index < 0 || index >= keys.Count - 1) return false;
+
+        var newDict = new Dictionary<string, List<ReadingNote>>();
+        for (int i = 0; i < keys.Count; i++)
+        {
+            if (i == index)
+            {
+                newDict[keys[i + 1]] = Notes[keys[i + 1]];
+                newDict[category] = Notes[category];
+            }
+            else if (i == index + 1)
+            {
+                continue;
+            }
+            else
+            {
+                newDict[keys[i]] = Notes[keys[i]];
+            }
+        }
+        Notes = newDict;
+        return true;
+    }
+
+    public bool MoveNoteUp(string category, int noteIndex)
+    {
+        if (Notes == null || !Notes.TryGetValue(category, out var list)) return false;
+        if (noteIndex <= 0 || noteIndex >= list.Count) return false;
+
+        var note = list[noteIndex];
+        list.RemoveAt(noteIndex);
+        list.Insert(noteIndex - 1, note);
+        return true;
+    }
+
+    public bool MoveNoteDown(string category, int noteIndex)
+    {
+        if (Notes == null || !Notes.TryGetValue(category, out var list)) return false;
+        if (noteIndex < 0 || noteIndex >= list.Count - 1) return false;
+
+        var note = list[noteIndex];
+        list.RemoveAt(noteIndex);
+        list.Insert(noteIndex + 1, note);
+        return true;
+    }
+
 
     public string GetAllUniqueTags(){
         var uniqueTags = new HashSet<string>();
