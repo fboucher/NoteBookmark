@@ -8,7 +8,7 @@
 
 <PageTitle>@(post?.Title ?? "Reading...")</PageTitle>
 
-<FluentStack Orientation="Orientation.Vertical" Style="max-width: 700px; margin: 0 auto; padding: 1rem;">
+<FluentStack Orientation="Orientation.Vertical" Style="width: 100%; max-width: 800px; margin: 0 auto; padding: 1rem; box-sizing: border-box;">
     <FluentStack Orientation="Orientation.Horizontal">
         <FluentButton OnClick="@(() => Navigation.NavigateTo("/posts"))"
                       IconStart="@(new Icons.Regular.Size20.ArrowLeft())"
@@ -23,7 +23,7 @@
     {
         @if (post != null)
         {
-            <h1 style="margin-bottom: 0.25rem;">@post.Title</h1>
+            <h1 style="margin-bottom: 0.25rem; word-break: break-word;">@post.Title</h1>
             <FluentStack Orientation="Orientation.Horizontal" Style="color: var(--neutral-fill-stealth-rest); gap: 0.5rem; margin-bottom: 1rem;">
                 @if (!string.IsNullOrEmpty(post.Author))
                 {
@@ -38,7 +38,7 @@
 
         @if (htmlContent != null)
         {
-            <div style="line-height: 1.7; max-width: 700px; overflow-wrap: break-word;">
+            <div class="reader-content" style="font-size: @(textSize)px; line-height: 1.7;">
                 @((MarkupString)htmlContent)
             </div>
         }
@@ -46,6 +46,16 @@
         {
             <p><em>Content not available.</em></p>
         }
+
+        <FluentDivider Style="margin: 2rem 0 1rem 0;" />
+
+        <FluentStack Orientation="Orientation.Vertical" Style="width: 100%; gap: 0.5rem; margin-top: 1rem;">
+            <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                <span style="font-weight: 600;">Text size:</span>
+                <span>@(textSize)px</span>
+            </FluentStack>
+            <FluentSlider Min="8" Max="56" Step="1" @bind-Value="textSize" Style="width: 100%;" aria-label="Text size slider" />
+        </FluentStack>
     }
 </FluentStack>
 
@@ -56,6 +66,7 @@
     private Post? post;
     private string? htmlContent;
     private bool isLoading = true;
+    private int textSize = 16;
 
     protected override async Task OnInitializedAsync()
     {
