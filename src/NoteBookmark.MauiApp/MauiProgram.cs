@@ -31,6 +31,7 @@ public static class MauiProgram
 #endif
 
         builder.Services.AddSingleton<Microsoft.Maui.Networking.IConnectivity>(Microsoft.Maui.Networking.Connectivity.Current);
+        builder.Services.AddSingleton<NoteBookmark.SharedUI.IUrlLauncher, NoteBookmark.MauiApp.Data.MauiUrlLauncher>();
 
         // Data Layer
         builder.Services.AddSingleton<NoteBookmark.MauiApp.Data.ILocalDataService, NoteBookmark.MauiApp.Data.LocalDataService>();
