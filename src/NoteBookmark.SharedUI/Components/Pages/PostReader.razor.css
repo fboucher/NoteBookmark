@@ -1,0 +1,30 @@
+.reader-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    box-sizing: border-box;
+}
+
+.reader-content ::deep * {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.reader-content ::deep img {
+    max-width: 100%;
+    height: auto;
+}
+
+.reader-content ::deep pre,
+.reader-content ::deep code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+
+.reader-content ::deep table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+}

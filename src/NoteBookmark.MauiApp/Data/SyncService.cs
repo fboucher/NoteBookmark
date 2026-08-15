@@ -17,6 +17,7 @@ public interface ISyncService
     Task SyncAsync();
     bool IsSyncing { get; }
     event EventHandler<SyncConflictEventArgs>? ConflictDetected;
+    event EventHandler<SyncProgressEventArgs>? SyncProgressChanged;
 }
 
 public class SyncService(
@@ -30,6 +31,7 @@ public class SyncService(
 
     public bool IsSyncing => _isSyncing;
     public event EventHandler<SyncConflictEventArgs>? ConflictDetected;
+    public event EventHandler<SyncProgressEventArgs>? SyncProgressChanged;
 
     public async Task SyncAsync()
     {
@@ -38,6 +40,7 @@ public class SyncService(
         _isSyncing = true;
         try
         {
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Starting synchronization..."));
             var lastSyncStr = await GetPreferenceAsync(LastSyncTimestampKey);
             DateTime? lastSync = null;
             if (!string.IsNullOrEmpty(lastSyncStr) && DateTime.TryParse(lastSyncStr, out var parsed))
@@ -45,11 +48,16 @@ public class SyncService(
                 lastSync = parsed.ToUniversalTime();
             }
 
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Pushing local changes..."));
             await PushAsync(lastSync);
+
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Pulling remote changes..."));
             await PullAsync(lastSync);
+
             await SyncHtmlAsync();
 
             await SetPreferenceAsync(LastSyncTimestampKey, DateTime.UtcNow.ToString("O"));
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Synchronization complete!"));
         }
         finally
         {
@@ -245,22 +253,33 @@ public class SyncService(
         }
 
         // Download HTML for unread posts not yet cached
-        foreach (var post in posts.Where(p => p.is_read != true))
-        {
-            var id = post.Id ?? post.RowKey;
-            if (localHtmlStorageService.IsPostHtmlCached(id)) continue;
+        var unreadToDownload = posts.Where(p => p.is_read != true && !localHtmlStorageService.IsPostHtmlCached(p.Id ?? p.RowKey)).ToList();
+        int total = unreadToDownload.Count;
 
-            try
+        if (total > 0)
+        {
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, total, $"Downloading offline text (0/{total})..."));
+
+            for (int i = 0; i < unreadToDownload.Count; i++)
             {
-                var html = await apiClient.GetPostHtmlAsync(id);
-                if (html != null)
+                var post = unreadToDownload[i];
+                var id = post.Id ?? post.RowKey;
+
+                try
                 {
-                    await localHtmlStorageService.SavePostHtmlAsync(id, html);
+                    var html = await apiClient.GetPostHtmlAsync(id);
+                    if (html != null)
+                    {
+                        await localHtmlStorageService.SavePostHtmlAsync(id, html);
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Failed to download HTML for post {PostId}", id);
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Failed to download HTML for post {PostId}", id);
+                }
+
+                int current = i + 1;
+                SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(current, total, $"Downloading offline text ({current}/{total})..."));
             }
         }
     }

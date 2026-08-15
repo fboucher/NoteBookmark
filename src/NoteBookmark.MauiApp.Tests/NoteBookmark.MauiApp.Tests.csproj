@@ -37,6 +37,7 @@
     <Compile Include="..\NoteBookmark.MauiApp\Data\ILocalHtmlStorageService.cs" Link="Data\ILocalHtmlStorageService.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\SyncService.cs" Link="Data\SyncService.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\SyncApiClient.cs" Link="Data\SyncApiClient.cs" />
+    <Compile Include="..\NoteBookmark.MauiApp\Data\MauiUrlLauncher.cs" Link="Data\MauiUrlLauncher.cs" />
   </ItemGroup>
 
   <ItemGroup>

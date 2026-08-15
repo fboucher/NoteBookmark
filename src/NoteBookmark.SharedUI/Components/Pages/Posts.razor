@@ -9,6 +9,8 @@
 @inject IDialogService DialogService
 @inject NavigationManager Navigation
 @inject ILocalHtmlCache localHtmlCache
+@inject IUrlLauncher urlLauncher
+@implements IDisposable
 
 <PageTitle>Posts</PageTitle>
 
@@ -23,6 +25,16 @@
             <FluentButton OnClick="SyncNow" IconStart="@(new Icons.Regular.Size20.ArrowSync())" Loading="isSyncing" Title="Sync posts and comments">Sync</FluentButton>
         }
     </FluentStack>
+    @if (isSyncing || !string.IsNullOrEmpty(syncProgressStatus))
+    {
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.25rem; margin: 0.25rem 0;">
+            <FluentProgress Min="0" Max="@(syncProgressTotal > 0 ? syncProgressTotal : 100)" Value="@(syncProgressTotal > 0 ? syncProgressCurrent : null)" />
+            @if (!string.IsNullOrEmpty(syncProgressStatus))
+            {
+                <span style="font-size: 0.85rem; color: var(--neutral-foreground-rest);">@syncProgressStatus</span>
+            }
+        </FluentStack>
+    }
     <FluentSwitch ValueChanged="OnShowReadChanged" Label="Show">
         <span slot="checked-message">Read Only</span>
         <span slot="unchecked-message">UnRead Only</span>
@@ -42,9 +54,9 @@
             {
                 <FluentButton OnClick="@(() => EditNoteForPost(context!.NoteId))" IconEnd="@(new Icons.Filled.Size20.NoteEdit())" />
             }
-            @if (localHtmlCache.IsHtmlCached(context!.RowKey))
+            @if (localHtmlCache.IsHtmlCached(context!.Id ?? context!.RowKey))
             {
-                <FluentButton OnClick="@(() => ReadPost(context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Book())" Title="Read post" />
+                <FluentButton OnClick="@(() => ReadPost(context!.Id ?? context!.RowKey))" IconEnd="@(new Icons.Regular.Size20.Book())" Title="Read post" />
             }
         </TemplateColumn>
         <PropertyColumn Title="Title" Property="@(c => c!.Title)" Sortable="true"  Filtered="!string.IsNullOrWhiteSpace(titleFilter)" >
@@ -84,9 +96,13 @@
     private PaginationState pagination = new PaginationState { ItemsPerPage = 20 };
     private string titleFilter = string.Empty;
     private bool showPublishedDate = false;
+    private int syncProgressCurrent = 0;
+    private int syncProgressTotal = 0;
+    private string syncProgressStatus = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
+        client.SyncProgressChanged += OnSyncProgressChanged;
         await LoadPosts();
         _ = StartBackgroundSync();
     }
@@ -115,7 +131,7 @@
 
     private async Task OpenUrlInNewWindow(string? url)
     {
-        await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+        await urlLauncher.OpenUrlAsync(url);
     }
 
     private async Task CreateNoteForPost(string postId)
@@ -284,4 +300,20 @@
     }
 
     private void ReadPost(string postId) => Navigation.NavigateTo($"postreader/{postId}");
+
+    private void OnSyncProgressChanged(object? sender, SyncProgressEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            syncProgressCurrent = e.Current;
+            syncProgressTotal = e.Total;
+            syncProgressStatus = e.Status;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        client.SyncProgressChanged -= OnSyncProgressChanged;
+    }
 }

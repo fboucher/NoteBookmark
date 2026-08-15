@@ -17,6 +17,7 @@ public static class BlazorTestContextExtensions
     {
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         ctx.Services.AddFluentUIComponents();
+        ctx.Services.AddScoped<NoteBookmark.SharedUI.IUrlLauncher, NoteBookmark.SharedUI.JsUrlLauncher>();
         return ctx;
     }
 

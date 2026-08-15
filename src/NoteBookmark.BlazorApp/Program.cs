@@ -19,6 +19,7 @@ builder.Services.AddHttpClient<PostNoteClient>(client =>
             });
 builder.Services.AddTransient<IDataService>(sp => sp.GetRequiredService<PostNoteClient>());
 builder.Services.AddSingleton<ILocalHtmlCache, NoteBookmark.BlazorApp.AlwaysAvailableHtmlCache>();
+builder.Services.AddScoped<IUrlLauncher, JsUrlLauncher>();
 
 // Register server-side AI settings provider (direct database access, unmasked)
 builder.Services.AddScoped<AISettingsProvider>();
