@@ -15,6 +15,11 @@ builder.Services.AddSwaggerGen();
 // Register data storage service
 builder.Services.AddScoped<IDataStorageService, DataStorageService>();
 
+// Register background extraction queue and worker
+builder.Services.AddHttpClient<IPostParserClient, PostParserClient>();
+builder.Services.AddSingleton<PostExtractionQueue>();
+builder.Services.AddHostedService<PostExtractionBackgroundWorker>();
+
 // Register AI settings provider
 builder.Services.AddScoped<IAISettingsProvider, AISettingsProvider>();
 

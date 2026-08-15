@@ -94,7 +94,11 @@ public static class PostEndpoints
 		}
 		return TypedResults.BadRequest();
 	}
-	static async Task<Results<Ok<Post>, BadRequest>> ExtractPostDetails(ExtractPostRequest request, TableServiceClient tblClient, BlobServiceClient blobClient)
+	static async Task<Results<Ok<Post>, BadRequest>> ExtractPostDetails(
+		ExtractPostRequest request,
+		TableServiceClient tblClient,
+		BlobServiceClient blobClient,
+		PostExtractionQueue queue)
 	{
 		var dataStorageService = new DataStorageService(tblClient, blobClient);
 
@@ -105,6 +109,10 @@ public static class PostEndpoints
 			if (post != null)
 			{
 				dataStorageService.SavePost(post);
+				
+				// Queue background HTML extraction task
+				queue.QueueBackgroundWorkItem(new ExtractionTask(post.Id ?? post.RowKey, post.Url ?? decodeUrl));
+
 				return TypedResults.Ok(post);
 			}
 			return TypedResults.BadRequest();
