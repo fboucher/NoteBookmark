@@ -151,7 +151,9 @@ public class ResearchService
     {
         string datetime = DateTime.Now.ToString("yyyy-MM-dd_HH-mm");
         string fileName = $"{prefix}_{datetime}.json";
-        string folderPath = "Data";
+        // Use the app's sandboxed data directory so this works on Android/iOS as well as desktop
+        string folderPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Data");
         Directory.CreateDirectory(folderPath);
         string filePath = Path.Combine(folderPath, fileName);
         await File.WriteAllTextAsync(filePath, responseContent);

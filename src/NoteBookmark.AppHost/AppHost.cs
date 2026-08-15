@@ -5,6 +5,12 @@ using Projects;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+var parserUrl = builder.Configuration["Parser:BaseUrl"] 
+    ?? Environment.GetEnvironmentVariable("PARSER_BASE_URL") 
+    ?? "https://azpostlight-parser.azurewebsites.net/api/parser";
+var parserKey = builder.Configuration["Parser:ApiKey"] 
+    ?? Environment.GetEnvironmentVariable("PARSER_API_KEY");
+
 // Load docker-compose environment
 var compose = builder.AddDockerComposeEnvironment("docker-env");
 
@@ -24,12 +30,19 @@ if (builder.Environment.IsDevelopment())
     var tables = noteStorage.AddTables("nb-tables");
     var blobs = noteStorage.AddBlobs("nb-blobs");
 
-    var api = builder.AddProject<NoteBookmark_Api>("api")
+    var apiBuilder = builder.AddProject<NoteBookmark_Api>("api")
                         .WithReference(tables)
                         .WithReference(blobs)
                         .WaitFor(tables)
                         .WaitFor(blobs)
-                        .PublishAsDockerComposeService((resource, service) =>
+                        .WithEnvironment("Parser__BaseUrl", parserUrl);
+
+    if (!string.IsNullOrEmpty(parserKey))
+    {
+        apiBuilder = apiBuilder.WithEnvironment("Parser__ApiKey", parserKey);
+    }
+
+    var api = apiBuilder.PublishAsDockerComposeService((resource, service) =>
                         {
                             service.ContainerName = "notebookmark-api";
                         });
@@ -58,12 +71,19 @@ else
     var tables = noteStorage.AddTables("nb-tables");
     var blobs = noteStorage.AddBlobs("nb-blobs");
 
-    var api = builder.AddProject<NoteBookmark_Api>("api")
+    var apiBuilder = builder.AddProject<NoteBookmark_Api>("api")
                         .WithReference(tables)
                         .WithReference(blobs)
                         .WaitFor(tables)
                         .WaitFor(blobs)
-                        .PublishAsDockerComposeService((resource, service) =>
+                        .WithEnvironment("Parser__BaseUrl", parserUrl);
+
+    if (!string.IsNullOrEmpty(parserKey))
+    {
+        apiBuilder = apiBuilder.WithEnvironment("Parser__ApiKey", parserKey);
+    }
+
+    var api = apiBuilder.PublishAsDockerComposeService((resource, service) =>
                         {
                             service.ContainerName = "notebookmark-api";
                         });

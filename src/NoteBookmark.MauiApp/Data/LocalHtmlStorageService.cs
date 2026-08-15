@@ -2,16 +2,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using NoteBookmark.SharedUI;
 
 namespace NoteBookmark.MauiApp.Data;
 
-public class LocalHtmlStorageService(string baseDirectory) : ILocalHtmlStorageService, ILocalHtmlCache
+public class LocalHtmlStorageService(string baseDirectory) : ILocalHtmlStorageService
 {
     private string FilePath(string postId) => Path.Combine(baseDirectory, $"{postId}.html");
 
     public async Task SavePostHtmlAsync(string postId, string html)
-        => await File.WriteAllTextAsync(FilePath(postId), html);
+    {
+        Directory.CreateDirectory(baseDirectory);
+        await File.WriteAllTextAsync(FilePath(postId), html);
+    }
 
     public async Task<string?> GetPostHtmlAsync(string postId)
     {
@@ -21,8 +23,6 @@ public class LocalHtmlStorageService(string baseDirectory) : ILocalHtmlStorageSe
     }
 
     public bool IsPostHtmlCached(string postId) => File.Exists(FilePath(postId));
-
-    public bool IsHtmlCached(string postId) => IsPostHtmlCached(postId);
 
     public void RemovePostHtml(string postId)
     {

@@ -97,7 +97,13 @@
     <ItemGroup>
         <ProjectReference Include="..\NoteBookmark.SharedUI\NoteBookmark.SharedUI.csproj" />
         <ProjectReference Include="..\NoteBookmark.Domain\NoteBookmark.Domain.csproj" />
+        <ProjectReference Include="..\NoteBookmark.AIServices\NoteBookmark.AIServices.csproj" />
     </ItemGroup>
+
+    <!-- Disable the Android linker in Debug so compiler-generated closure types are never stripped -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android' and '$(Configuration)' == 'Debug'">
+        <AndroidLinkMode>None</AndroidLinkMode>
+    </PropertyGroup>
 
     <!--
         SharedUI (and the MAUI Blazor WebView package) causes Microsoft.AspNetCore.App

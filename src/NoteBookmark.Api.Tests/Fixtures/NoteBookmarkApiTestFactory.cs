@@ -34,6 +34,9 @@ public class NoteBookmarkApiTestFactory : WebApplicationFactory<Program>, IAsync
                 services.AddSingleton(new TableServiceClient(connectionString));
                 services.AddSingleton(new BlobServiceClient(connectionString));
             }
+
+            // Register FakePostParserClient for integration tests
+            services.AddSingleton<NoteBookmark.Api.IPostParserClient, FakePostParserClient>();
         });
     }
 
