@@ -39,7 +39,6 @@ public sealed class PostsTests : BunitContext
         Services.AddSingleton(_dataServiceMock.Object);
         Services.AddSingleton(new Mock<IToastService>().Object);
         Services.AddSingleton(new Mock<IDialogService>().Object);
-        Services.AddSingleton<ILocalHtmlCache>(new NoteBookmark.BlazorApp.AlwaysAvailableHtmlCache());
     }
 
     [Fact]
@@ -126,36 +125,12 @@ public sealed class PostsTests : BunitContext
 
         cut.Markup.Should().Contain("Nothing to see here");
     }
-}
 
-public sealed class PostsHtmlCacheTests : BunitContext
-{
     [Fact]
-    public void Posts_ChecksHtmlCacheWithPostId_WhenIdIsPresent()
+    public void Posts_ReadPostButton_IsAlwaysRendered()
     {
-        this.AddFluentUI();
-        this.AddAuthorization().SetAuthorized("testuser");
-
-        var dataServiceMock = new Mock<IDataService>();
-        dataServiceMock.Setup(s => s.GetUnreadPosts()).ReturnsAsync([
-            new PostL { PartitionKey = "p", RowKey = "row-key-456", Id = "custom-id-123", Title = "Post With Id", Url = "https://example.com/id", Date_published = "2025-01-15T00:00:00", is_read = false }
-        ]);
-        dataServiceMock.Setup(s => s.GetReadPosts()).ReturnsAsync([]);
-        dataServiceMock.Setup(s => s.SyncAsync()).Returns(Task.CompletedTask);
-        dataServiceMock.SetupGet(s => s.IsOffline).Returns(false);
-        dataServiceMock.SetupGet(s => s.CanSync).Returns(false);
-
-        var htmlCacheMock = new Mock<ILocalHtmlCache>();
-        htmlCacheMock.Setup(c => c.IsHtmlCached("custom-id-123")).Returns(true);
-
-        Services.AddSingleton(dataServiceMock.Object);
-        Services.AddSingleton(new Mock<IToastService>().Object);
-        Services.AddSingleton(new Mock<IDialogService>().Object);
-        Services.AddSingleton(htmlCacheMock.Object);
-
         var cut = Render<Posts>();
 
-        htmlCacheMock.Verify(c => c.IsHtmlCached("custom-id-123"), Times.Once);
         cut.Markup.Should().Contain("Read post");
     }
 }
