@@ -5,6 +5,7 @@
 @inject IDataService client
 @inject NavigationManager Navigation
 @inject IJSRuntime jsRuntime
+@inject IUrlLauncher urlLauncher
 
 <PageTitle>Summaries</PageTitle>
 
@@ -49,6 +50,6 @@
 
     private async Task OpenUrlInNewWindow(string? url)
     {
-        await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+        await urlLauncher.OpenUrlAsync(url);
     }
 }

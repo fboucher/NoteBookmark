@@ -10,6 +10,7 @@
 @inject IJSRuntime jsRuntime
 @inject IToastService toastService
 @inject SummaryService aiService
+@inject IUrlLauncher urlLauncher
 
 <h2>SummaryEditor</h2>
 
@@ -153,7 +154,7 @@ else{
     
     private async Task OpenUrlInNewWindow(string? url)
     {
-        await jsRuntime.InvokeVoidAsync("open", url, "_blank");
+        await urlLauncher.OpenUrlAsync(url);
     }
     
     private void AddExtraNote(string category)
