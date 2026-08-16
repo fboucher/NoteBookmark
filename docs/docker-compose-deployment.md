@@ -31,6 +31,11 @@ Important Keycloak values for NoteBookmark:
 - `KEYCLOAK_CLIENT_ID` (default: `notebookmark`)
 - `KEYCLOAK_CLIENT_SECRET` (from Keycloak client settings)
 
+Parser values for the API container:
+
+- `PARSER_BASE_URL` (for example `https://...azurewebsites.net/api/parser`)
+- `PARSER_API_KEY` (the parser function key)
+
 ## 2. Create Shared Network (One Time)
 
 ```bash

@@ -9,6 +9,9 @@
 # Local MAUI mobile configuration overrides
 src/NoteBookmark.MauiApp/wwwroot/appsettings.Development.json
 
+# Local AppHost development settings
+src/NoteBookmark.AppHost/appsettings.development.json
+
 # User-specific files
 *.rsuser
 *.suo
