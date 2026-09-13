@@ -21,10 +21,10 @@
         <FluentTextField @bind-Value="newPostUrl" Disabled="@client.IsOffline" Placeholder="@(client.IsOffline ? "Cannot add posts offline" : "Enter URL")" style="width: 100%;"/>
         @if (client.CanSync)
         {
-            <FluentButton OnClick="SyncNow" IconStart="@(new Icons.Regular.Size20.ArrowSync())" Loading="isSyncing" Title="Sync posts and comments">Sync</FluentButton>
+            <FluentButton OnClick="SyncNow" IconStart="@(new Icons.Regular.Size20.ArrowSync())" Loading="@(isSyncing || client.IsSyncing)" Disabled="@(isSyncing || client.IsSyncing)" Title="Sync posts and comments">Sync</FluentButton>
         }
     </FluentStack>
-    @if (isSyncing || !string.IsNullOrEmpty(syncProgressStatus))
+    @if (isSyncing || client.IsSyncing || !string.IsNullOrEmpty(syncProgressStatus))
     {
         <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.25rem; margin: 0.25rem 0;">
             <FluentProgress Min="0" Max="@(syncProgressTotal > 0 ? syncProgressTotal : 100)" Value="@(syncProgressTotal > 0 ? syncProgressCurrent : null)" />
@@ -126,9 +126,6 @@
         finally
         {
             isSyncing = false;
-            syncProgressStatus = string.Empty;
-            syncProgressCurrent = 0;
-            syncProgressTotal = 0;
             StateHasChanged();
         }
     }
@@ -279,7 +276,7 @@
 
     private async Task SyncNow()
     {
-        if (isSyncing) return;
+        if (isSyncing || client.IsSyncing) return;
         isSyncing = true;
         try
         {
@@ -295,9 +292,6 @@
         finally
         {
             isSyncing = false;
-            syncProgressStatus = string.Empty;
-            syncProgressCurrent = 0;
-            syncProgressTotal = 0;
             StateHasChanged();
         }
     }
@@ -311,12 +305,28 @@
 
     private void OnSyncProgressChanged(object? sender, SyncProgressEventArgs e)
     {
-        InvokeAsync(() =>
+        InvokeAsync(async () =>
         {
             syncProgressCurrent = e.Current;
             syncProgressTotal = e.Total;
             syncProgressStatus = e.Status;
             StateHasChanged();
+
+            if (e.IsComplete)
+            {
+                isSyncing = false;
+                await LoadPosts();
+                StateHasChanged();
+
+                await Task.Delay(2500);
+                if (!client.IsSyncing && syncProgressStatus == e.Status)
+                {
+                    syncProgressStatus = string.Empty;
+                    syncProgressCurrent = 0;
+                    syncProgressTotal = 0;
+                    StateHasChanged();
+                }
+            }
         });
     }
 

@@ -470,6 +470,116 @@ public class SyncServiceTests
         progressEvents.Should().Contain(e => e.Status == "Downloading 1 of 2 posts..." && e.Current == 1 && e.Total == 2);
         progressEvents.Should().Contain(e => e.Status == "Downloading 2 of 2 posts..." && e.Current == 2 && e.Total == 2);
         progressEvents.Last().Status.Should().Be("Synchronization complete!");
+        progressEvents.Last().IsComplete.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PullPhase_ReadPosts_ShouldNotCallGetPost_AndShouldSaveDirectly()
+    {
+        var readPostL = new PostL
+        {
+            Id = "read1",
+            RowKey = "read1",
+            PartitionKey = "pk",
+            Title = "Read Post",
+            is_read = true,
+            DateModified = DateTime.UtcNow
+        };
+
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note>());
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post>());
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(new List<PostL> { readPostL });
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+
+        await _sut.SyncAsync();
+
+        // GetPost should NOT be called for read posts
+        _apiClientMock.Verify(c => c.GetPost("read1"), Times.Never);
+        _localDataServiceMock.Verify(c => c.SavePostAsync(It.Is<Post>(p => p.Id == "read1" && p.is_read == true), false), Times.Once);
+    }
+
+    [Fact]
+    public async Task PullPhase_UnreadPost_WhenGetPostFails_ShouldFallbackToBasicPost()
+    {
+        var unreadPostL = new PostL
+        {
+            Id = "unread1",
+            RowKey = "unread1",
+            PartitionKey = "pk",
+            Title = "Unread Post",
+            is_read = false,
+            DateModified = DateTime.UtcNow
+        };
+
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note>());
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post>());
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(new List<PostL> { unreadPostL });
+        _apiClientMock.Setup(c => c.GetPost("unread1")).ThrowsAsync(new System.Net.Http.HttpRequestException("404 Not Found"));
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+
+        await _sut.SyncAsync();
+
+        // Should fall back and save basic post without throwing
+        _localDataServiceMock.Verify(c => c.SavePostAsync(It.Is<Post>(p => p.Id == "unread1" && p.Title == "Unread Post"), false), Times.Once);
+    }
+
+    [Fact]
+    public async Task PullPhase_ShouldReportProgress_WhenPullingPosts()
+    {
+        var postL1 = new PostL { Id = "p1", RowKey = "p1", PartitionKey = "pk", Title = "Post 1", is_read = true, DateModified = DateTime.UtcNow };
+        var postL2 = new PostL { Id = "p2", RowKey = "p2", PartitionKey = "pk", Title = "Post 2", is_read = true, DateModified = DateTime.UtcNow };
+
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note>());
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post>());
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(new List<PostL> { postL1, postL2 });
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+
+        var progressEvents = new List<SyncProgressEventArgs>();
+        _sut.SyncProgressChanged += (sender, args) => progressEvents.Add(args);
+
+        await _sut.SyncAsync();
+
+        progressEvents.Should().Contain(e => e.Status == "Pulling 0 of 2 posts..." && e.Current == 0 && e.Total == 2);
+        progressEvents.Should().Contain(e => e.Status == "Pulling 1 of 2 posts..." && e.Current == 1 && e.Total == 2);
+        progressEvents.Should().Contain(e => e.Status == "Pulling 2 of 2 posts..." && e.Current == 2 && e.Total == 2);
+    }
+
+    [Fact]
+    public async Task SyncAsync_WhenFails_ShouldRaiseSyncProgressChangedWithIsCompleteAndFailureStatus()
+    {
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ThrowsAsync(new InvalidOperationException("DB error"));
+
+        var progressEvents = new List<SyncProgressEventArgs>();
+        _sut.SyncProgressChanged += (sender, args) => progressEvents.Add(args);
+
+        Func<Task> act = async () => await _sut.SyncAsync();
+        await act.Should().ThrowAsync<InvalidOperationException>();
+
+        progressEvents.Should().NotBeEmpty();
+        var lastEvent = progressEvents.Last();
+        lastEvent.IsComplete.Should().BeTrue();
+        lastEvent.Status.Should().Contain("Sync failed: DB error");
+    }
+
+    [Fact]
+    public async Task IsSyncing_ShouldReflectActiveSyncTask()
+    {
+        var tcs = new TaskCompletionSource<List<Note>>();
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).Returns(tcs.Task);
+
+        _sut.IsSyncing.Should().BeFalse();
+
+        var syncTask = _sut.SyncAsync();
+
+        _sut.IsSyncing.Should().BeTrue();
+
+        tcs.SetResult(new List<Note>());
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<PostL>());
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+
+        await syncTask;
+
+        _sut.IsSyncing.Should().BeFalse();
     }
 }
 

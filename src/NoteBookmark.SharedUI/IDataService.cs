@@ -26,6 +26,7 @@ public interface IDataService
     Task<string?> GetPostHtmlAsync(string postId);
     Task SyncAsync();
     event System.EventHandler<SyncProgressEventArgs>? SyncProgressChanged;
+    bool IsSyncing { get; }
     bool IsOffline { get; }
     bool CanSync { get; }
 }
