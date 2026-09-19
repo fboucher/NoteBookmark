@@ -173,7 +173,8 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     public Task<ReadingNotes> CreateReadingNotes() => apiClient.CreateReadingNotes();
     public Task<ReadingNotes?> GetReadingNotes(string number) => apiClient.GetReadingNotes(number);
     public Task<bool> SaveReadingNotes(ReadingNotes readingNotes) => apiClient.SaveReadingNotes(readingNotes);
-    
+    public Task<bool> SaveReadingNotesMarkdown(string markdown, string number) => apiClient.SaveReadingNotesMarkdown(markdown, number);
+
     public async Task<Post?> GetPost(string id)
     {
         if (IsOnline)
