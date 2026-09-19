@@ -34,7 +34,7 @@ public sealed class PostReaderTests : BunitContext
     }
 
     [Fact]
-    public void PostReader_RendersTitleAndContentAndSlidersAndBackButtonsAtTopAndBottom()
+    public void PostReader_RendersTitleAndContentAndSlidersAndButtonsAtTopAndBottom()
     {
         var cut = Render<PostReader>(ps => ps.Add(p => p.PostId, "p1"));
 
@@ -46,15 +46,25 @@ public sealed class PostReaderTests : BunitContext
 
         var sliders = cut.FindComponents<FluentSlider<int>>();
         sliders.Should().HaveCount(2);
-        sliders[0].Instance.Min.Should().Be(8);
-        sliders[0].Instance.Max.Should().Be(56);
-        sliders[1].Instance.Min.Should().Be(8);
-        sliders[1].Instance.Max.Should().Be(56);
+        sliders[0].Instance.Min.Should().Be(12);
+        sliders[0].Instance.Max.Should().Be(25);
+        sliders[1].Instance.Min.Should().Be(12);
+        sliders[1].Instance.Max.Should().Be(25);
 
         var backButtons = cut.FindComponents<FluentButton>()
             .Where(b => b.Instance.Title == "Back to posts")
             .ToList();
         backButtons.Should().HaveCount(2);
+
+        var decreaseButtons = cut.FindComponents<FluentButton>()
+            .Where(b => b.Instance.Title == "Decrease text size")
+            .ToList();
+        decreaseButtons.Should().HaveCount(2);
+
+        var increaseButtons = cut.FindComponents<FluentButton>()
+            .Where(b => b.Instance.Title == "Increase text size")
+            .ToList();
+        increaseButtons.Should().HaveCount(2);
     }
 
     [Fact]
@@ -82,5 +92,101 @@ public sealed class PostReaderTests : BunitContext
 
         var contentDivAfter = cut.Find("div.reader-content");
         contentDivAfter.GetAttribute("style").Should().Contain("font-size: 20px;");
+    }
+
+    [Fact]
+    public void PostReader_TopSliderValueChange_ClampsOutOfBounds()
+    {
+        var cut = Render<PostReader>(ps => ps.Add(p => p.PostId, "p1"));
+
+        var sliders = cut.FindComponents<FluentSlider<int>>();
+        cut.InvokeAsync(() => sliders[0].Instance.ValueChanged.InvokeAsync(5));
+
+        var contentDivAfterMin = cut.Find("div.reader-content");
+        contentDivAfterMin.GetAttribute("style").Should().Contain("font-size: 12px;");
+
+        cut.InvokeAsync(() => sliders[0].Instance.ValueChanged.InvokeAsync(50));
+
+        var contentDivAfterMax = cut.Find("div.reader-content");
+        contentDivAfterMax.GetAttribute("style").Should().Contain("font-size: 25px;");
+    }
+
+    [Fact]
+    public void PostReader_TopButtons_IncrementAndDecrement_UpdatesFontSize()
+    {
+        var cut = Render<PostReader>(ps => ps.Add(p => p.PostId, "p1"));
+
+        var decreaseButton = cut.FindComponents<FluentButton>()
+            .First(b => b.Instance.Title == "Decrease text size");
+        var increaseButton = cut.FindComponents<FluentButton>()
+            .First(b => b.Instance.Title == "Increase text size");
+
+        // Initial text size is 16px
+        cut.Find("div.reader-content").GetAttribute("style").Should().Contain("font-size: 16px;");
+
+        // Increment to 17px
+        cut.InvokeAsync(() => increaseButton.Find("fluent-button").Click());
+        cut.Find("div.reader-content").GetAttribute("style").Should().Contain("font-size: 17px;");
+
+        // Decrement back to 16px
+        cut.InvokeAsync(() => decreaseButton.Find("fluent-button").Click());
+        cut.Find("div.reader-content").GetAttribute("style").Should().Contain("font-size: 16px;");
+    }
+
+    [Fact]
+    public void PostReader_BottomButtons_IncrementAndDecrement_UpdatesFontSize()
+    {
+        var cut = Render<PostReader>(ps => ps.Add(p => p.PostId, "p1"));
+
+        var decreaseButtons = cut.FindComponents<FluentButton>()
+            .Where(b => b.Instance.Title == "Decrease text size")
+            .ToList();
+        var increaseButtons = cut.FindComponents<FluentButton>()
+            .Where(b => b.Instance.Title == "Increase text size")
+            .ToList();
+
+        // Use bottom buttons (index 1)
+        var bottomIncrease = increaseButtons[1];
+        var bottomDecrease = decreaseButtons[1];
+
+        // Increment from 16 to 17
+        cut.InvokeAsync(() => bottomIncrease.Find("fluent-button").Click());
+        cut.Find("div.reader-content").GetAttribute("style").Should().Contain("font-size: 17px;");
+
+        // Decrement back from 17 to 16
+        cut.InvokeAsync(() => bottomDecrease.Find("fluent-button").Click());
+        cut.Find("div.reader-content").GetAttribute("style").Should().Contain("font-size: 16px;");
+    }
+
+    [Fact]
+    public void PostReader_Buttons_DisabledAtBoundaries()
+    {
+        var cut = Render<PostReader>(ps => ps.Add(p => p.PostId, "p1"));
+
+        var sliders = cut.FindComponents<FluentSlider<int>>();
+
+        // Set to minimum (12)
+        cut.InvokeAsync(() => sliders[0].Instance.ValueChanged.InvokeAsync(12));
+
+        var decreaseButtonsAtMin = cut.FindComponents<FluentButton>()
+            .Where(b => b.Instance.Title == "Decrease text size")
+            .ToList();
+        decreaseButtonsAtMin.Should().OnlyContain(b => b.Instance.Disabled == true);
+
+        // Clicking decrease at min does not go below 12
+        cut.InvokeAsync(() => decreaseButtonsAtMin[0].Find("fluent-button").Click());
+        cut.Find("div.reader-content").GetAttribute("style").Should().Contain("font-size: 12px;");
+
+        // Set to maximum (25)
+        cut.InvokeAsync(() => sliders[0].Instance.ValueChanged.InvokeAsync(25));
+
+        var increaseButtonsAtMax = cut.FindComponents<FluentButton>()
+            .Where(b => b.Instance.Title == "Increase text size")
+            .ToList();
+        increaseButtonsAtMax.Should().OnlyContain(b => b.Instance.Disabled == true);
+
+        // Clicking increase at max does not exceed 25
+        cut.InvokeAsync(() => increaseButtonsAtMax[0].Find("fluent-button").Click());
+        cut.Find("div.reader-content").GetAttribute("style").Should().Contain("font-size: 25px;");
     }
 }
