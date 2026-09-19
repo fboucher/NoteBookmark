@@ -52,11 +52,13 @@
                 }
                 <FluentButton OnClick="@(() => DownloadPost(postId))"
                               Disabled="@IsDownloadDisabled(postId)"
+                              Appearance="@GetDownloadAppearance(postId)"
                               Loading="@IsDownloading(postId)"
                               IconEnd="@(new Icons.Regular.Size20.ArrowDownload())"
                               Title="Download post" />
                 <FluentButton OnClick="@(() => DeletePost(postId))"
                               Disabled="@IsDeleteDisabled(postId)"
+                              Appearance="@GetDeleteAppearance(postId)"
                               IconEnd="@(new Icons.Regular.Size20.Delete())"
                               Title="Delete local file" />
             </TemplateColumn>
@@ -127,6 +129,12 @@
 
     private bool IsDeleteDisabled(string postId) =>
         !IsCached(postId) || IsDownloading(postId);
+
+    private Appearance GetDownloadAppearance(string postId) =>
+        IsDownloadDisabled(postId) ? Appearance.Lightweight : Appearance.Accent;
+
+    private Appearance GetDeleteAppearance(string postId) =>
+        IsDeleteDisabled(postId) ? Appearance.Lightweight : Appearance.Accent;
 
     private async Task SyncNow()
     {
