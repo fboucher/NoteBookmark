@@ -1,0 +1,232 @@
+@page "/storage"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using NoteBookmark.Domain
+@using NoteBookmark.SharedUI
+@using Microsoft.FluentUI.AspNetCore.Components
+@inject IDataService DataService
+@inject IStorageService StorageService
+@inject IToastService ToastService
+@implements IDisposable
+
+<PageTitle>Storage</PageTitle>
+
+<h1>Storage</h1>
+
+<FluentStack Orientation="Orientation.Vertical" Style="gap: 1rem;">
+    <FluentStack Orientation="Orientation.Horizontal">
+        <FluentButton OnClick="SyncNow"
+                      IconStart="@(new Icons.Regular.Size20.ArrowSync())"
+                      Loading="@isSyncing"
+                      Disabled="@(isSyncing || DataService.IsSyncing || DataService.IsOffline)"
+                      Title="Sync posts and local files">Sync</FluentButton>
+    </FluentStack>
+
+    @if (isSyncing || DataService.IsSyncing || !string.IsNullOrEmpty(syncProgressStatus))
+    {
+        <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.25rem;">
+            <FluentProgress Min="0"
+                            Max="@(syncProgressTotal > 0 ? syncProgressTotal : 100)"
+                            Value="@(syncProgressTotal > 0 ? syncProgressCurrent : null)" />
+            @if (!string.IsNullOrEmpty(syncProgressStatus))
+            {
+                <span style="font-size: 0.85rem;">@syncProgressStatus</span>
+            }
+        </FluentStack>
+    }
+
+    @if (isLoading)
+    {
+        <p><em>Loading unread posts...</em></p>
+    }
+    else if (posts.Count == 0)
+    {
+        <p>No unread posts.</p>
+    }
+    else
+    {
+        <FluentDataGrid Id="storagegrid" Items="@PostItems" RowSize="DataGridRowSize.Medium">
+            <TemplateColumn Title="Actions" Width="180px">
+                @{
+                    var postId = context!.Id ?? context.RowKey;
+                }
+                <FluentButton OnClick="@(() => DownloadPost(postId))"
+                              Disabled="@IsDownloadDisabled(postId)"
+                              Appearance="@GetDownloadAppearance(postId)"
+                              Loading="@IsDownloading(postId)"
+                              IconEnd="@(new Icons.Regular.Size20.ArrowDownload())"
+                              Title="Download post" />
+                <FluentButton OnClick="@(() => DeletePost(postId))"
+                              Disabled="@IsDeleteDisabled(postId)"
+                              Appearance="@GetDeleteAppearance(postId)"
+                              IconEnd="@(new Icons.Regular.Size20.Delete())"
+                              Title="Delete local file" />
+            </TemplateColumn>
+            <PropertyColumn Title="Title" Property="@(post => post!.Title)" Sortable="true" />
+            <TemplateColumn Title="Local file" Width="190px">
+                @{
+                    var postId = context!.Id ?? context.RowKey;
+                }
+                @if (IsDownloading(postId))
+                {
+                    <FluentProgress />
+                }
+                else
+                {
+                    <span>@(IsCached(postId) ? "Available offline" : "Not downloaded")</span>
+                }
+            </TemplateColumn>
+        </FluentDataGrid>
+    }
+</FluentStack>
+
+@code {
+    private readonly List<PostL> posts = [];
+    private readonly HashSet<string> cachedPostIds = [];
+    private readonly HashSet<string> downloadingPostIds = [];
+    private IQueryable<PostL> PostItems => posts.AsQueryable();
+    private bool isLoading = true;
+    private bool isSyncing;
+    private int syncProgressCurrent;
+    private int syncProgressTotal;
+    private string syncProgressStatus = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        DataService.SyncProgressChanged += OnSyncProgressChanged;
+        await LoadPostsAsync();
+    }
+
+    private async Task LoadPostsAsync()
+    {
+        isLoading = true;
+        var unreadPosts = await DataService.GetUnreadPosts();
+        posts.Clear();
+        posts.AddRange(unreadPosts);
+        RefreshCachedPostIds();
+        isLoading = false;
+    }
+
+    private void RefreshCachedPostIds()
+    {
+        cachedPostIds.Clear();
+        foreach (var post in posts)
+        {
+            var postId = post.Id ?? post.RowKey;
+            if (StorageService.IsPostCached(postId))
+            {
+                cachedPostIds.Add(postId);
+            }
+        }
+    }
+
+    private bool IsCached(string postId) => cachedPostIds.Contains(postId);
+
+    private bool IsDownloading(string postId) => downloadingPostIds.Contains(postId);
+
+    private bool IsDownloadDisabled(string postId) =>
+        IsCached(postId) || IsDownloading(postId) || DataService.IsOffline;
+
+    private bool IsDeleteDisabled(string postId) =>
+        !IsCached(postId) || IsDownloading(postId);
+
+    private Appearance GetDownloadAppearance(string postId) =>
+        IsDownloadDisabled(postId) ? Appearance.Lightweight : Appearance.Accent;
+
+    private Appearance GetDeleteAppearance(string postId) =>
+        IsDeleteDisabled(postId) ? Appearance.Lightweight : Appearance.Accent;
+
+    private async Task SyncNow()
+    {
+        if (isSyncing || DataService.IsSyncing)
+        {
+            return;
+        }
+
+        isSyncing = true;
+        try
+        {
+            await DataService.SyncAsync();
+            await LoadPostsAsync();
+            ToastService.ShowSuccess("Synchronization completed successfully!");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Synchronization failed: {ex.Message}");
+        }
+        finally
+        {
+            isSyncing = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task DownloadPost(string postId)
+    {
+        if (downloadingPostIds.Contains(postId) || StorageService.IsPostCached(postId))
+        {
+            return;
+        }
+
+        downloadingPostIds.Add(postId);
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            if (await StorageService.DownloadPostAsync(postId))
+            {
+                RefreshCachedPostIds();
+                ToastService.ShowSuccess("Post downloaded for offline reading.");
+            }
+            else
+            {
+                ToastService.ShowError("The post content could not be downloaded.");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Download failed: {ex.Message}");
+        }
+        finally
+        {
+            downloadingPostIds.Remove(postId);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task DeletePost(string postId)
+    {
+        if (!StorageService.IsPostCached(postId))
+        {
+            return;
+        }
+
+        try
+        {
+            StorageService.DeletePost(postId);
+            RefreshCachedPostIds();
+            ToastService.ShowSuccess("Local post file deleted.");
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Delete failed: {ex.Message}");
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSyncProgressChanged(object? sender, SyncProgressEventArgs e)
+    {
+        _ = InvokeAsync(() =>
+        {
+            syncProgressCurrent = e.Current;
+            syncProgressTotal = e.Total;
+            syncProgressStatus = e.Status;
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        DataService.SyncProgressChanged -= OnSyncProgressChanged;
+    }
+}
