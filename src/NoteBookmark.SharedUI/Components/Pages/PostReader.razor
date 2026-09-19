@@ -18,7 +18,19 @@
             <span style="font-weight: 600;">Text size:</span>
             <span>@(textSize)px</span>
         </FluentStack>
-        <FluentSlider Min="8" Max="56" Step="1" @bind-Value="textSize" Style="width: 100%;" aria-label="Text size slider" />
+        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Style="width: 100%; gap: 0.5rem;">
+            <FluentButton IconStart="@(new Icons.Regular.Size20.Subtract())"
+                          OnClick="DecreaseTextSize"
+                          Disabled="@(textSize <= MinTextSize)"
+                          Title="Decrease text size"
+                          aria-label="Decrease text size" />
+            <FluentSlider Min="@MinTextSize" Max="@MaxTextSize" Step="1" @bind-Value="textSize" Style="flex-grow: 1; touch-action: none;" aria-label="Text size slider" />
+            <FluentButton IconStart="@(new Icons.Regular.Size20.Add())"
+                          OnClick="IncreaseTextSize"
+                          Disabled="@(textSize >= MaxTextSize)"
+                          Title="Increase text size"
+                          aria-label="Increase text size" />
+        </FluentStack>
     </FluentStack>
 
     @if (isLoading)
@@ -64,19 +76,62 @@
                 <span style="font-weight: 600;">Text size:</span>
                 <span>@(textSize)px</span>
             </FluentStack>
-            <FluentSlider Min="8" Max="56" Step="1" @bind-Value="textSize" Style="width: 100%;" aria-label="Text size slider" />
+            <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Style="width: 100%; gap: 0.5rem;">
+                <FluentButton IconStart="@(new Icons.Regular.Size20.Subtract())"
+                              OnClick="DecreaseTextSize"
+                              Disabled="@(textSize <= MinTextSize)"
+                              Title="Decrease text size"
+                              aria-label="Decrease text size" />
+                <FluentSlider Min="@MinTextSize" Max="@MaxTextSize" Step="1" @bind-Value="textSize" Style="flex-grow: 1; touch-action: none;" aria-label="Text size slider" />
+                <FluentButton IconStart="@(new Icons.Regular.Size20.Add())"
+                              OnClick="IncreaseTextSize"
+                              Disabled="@(textSize >= MaxTextSize)"
+                              Title="Increase text size"
+                              aria-label="Increase text size" />
+            </FluentStack>
         </FluentStack>
     }
 </FluentStack>
 
 @code {
+    public const int MinTextSize = 12;
+    public const int MaxTextSize = 25;
+
     [Parameter]
     public string PostId { get; set; } = string.Empty;
 
     private Post? post;
     private string? htmlContent;
     private bool isLoading = true;
-    private int textSize = 16;
+    private int _textSize = 16;
+    private int textSize
+    {
+        get => _textSize;
+        set
+        {
+            var clamped = Math.Clamp(value, MinTextSize, MaxTextSize);
+            if (_textSize != clamped)
+            {
+                _textSize = clamped;
+            }
+        }
+    }
+
+    private void DecreaseTextSize()
+    {
+        if (textSize > MinTextSize)
+        {
+            textSize--;
+        }
+    }
+
+    private void IncreaseTextSize()
+    {
+        if (textSize < MaxTextSize)
+        {
+            textSize++;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

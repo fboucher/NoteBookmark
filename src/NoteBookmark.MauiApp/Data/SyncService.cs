@@ -27,17 +27,39 @@ public class SyncService(
     ILocalHtmlStorageService localHtmlStorageService) : ISyncService
 {
     private const string LastSyncTimestampKey = "LastSyncTimestamp";
-    private bool _isSyncing;
+    private readonly object _syncLock = new();
+    private Task? _currentSyncTask;
 
-    public bool IsSyncing => _isSyncing;
+    public bool IsSyncing
+    {
+        get
+        {
+            lock (_syncLock)
+            {
+                return _currentSyncTask != null && !_currentSyncTask.IsCompleted;
+            }
+        }
+    }
+
     public event EventHandler<SyncConflictEventArgs>? ConflictDetected;
     public event EventHandler<SyncProgressEventArgs>? SyncProgressChanged;
 
-    public async Task SyncAsync()
+    public Task SyncAsync()
     {
-        if (_isSyncing) return;
+        lock (_syncLock)
+        {
+            if (_currentSyncTask != null && !_currentSyncTask.IsCompleted)
+            {
+                return _currentSyncTask;
+            }
 
-        _isSyncing = true;
+            _currentSyncTask = DoSyncAsync();
+            return _currentSyncTask;
+        }
+    }
+
+    private async Task DoSyncAsync()
+    {
         try
         {
             SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Starting synchronization..."));
@@ -57,11 +79,13 @@ public class SyncService(
             await SyncHtmlAsync();
 
             await SetPreferenceAsync(LastSyncTimestampKey, DateTime.UtcNow.ToString("O"));
-            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Synchronization complete!"));
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Synchronization complete!", isComplete: true));
         }
-        finally
+        catch (Exception ex)
         {
-            _isSyncing = false;
+            logger.LogError(ex, "Synchronization failed.");
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, $"Sync failed: {ex.Message}", isComplete: true));
+            throw;
         }
     }
 
@@ -191,6 +215,8 @@ public class SyncService(
 
         // 2. Any post that was deleted on the online database while offline should be deleted locally.
         var localPosts = await localDataService.GetPostsAsync() ?? new List<Post>();
+        var localPostMap = localPosts.ToDictionary(p => p.Id ?? p.RowKey);
+
         foreach (var localPost in localPosts)
         {
             var id = localPost.Id ?? localPost.RowKey;
@@ -198,26 +224,97 @@ public class SyncService(
             {
                 await localDataService.DeletePostAsync(id, isPendingSync: false);
                 await localDataService.MarkSyncedAsync(id, isPost: true);
+                localPostMap.Remove(id);
             }
         }
 
         // 3. Pull new/modified posts
+        var postsToPull = new List<PostL>();
         foreach (var remotePostL in allRemotePosts)
         {
             var id = remotePostL.Id ?? remotePostL.RowKey;
-            var localPost = await localDataService.GetPostAsync(id);
-            if (localPost is null || remotePostL.DateModified > localPost.DateModified)
+            if (!localPostMap.TryGetValue(id, out var lp))
             {
-                var fullPost = await apiClient.GetPost(id);
-                if (fullPost is not null)
+                lp = await localDataService.GetPostAsync(id);
+            }
+
+            if (lp is null || remotePostL.DateModified > lp.DateModified)
+            {
+                postsToPull.Add(remotePostL);
+            }
+        }
+
+        if (postsToPull.Count > 0)
+        {
+            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, postsToPull.Count, $"Pulling 0 of {postsToPull.Count} posts..."));
+
+            for (int i = 0; i < postsToPull.Count; i++)
+            {
+                var remotePostL = postsToPull[i];
+                var id = remotePostL.Id ?? remotePostL.RowKey;
+
+                Post postToSave;
+                if (remotePostL.is_read == true)
                 {
-                    await localDataService.SavePostAsync(fullPost, isPendingSync: false);
+                    postToSave = new Post
+                    {
+                        Id = id,
+                        RowKey = remotePostL.RowKey,
+                        PartitionKey = remotePostL.PartitionKey,
+                        Title = remotePostL.Title,
+                        Url = remotePostL.Url,
+                        Date_published = remotePostL.Date_published,
+                        Excerpt = remotePostL.Excerpt,
+                        is_read = remotePostL.is_read,
+                        DateModified = remotePostL.DateModified
+                    };
                 }
+                else
+                {
+                    try
+                    {
+                        var fullPost = await apiClient.GetPost(id);
+                        postToSave = fullPost ?? new Post
+                        {
+                            Id = id,
+                            RowKey = remotePostL.RowKey,
+                            PartitionKey = remotePostL.PartitionKey,
+                            Title = remotePostL.Title,
+                            Url = remotePostL.Url,
+                            Date_published = remotePostL.Date_published,
+                            Excerpt = remotePostL.Excerpt,
+                            is_read = remotePostL.is_read,
+                            DateModified = remotePostL.DateModified
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, "Failed to retrieve full post for {PostId}, saving summary metadata", id);
+                        postToSave = new Post
+                        {
+                            Id = id,
+                            RowKey = remotePostL.RowKey,
+                            PartitionKey = remotePostL.PartitionKey,
+                            Title = remotePostL.Title,
+                            Url = remotePostL.Url,
+                            Date_published = remotePostL.Date_published,
+                            Excerpt = remotePostL.Excerpt,
+                            is_read = remotePostL.is_read,
+                            DateModified = remotePostL.DateModified
+                        };
+                    }
+                }
+
+                await localDataService.SavePostAsync(postToSave, isPendingSync: false);
+                localPostMap[id] = postToSave;
+
+                int current = i + 1;
+                SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(current, postsToPull.Count, $"Pulling {current} of {postsToPull.Count} posts..."));
             }
         }
 
         // 4. Pull notes modified since lastSync
-        var remoteNotes = await apiClient.GetNotesModifiedAfter(lastSync ?? DateTime.MinValue);
+        var remoteNotes = await apiClient.GetNotesModifiedAfter(lastSync ?? DateTime.MinValue) ?? new List<Note>();
         if (remoteNotes.Any())
         {
             var pendingNotes = await localDataService.GetPendingSyncNotesAsync();
