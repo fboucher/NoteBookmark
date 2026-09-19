@@ -45,38 +45,36 @@
     }
     else
     {
-        <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.75rem;">
-            @foreach (var post in posts)
-            {
-                var postId = post.Id ?? post.RowKey;
-                var isDownloading = downloadingPostIds.Contains(postId);
-                var isCached = cachedPostIds.Contains(postId);
-                <FluentCard Style="padding: 0.75rem;">
-                    <FluentStack Orientation="Orientation.Vertical" Style="gap: 0.5rem;">
-                        <strong>@post.Title</strong>
-                        <FluentStack Orientation="Orientation.Horizontal" Style="gap: 0.5rem;">
-                            <FluentButton OnClick="@(() => DownloadPost(postId))"
-                                          Disabled="@(isCached || isDownloading || DataService.IsOffline)"
-                                          Loading="@isDownloading"
-                                          IconStart="@(new Icons.Regular.Size20.ArrowDownload())"
-                                          Title="Download post" />
-                            <FluentButton OnClick="@(() => DeletePost(postId))"
-                                          Disabled="@(!isCached || isDownloading)"
-                                          IconStart="@(new Icons.Regular.Size20.Delete())"
-                                          Title="Delete local file" />
-                        </FluentStack>
-                        @if (isDownloading)
-                        {
-                            <FluentProgress />
-                        }
-                        else
-                        {
-                            <span>@(isCached ? "Available offline" : "Not downloaded")</span>
-                        }
-                    </FluentStack>
-                </FluentCard>
-            }
-        </FluentStack>
+        <FluentDataGrid Id="storagegrid" Items="@PostItems" RowSize="DataGridRowSize.Medium">
+            <TemplateColumn Title="Actions" Width="180px">
+                @{
+                    var postId = context!.Id ?? context.RowKey;
+                }
+                <FluentButton OnClick="@(() => DownloadPost(postId))"
+                              Disabled="@IsDownloadDisabled(postId)"
+                              Loading="@IsDownloading(postId)"
+                              IconEnd="@(new Icons.Regular.Size20.ArrowDownload())"
+                              Title="Download post" />
+                <FluentButton OnClick="@(() => DeletePost(postId))"
+                              Disabled="@IsDeleteDisabled(postId)"
+                              IconEnd="@(new Icons.Regular.Size20.Delete())"
+                              Title="Delete local file" />
+            </TemplateColumn>
+            <PropertyColumn Title="Title" Property="@(post => post!.Title)" Sortable="true" />
+            <TemplateColumn Title="Local file" Width="190px">
+                @{
+                    var postId = context!.Id ?? context.RowKey;
+                }
+                @if (IsDownloading(postId))
+                {
+                    <FluentProgress />
+                }
+                else
+                {
+                    <span>@(IsCached(postId) ? "Available offline" : "Not downloaded")</span>
+                }
+            </TemplateColumn>
+        </FluentDataGrid>
     }
 </FluentStack>
 
@@ -84,6 +82,7 @@
     private readonly List<PostL> posts = [];
     private readonly HashSet<string> cachedPostIds = [];
     private readonly HashSet<string> downloadingPostIds = [];
+    private IQueryable<PostL> PostItems => posts.AsQueryable();
     private bool isLoading = true;
     private bool isSyncing;
     private int syncProgressCurrent;
@@ -102,15 +101,32 @@
         var unreadPosts = await DataService.GetUnreadPosts();
         posts.Clear();
         posts.AddRange(unreadPosts);
+        RefreshCachedPostIds();
+        isLoading = false;
+    }
+
+    private void RefreshCachedPostIds()
+    {
         cachedPostIds.Clear();
         foreach (var post in posts)
         {
-            cachedPostIds.Add(post.Id ?? post.RowKey);
+            var postId = post.Id ?? post.RowKey;
+            if (StorageService.IsPostCached(postId))
+            {
+                cachedPostIds.Add(postId);
+            }
         }
-
-        cachedPostIds.RemoveWhere(id => !StorageService.IsPostCached(id));
-        isLoading = false;
     }
+
+    private bool IsCached(string postId) => cachedPostIds.Contains(postId);
+
+    private bool IsDownloading(string postId) => downloadingPostIds.Contains(postId);
+
+    private bool IsDownloadDisabled(string postId) =>
+        IsCached(postId) || IsDownloading(postId) || DataService.IsOffline;
+
+    private bool IsDeleteDisabled(string postId) =>
+        !IsCached(postId) || IsDownloading(postId);
 
     private async Task SyncNow()
     {
@@ -150,7 +166,7 @@
         {
             if (await StorageService.DownloadPostAsync(postId))
             {
-                cachedPostIds.Add(postId);
+                RefreshCachedPostIds();
                 ToastService.ShowSuccess("Post downloaded for offline reading.");
             }
             else
@@ -171,7 +187,7 @@
 
     private async Task DeletePost(string postId)
     {
-        if (!cachedPostIds.Contains(postId))
+        if (!StorageService.IsPostCached(postId))
         {
             return;
         }
@@ -179,7 +195,7 @@
         try
         {
             StorageService.DeletePost(postId);
-            cachedPostIds.Remove(postId);
+            RefreshCachedPostIds();
             ToastService.ShowSuccess("Local post file deleted.");
         }
         catch (Exception ex)

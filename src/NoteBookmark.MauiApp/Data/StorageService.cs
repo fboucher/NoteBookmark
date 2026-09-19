@@ -51,7 +51,16 @@ public sealed class StorageService(
         }
 
         var html = await dataService.GetPostHtmlAsync(postId);
-        return !string.IsNullOrEmpty(html) &&
-            localHtmlStorageService.IsPostHtmlCached(postId);
+        if (string.IsNullOrEmpty(html))
+        {
+            return false;
+        }
+
+        if (!localHtmlStorageService.IsPostHtmlCached(postId))
+        {
+            await localHtmlStorageService.SavePostHtmlAsync(postId, html);
+        }
+
+        return localHtmlStorageService.IsPostHtmlCached(postId);
     }
 }

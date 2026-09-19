@@ -22,6 +22,7 @@ public class StorageServiceTests
     {
         _localStorage.SetupSequence(s => s.IsPostHtmlCached("post-1"))
             .Returns(false)
+            .Returns(false)
             .Returns(true);
         _dataService.Setup(s => s.GetPostHtmlAsync("post-1")).ReturnsAsync("<p>Post</p>");
 
@@ -29,6 +30,7 @@ public class StorageServiceTests
 
         result.Should().BeTrue();
         _dataService.Verify(s => s.GetPostHtmlAsync("post-1"), Times.Once);
+        _localStorage.Verify(s => s.SavePostHtmlAsync("post-1", "<p>Post</p>"), Times.Once);
     }
 
     [Fact]
