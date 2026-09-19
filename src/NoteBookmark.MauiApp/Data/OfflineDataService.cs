@@ -178,9 +178,16 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
     {
         if (IsOnline)
         {
-            var post = await apiClient.GetPost(id);
-            if (post != null) await localDataService.SavePostAsync(post);
-            return post;
+            try
+            {
+                var post = await apiClient.GetPost(id);
+                if (post != null) await localDataService.SavePostAsync(post);
+                return post;
+            }
+            catch
+            {
+                return await localDataService.GetPostAsync(id);
+            }
         }
         else
         {
@@ -243,6 +250,34 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         return false; // Can't extract offline
     }
 
+    public async Task<string?> GetPostHtmlAsync(string postId)
+    {
+        var localHtml = await localHtmlStorageService.GetPostHtmlAsync(postId);
+        if (!string.IsNullOrEmpty(localHtml))
+        {
+            return localHtml;
+        }
+
+        if (IsOnline)
+        {
+            try
+            {
+                var remoteHtml = await apiClient.GetPostHtmlAsync(postId);
+                if (!string.IsNullOrEmpty(remoteHtml))
+                {
+                    await localHtmlStorageService.SavePostHtmlAsync(postId, remoteHtml);
+                    return remoteHtml;
+                }
+            }
+            catch
+            {
+                // Fall back to null if remote fetch fails
+            }
+        }
+
+        return null;
+    }
+
     public async Task<bool> DeletePost(string id)
     {
         if (IsOnline)
@@ -273,17 +308,13 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         }
     }
 
-    public Task<bool> SaveReadingNotesMarkdown(string markdown, string number) => apiClient.SaveReadingNotesMarkdown(markdown, number);
-
-    public Task<string?> GetPostHtmlAsync(string postId)
-        => localHtmlStorageService.GetPostHtmlAsync(postId);
-
     public Task SyncAsync() => syncService.SyncAsync();
     public event EventHandler<SyncProgressEventArgs>? SyncProgressChanged
     {
         add => syncService.SyncProgressChanged += value;
         remove => syncService.SyncProgressChanged -= value;
     }
+    public bool IsSyncing => syncService.IsSyncing;
     public bool IsOffline => connectivity.NetworkAccess != NetworkAccess.Internet;
     public bool CanSync => true;
 

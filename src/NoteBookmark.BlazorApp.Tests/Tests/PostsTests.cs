@@ -162,5 +162,35 @@ public sealed class PostsTests : BunitContext
 
         cut.Markup.Should().Contain("Cleaning...");
     }
+
+    [Fact]
+    public void Posts_SyncProgressChanged_WhenIsComplete_ReloadsPosts()
+    {
+        var cut = Render<Posts>();
+
+        _dataServiceMock.Invocations.Clear();
+
+        cut.InvokeAsync(() =>
+        {
+            _dataServiceMock.Raise(s => s.SyncProgressChanged += null, new SyncProgressEventArgs(0, 0, "Synchronization complete!", isComplete: true));
+        });
+
+        _dataServiceMock.Verify(s => s.GetUnreadPosts(), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public void Posts_SyncButton_DisabledAndLoadingReflectsIsSyncing()
+    {
+        _dataServiceMock.SetupGet(s => s.CanSync).Returns(true);
+        _dataServiceMock.SetupGet(s => s.IsSyncing).Returns(true);
+
+        var cut = Render<Posts>();
+
+        var buttons = cut.FindComponents<FluentButton>();
+        var syncButton = buttons.FirstOrDefault(b => b.Instance.Title == "Sync posts and comments");
+        syncButton.Should().NotBeNull();
+        syncButton!.Instance.Disabled.Should().BeTrue();
+        syncButton.Instance.Loading.Should().BeTrue();
+    }
 }
 
