@@ -223,7 +223,7 @@
         if (!string.IsNullOrEmpty(newPostUrl))
         {
             var result = await client.ExtractPostDetailsAndSave(newPostUrl);
-            if (result)
+            if (result != null)
             {
                 await LoadPosts();
                 newPostUrl = string.Empty;

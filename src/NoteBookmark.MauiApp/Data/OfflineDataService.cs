@@ -242,13 +242,13 @@ public class OfflineDataService(PostNoteClient apiClient, ILocalDataService loca
         }
     }
 
-    public async Task<bool> ExtractPostDetailsAndSave(string url)
+    public async Task<Post?> ExtractPostDetailsAndSave(string url)
     {
         if (IsOnline)
         {
             return await apiClient.ExtractPostDetailsAndSave(url);
         }
-        return false; // Can't extract offline
+        return null; // Can't extract offline
     }
 
     public async Task<string?> GetPostHtmlAsync(string postId)

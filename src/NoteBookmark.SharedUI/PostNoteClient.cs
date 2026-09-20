@@ -158,11 +158,15 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<bool> ExtractPostDetailsAndSave(string url)
+    public async Task<Post?> ExtractPostDetailsAndSave(string url)
     {
         var requestBody = new { url = url };
         var response = await httpClient.PostAsJsonAsync($"api/posts/extractPostDetails", requestBody);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Post>();
+        }
+        return null;
     }
 
     public async Task<bool> DeletePost(string id)
