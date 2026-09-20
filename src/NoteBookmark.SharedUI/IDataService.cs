@@ -20,7 +20,7 @@ public interface IDataService
     Task<bool> SavePost(Post post);
     Task<Settings?> GetSettings();
     Task<bool> SaveSettings(Settings settings);
-    Task<bool> ExtractPostDetailsAndSave(string url);
+    Task<Post?> ExtractPostDetailsAndSave(string url);
     Task<bool> DeletePost(string id);
     Task<bool> SaveReadingNotesMarkdown(string markdown, string number);
     Task<string?> GetPostHtmlAsync(string postId);

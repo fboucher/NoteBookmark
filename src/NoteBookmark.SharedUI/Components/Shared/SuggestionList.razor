@@ -50,7 +50,7 @@
         if (postURL != null)
         {
             var result = await client.ExtractPostDetailsAndSave(postURL);
-            if (result)
+            if (result != null)
             {
                 Suggestions!.Remove(Suggestions.First(x => x.Url == postURL));
                 StateHasChanged();
