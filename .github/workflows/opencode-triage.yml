@@ -8,6 +8,7 @@ on:
 jobs:
   triage:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       id-token: write
       contents: write
@@ -20,7 +21,7 @@ jobs:
       - name: Get opencode version
         id: version
         run: |
-          VERSION=$(curl -sf https://api.github.com/repos/anomalyco/opencode/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
+          VERSION=$(curl -sf -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/anomalyco/opencode/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
           echo "version=${VERSION:-latest}" >> $GITHUB_OUTPUT
 
       - name: Cache opencode
@@ -47,9 +48,9 @@ jobs:
           PROMPT: |
             You are a triage agent. Triaging open GitHub issues in this repo.
 
-            1. Use `gh issue list --state open --json number,title,body,labels,createdAt` to list open issues.
-            2. Skip any issue that already has a state label (ready-for-agent, ready-for-human, go:needs-research, go:no, wontfix).
-            3. For each unlabeled issue, read it with `gh issue view <number>`.
+            1. Use `gh issue list --state open --limit 5 --json number,title,body,labels,createdAt` to list open issues.
+            2. Skip any issue that already has a state label (ready-for-agent, ready-for-human, go:needs-research, go:no, wontfix, in-progress).
+            3. For each unlabeled issue (max 5 per run), read it with `gh issue view <number>`.
             4. Classify as `type:bug` or `type:feature`.
             5. Assign a state:
                 - `go:needs-research` — needs more info or investigation
@@ -68,5 +69,6 @@ jobs:
             Rules:
             - Never re-triage an issue that already has a state label.
             - Never modify closed issues.
+            - Process at most 5 issues per daily run to avoid rate limits.
             - When in doubt, use `go:needs-research`.
             - Keep briefs behavioral (what, not how). No file paths or line numbers.
