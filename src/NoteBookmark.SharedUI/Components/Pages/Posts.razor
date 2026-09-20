@@ -13,6 +13,14 @@
 
 <PageTitle>Posts</PageTitle>
 
+@if (Popup == true)
+{
+    <FluentMessageBar Intent="MessageIntent.Info" Style="margin-bottom: 1rem;">
+        Opened via Bookmarklet.
+        <FluentButton Appearance="Appearance.Lightweight" OnClick="ClosePopup">Close Window</FluentButton>
+    </FluentMessageBar>
+}
+
 <h1>Posts</h1>
 
 <FluentStack Orientation="Orientation.Vertical">
@@ -84,6 +92,13 @@
 
 
 @code {
+    [SupplyParameterFromQuery(Name = "addUrl")]
+    public string? AddUrl { get; set; }
+
+    [SupplyParameterFromQuery(Name = "popup")]
+    public bool? Popup { get; set; }
+
+    private string? _processedAddUrl;
     private IQueryable<PostL>? posts;
     IQueryable<PostL>? filteredUrlList => posts?.Where(x => x.Title!.Contains(titleFilter, StringComparison.CurrentCultureIgnoreCase));
     private GridSort<PostL> defSort = GridSort<PostL>.ByDescending(c => c.Date_published);
@@ -101,6 +116,16 @@
         client.SyncProgressChanged += OnSyncProgressChanged;
         await LoadPosts();
         _ = StartBackgroundSync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(AddUrl) && AddUrl != _processedAddUrl && !client.IsOffline)
+        {
+            _processedAddUrl = AddUrl;
+            newPostUrl = AddUrl;
+            await AddNewPost();
+        }
     }
 
     private async Task LoadPosts()
@@ -233,6 +258,18 @@
             {
                 toastService.ShowError("Failed to add post. Please try again.");
             }
+        }
+    }
+
+    private async Task ClosePopup()
+    {
+        try
+        {
+            await jsRuntime.InvokeVoidAsync("window.close");
+        }
+        catch
+        {
+            // Ignore if script execution / window.close is not allowed
         }
     }
 

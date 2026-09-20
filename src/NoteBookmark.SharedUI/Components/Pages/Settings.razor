@@ -101,7 +101,29 @@
                 <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>
         
             </FluentStack>
-        </EditForm>   
+        </EditForm>
+
+        <FluentDivider Style="margin: 20px 0;" />
+
+        <FluentLabel Typo="Typography.H5">Browser Bookmarklet</FluentLabel>
+        <FluentLabel Typo="Typography.Body">
+            Drag the button below to your browser's bookmarks bar to quickly save articles from any webpage directly into NoteBookmark:
+        </FluentLabel>
+
+        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Style="margin: 10px 0;">
+            <a href="@BookmarkletCode"
+               class="fluent-button"
+               style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background-color: var(--accent-fill-rest, #0078d4); color: white; border-radius: 4px; text-decoration: none; font-weight: 600; cursor: move;"
+               title="Drag to bookmarks bar"
+               onclick="return false;">
+                <FluentIcon Value="@(new Icons.Regular.Size16.Bookmark())" Color="Color.Fill" />
+                + Add to NoteBookmark
+            </a>
+        </FluentStack>
+        <FluentLabel Typo="Typography.Body" Style="font-size: 0.85rem; color: var(--neutral-foreground-rest);">
+            Tip: If dragging is not supported, right-click the button, copy the link, and paste it as the URL of a new browser bookmark.
+        </FluentLabel>
+        <FluentTextArea ReadOnly="true" Value="@BookmarkletCode" Label="Bookmarklet JavaScript Code" Cols="80" Rows="2" Style="width: 100%; margin-top: 8px;" />
     </div> 
 }
 
@@ -154,4 +176,7 @@
         var cnt = Convert.ToInt32(settings!.ReadingNotesCounter) + 1;
         settings.ReadingNotesCounter = (cnt).ToString();
     }
+
+    private string BookmarkletCode =>
+        $"javascript:(function(){{var u=encodeURIComponent(window.location.href);window.open('{Navigation.BaseUri}posts?addUrl='+u+'&popup=true','nb_add','width=520,height=650,menubar=no,toolbar=no');}})();";
 }

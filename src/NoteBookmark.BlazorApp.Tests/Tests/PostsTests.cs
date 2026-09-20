@@ -1,5 +1,6 @@
 using Bunit;
 using Bunit.TestDoubles;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using Moq;
@@ -191,6 +192,57 @@ public sealed class PostsTests : BunitContext
         syncButton.Should().NotBeNull();
         syncButton!.Instance.Disabled.Should().BeTrue();
         syncButton.Instance.Loading.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Posts_WithAddUrlParameter_AutomaticallyExtractsAndSavesPost()
+    {
+        const string testUrl = "https://example.com/bookmarklet-article";
+        _dataServiceMock.Setup(s => s.ExtractPostDetailsAndSave(testUrl)).ReturnsAsync(true);
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo($"http://localhost/posts?addUrl={Uri.EscapeDataString(testUrl)}");
+
+        var cut = Render<Posts>();
+
+        _dataServiceMock.Verify(s => s.ExtractPostDetailsAndSave(testUrl), Times.Once);
+    }
+
+    [Fact]
+    public void Posts_WithPopupParameter_RendersBookmarkletMessageBar()
+    {
+        var nav = Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo("http://localhost/posts?popup=true");
+
+        var cut = Render<Posts>();
+
+        cut.Markup.Should().Contain("Opened via Bookmarklet");
+        cut.Markup.Should().Contain("Close Window");
+    }
+
+    [Fact]
+    public void Posts_WithoutPopupParameter_DoesNotRenderBookmarkletMessageBar()
+    {
+        var nav = Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo("http://localhost/posts");
+
+        var cut = Render<Posts>();
+
+        cut.Markup.Should().NotContain("Opened via Bookmarklet");
+    }
+
+    [Fact]
+    public void Posts_WhenOffline_DoesNotAutoAddUrl()
+    {
+        const string testUrl = "https://example.com/offline-article";
+        _dataServiceMock.SetupGet(s => s.IsOffline).Returns(true);
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo($"http://localhost/posts?addUrl={Uri.EscapeDataString(testUrl)}");
+
+        var cut = Render<Posts>();
+
+        _dataServiceMock.Verify(s => s.ExtractPostDetailsAndSave(It.IsAny<string>()), Times.Never);
     }
 }
 
