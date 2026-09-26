@@ -1,8 +1,8 @@
 name: OpenCode Daily Triage
 
 on:
-  schedule:
-    - cron: "0 6 * * *" # 1:00 AM EST (6:00 AM UTC) daily
+  # schedule:
+  #   - cron: "0 6 * * *" # 1:00 AM EST (6:00 AM UTC) daily
   workflow_dispatch:
 
 jobs:
