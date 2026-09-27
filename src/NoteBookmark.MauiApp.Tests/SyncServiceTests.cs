@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Moq;
@@ -123,11 +125,11 @@ public class SyncServiceTests
             .ReturnsAsync(new List<PostL> { remotePostL });
         _apiClientMock.Setup(c => c.GetPost("post1")).ReturnsAsync(remotePost);
         _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
-        _localDataServiceMock.Setup(c => c.GetPostAsync("post1")).ReturnsAsync(localPost);
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post> { localPost });
 
         await _sut.SyncAsync();
 
-        _localDataServiceMock.Verify(c => c.SavePostAsync(It.Is<Post>(p => p.Title == "Remote"), false), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Single().Title == "Remote")), Times.Once);
     }
 
     [Fact]
@@ -156,11 +158,12 @@ public class SyncServiceTests
         _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>()))
             .ReturnsAsync(new List<PostL> { remotePostL });
         _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
-        _localDataServiceMock.Setup(c => c.GetPostAsync("post1")).ReturnsAsync(localPost);
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post> { localPost });
 
         await _sut.SyncAsync();
 
-        _localDataServiceMock.Verify(c => c.SavePostAsync(It.IsAny<Post>(), false), Times.Never);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.IsAny<IEnumerable<Post>>()), Times.Never);
+        _localDataServiceMock.Verify(c => c.SavePostAsync(It.IsAny<Post>(), It.IsAny<bool>()), Times.Never);
     }
 
     [Fact]
@@ -190,11 +193,10 @@ public class SyncServiceTests
             .ReturnsAsync(new List<PostL> { remotePostL });
         _apiClientMock.Setup(c => c.GetPost("post1")).ReturnsAsync(remotePost);
         _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
-        _localDataServiceMock.Setup(c => c.GetPostAsync("post1")).ReturnsAsync((Post?)null);
 
         await _sut.SyncAsync();
 
-        _localDataServiceMock.Verify(c => c.SavePostAsync(It.Is<Post>(p => p.Title == "Remote"), false), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Single().Title == "Remote")), Times.Once);
     }
 
     [Fact]
@@ -266,8 +268,7 @@ public class SyncServiceTests
 
         await _sut.SyncAsync();
 
-        _localDataServiceMock.Verify(c => c.DeletePostAsync("post1", false), Times.Once);
-        _localDataServiceMock.Verify(c => c.MarkSyncedAsync("post1", true), Times.Once);
+        _localDataServiceMock.Verify(c => c.RemovePostsAsync(It.Is<IEnumerable<string>>(ids => ids.SequenceEqual(new[] { "post1" }))), Times.Once);
     }
 
     [Fact]
@@ -296,14 +297,13 @@ public class SyncServiceTests
         _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post>());
         _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue))
             .ReturnsAsync(new List<PostL> { remotePostL });
-        _localDataServiceMock.Setup(c => c.GetPostAsync("post1")).ReturnsAsync((Post?)null);
         _apiClientMock.Setup(c => c.GetPost("post1")).ReturnsAsync(remotePost);
         _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
 
         await _sut.SyncAsync();
 
         _apiClientMock.Verify(c => c.GetPost("post1"), Times.Once);
-        _localDataServiceMock.Verify(c => c.SavePostAsync(remotePost, false), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Single() == remotePost)), Times.Once);
     }
 
     [Fact]
@@ -467,7 +467,7 @@ public class SyncServiceTests
 
         progressEvents.Should().NotBeEmpty();
         progressEvents.Should().Contain(e => e.Status == "Cleaning...");
-        progressEvents.Should().Contain(e => e.Status == "Downloading 1 of 2 posts..." && e.Current == 1 && e.Total == 2);
+        progressEvents.Should().Contain(e => e.Status == "Downloading 0 of 2 posts..." && e.Current == 0 && e.Total == 2);
         progressEvents.Should().Contain(e => e.Status == "Downloading 2 of 2 posts..." && e.Current == 2 && e.Total == 2);
         progressEvents.Last().Status.Should().Be("Synchronization complete!");
         progressEvents.Last().IsComplete.Should().BeTrue();
@@ -495,7 +495,7 @@ public class SyncServiceTests
 
         // GetPost should NOT be called for read posts
         _apiClientMock.Verify(c => c.GetPost("read1"), Times.Never);
-        _localDataServiceMock.Verify(c => c.SavePostAsync(It.Is<Post>(p => p.Id == "read1" && p.is_read == true), false), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Single().Id == "read1" && ps.Single().is_read == true)), Times.Once);
     }
 
     [Fact]
@@ -520,7 +520,7 @@ public class SyncServiceTests
         await _sut.SyncAsync();
 
         // Should fall back and save basic post without throwing
-        _localDataServiceMock.Verify(c => c.SavePostAsync(It.Is<Post>(p => p.Id == "unread1" && p.Title == "Unread Post"), false), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Single().Id == "unread1" && ps.Single().Title == "Unread Post")), Times.Once);
     }
 
     [Fact]
@@ -540,7 +540,6 @@ public class SyncServiceTests
         await _sut.SyncAsync();
 
         progressEvents.Should().Contain(e => e.Status == "Pulling 0 of 2 posts..." && e.Current == 0 && e.Total == 2);
-        progressEvents.Should().Contain(e => e.Status == "Pulling 1 of 2 posts..." && e.Current == 1 && e.Total == 2);
         progressEvents.Should().Contain(e => e.Status == "Pulling 2 of 2 posts..." && e.Current == 2 && e.Total == 2);
     }
 
@@ -581,5 +580,170 @@ public class SyncServiceTests
 
         _sut.IsSyncing.Should().BeFalse();
     }
-}
 
+    // ── Issue #208: delta pull, deletion detection, batched save ─────────────
+
+    private static PostL RemotePostL(string id, bool isRead = true, DateTime? modified = null) => new()
+    {
+        Id = id,
+        RowKey = id,
+        PartitionKey = "pk",
+        Title = $"Title {id}",
+        is_read = isRead,
+        DateModified = modified ?? DateTime.UtcNow
+    };
+
+    private static Post LocalPost(string id, DateTime? modified = null) => new()
+    {
+        Id = id,
+        RowKey = id,
+        PartitionKey = "pk",
+        Title = $"Title {id}",
+        is_read = true,
+        DateModified = modified ?? DateTime.UtcNow.AddDays(-1)
+    };
+
+    private void SetupEmptyPushAndNotes()
+    {
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note>());
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+    }
+
+    [Fact]
+    public async Task PullPhase_WithLastSync_ShouldOnlyPullDelta_AndUsePostIdsForDeletions()
+    {
+        var lastSync = DateTime.UtcNow.AddHours(-1);
+        SyncService.SetInMemoryPreference("LastSyncTimestamp", lastSync.ToString("O"));
+        SetupEmptyPushAndNotes();
+
+        _localDataServiceMock.Setup(c => c.GetPostsAsync())
+            .ReturnsAsync(new List<Post> { LocalPost("p1"), LocalPost("p2"), LocalPost("p3") });
+        _apiClientMock.Setup(c => c.GetPostIds()).ReturnsAsync(new List<string> { "p1", "p3", "new" });
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.Is<DateTime>(d => d > DateTime.MinValue)))
+            .ReturnsAsync(new List<PostL> { RemotePostL("new") });
+
+        await _sut.SyncAsync();
+
+        // The full post list is never requested once we have a last sync time.
+        _apiClientMock.Verify(c => c.GetPostsModifiedAfter(DateTime.MinValue), Times.Never);
+        _apiClientMock.Verify(c => c.GetPostsModifiedAfter(It.Is<DateTime>(d => Math.Abs((d - lastSync).TotalSeconds) < 1)), Times.Once);
+        _localDataServiceMock.Verify(c => c.RemovePostsAsync(It.Is<IEnumerable<string>>(ids => ids.SequenceEqual(new[] { "p2" }))), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Select(p => p.Id).SequenceEqual(new[] { "new" }))), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostAsync(It.IsAny<Post>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task PullPhase_WithLastSync_WhenPostIdsEndpointUnavailable_ShouldFallBackToFullListForDeletions()
+    {
+        SyncService.SetInMemoryPreference("LastSyncTimestamp", DateTime.UtcNow.AddHours(-1).ToString("O"));
+        SetupEmptyPushAndNotes();
+
+        _localDataServiceMock.Setup(c => c.GetPostsAsync())
+            .ReturnsAsync(new List<Post> { LocalPost("p1"), LocalPost("p2") });
+        _apiClientMock.Setup(c => c.GetPostIds()).ReturnsAsync((List<string>?)null);
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.Is<DateTime>(d => d > DateTime.MinValue)))
+            .ReturnsAsync(new List<PostL>());
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue))
+            .ReturnsAsync(new List<PostL> { RemotePostL("p1", modified: DateTime.UtcNow.AddDays(-2)) });
+
+        await _sut.SyncAsync();
+
+        _localDataServiceMock.Verify(c => c.RemovePostsAsync(It.Is<IEnumerable<string>>(ids => ids.SequenceEqual(new[] { "p2" }))), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.IsAny<IEnumerable<Post>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task PullPhase_FirstSync_ShouldUseFullListForDeletions_WithoutCallingPostIds()
+    {
+        SetupEmptyPushAndNotes();
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post> { LocalPost("gone") });
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue))
+            .ReturnsAsync(new List<PostL> { RemotePostL("p1") });
+
+        await _sut.SyncAsync();
+
+        _apiClientMock.Verify(c => c.GetPostIds(), Times.Never);
+        _localDataServiceMock.Verify(c => c.RemovePostsAsync(It.Is<IEnumerable<string>>(ids => ids.SequenceEqual(new[] { "gone" }))), Times.Once);
+    }
+
+    [Fact]
+    public async Task PullPhase_NoDeletedPosts_ShouldNotCallRemovePosts()
+    {
+        SetupEmptyPushAndNotes();
+        _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post> { LocalPost("p1") });
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue))
+            .ReturnsAsync(new List<PostL> { RemotePostL("p1", modified: DateTime.UtcNow.AddDays(-2)) });
+
+        await _sut.SyncAsync();
+
+        _localDataServiceMock.Verify(c => c.RemovePostsAsync(It.IsAny<IEnumerable<string>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task PullPhase_ManyPosts_ShouldSaveInOneBatch()
+    {
+        SetupEmptyPushAndNotes();
+        var remotePosts = Enumerable.Range(0, 1500).Select(i => RemotePostL($"p{i}")).ToList();
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(remotePosts);
+
+        await _sut.SyncAsync();
+
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Count() == 1500)), Times.Once);
+        _localDataServiceMock.Verify(c => c.SavePostAsync(It.IsAny<Post>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task PullPhase_DuplicateRowsForSamePost_ShouldSaveItOnce()
+    {
+        // The API joins posts with notes, so a post with two notes comes back twice.
+        SetupEmptyPushAndNotes();
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue))
+            .ReturnsAsync(new List<PostL> { RemotePostL("p1"), RemotePostL("p1") });
+
+        await _sut.SyncAsync();
+
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps => ps.Count() == 1)), Times.Once);
+    }
+
+    [Fact]
+    public async Task PullPhase_ManyPosts_ShouldThrottleProgressEvents()
+    {
+        SetupEmptyPushAndNotes();
+        var remotePosts = Enumerable.Range(0, 500).Select(i => RemotePostL($"p{i}")).ToList();
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(remotePosts);
+
+        var progressEvents = new List<SyncProgressEventArgs>();
+        _sut.SyncProgressChanged += (sender, args) => { lock (progressEvents) progressEvents.Add(args); };
+
+        await _sut.SyncAsync();
+
+        var pullingEvents = progressEvents.Where(e => e.Status.StartsWith("Pulling ") && e.Total == 500).ToList();
+        pullingEvents.Should().HaveCountLessThan(50);
+        pullingEvents.Should().Contain(e => e.Current == 0);
+        pullingEvents.Should().Contain(e => e.Current == 500 && e.Status == "Pulling 500 of 500 posts...");
+    }
+
+    [Fact]
+    public async Task PullPhase_UnreadPosts_ShouldFetchFullPostsWithLimitedConcurrency()
+    {
+        SetupEmptyPushAndNotes();
+        var remotePosts = Enumerable.Range(0, 20).Select(i => RemotePostL($"u{i}", isRead: false)).ToList();
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(DateTime.MinValue)).ReturnsAsync(remotePosts);
+
+        int inFlight = 0, maxInFlight = 0;
+        _apiClientMock.Setup(c => c.GetPost(It.IsAny<string>())).Returns(async (string id) =>
+        {
+            var now = Interlocked.Increment(ref inFlight);
+            lock (_apiClientMock) maxInFlight = Math.Max(maxInFlight, now);
+            await Task.Delay(20);
+            Interlocked.Decrement(ref inFlight);
+            return new Post { Id = id, RowKey = id, PartitionKey = "pk", Title = $"Full {id}", is_read = false };
+        });
+
+        await _sut.SyncAsync();
+
+        maxInFlight.Should().BeGreaterThan(1).And.BeLessThanOrEqualTo(5);
+        _localDataServiceMock.Verify(c => c.SavePostsAsync(It.Is<IEnumerable<Post>>(ps =>
+            ps.Count() == 20 && ps.All(p => p.Title!.StartsWith("Full ")))), Times.Once);
+    }
+}

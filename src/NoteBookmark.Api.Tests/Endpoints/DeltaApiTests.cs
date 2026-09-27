@@ -290,6 +290,45 @@ public class DeltaApiTests : IClassFixture<NoteBookmarkApiTestFactory>
         return post;
     }
 
+    // ── Post ids ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetPostIds_ReturnsIdsOfReadAndUnreadPosts()
+    {
+        // Arrange
+        var unreadPost = CreateTestPost("ids-unread-post-1");
+        var readPost = CreateTestPost("ids-read-post-1");
+        readPost.is_read = true;
+        await _client.PostAsJsonAsync("/api/posts/", unreadPost);
+        await _client.PostAsJsonAsync("/api/posts/", readPost);
+
+        // Act
+        var response = await _client.GetAsync("/api/posts/ids");
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var ids = await response.Content.ReadFromJsonAsync<List<string>>();
+        ids.Should().NotBeNull();
+        ids.Should().Contain(unreadPost.RowKey);
+        ids.Should().Contain(readPost.RowKey);
+    }
+
+    [Fact]
+    public async Task GetPostIds_DoesNotReturnDeletedPosts()
+    {
+        // Arrange
+        var post = CreateTestPost("ids-deleted-post-1");
+        await _client.PostAsJsonAsync("/api/posts/", post);
+        await _client.DeleteAsync($"/api/posts/{post.RowKey}");
+
+        // Act
+        var ids = await _client.GetFromJsonAsync<List<string>>("/api/posts/ids");
+
+        // Assert
+        ids.Should().NotBeNull();
+        ids.Should().NotContain(post.RowKey);
+    }
+
     private static Post CreateTestPost(string rowKey)
     {
         return new Post
