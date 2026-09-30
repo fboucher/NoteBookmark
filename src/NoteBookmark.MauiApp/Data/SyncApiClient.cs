@@ -10,6 +10,7 @@ namespace NoteBookmark.MauiApp.Data;
 public class SyncApiClient(PostNoteClient client) : ISyncApiClient
 {
     public Task<List<PostL>> GetPostsModifiedAfter(DateTime modifiedAfter) => client.GetPostsModifiedAfter(modifiedAfter);
+    public Task<List<string>?> GetPostIds() => client.GetPostIds();
     public Task<List<Note>> GetNotesModifiedAfter(DateTime modifiedAfter) => client.GetNotesModifiedAfter(modifiedAfter);
     public Task<Post?> GetPost(string id) => client.GetPost(id);
     public Task<Note?> GetNote(string rowKey) => client.GetNote(rowKey);

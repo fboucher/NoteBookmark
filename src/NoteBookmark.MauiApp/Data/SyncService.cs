@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NoteBookmark.Domain;
@@ -27,6 +28,8 @@ public class SyncService(
     ILocalHtmlStorageService localHtmlStorageService) : ISyncService
 {
     private const string LastSyncTimestampKey = "LastSyncTimestamp";
+    private const int MaxConcurrentRequests = 5;
+    private static readonly TimeSpan ProgressReportInterval = TimeSpan.FromMilliseconds(250);
     private readonly object _syncLock = new();
     private Task? _currentSyncTask;
 
@@ -53,7 +56,8 @@ public class SyncService(
                 return _currentSyncTask;
             }
 
-            _currentSyncTask = DoSyncAsync();
+            // Run on the thread pool so callers on the UI thread (e.g. Blazor pages) never block on sync work.
+            _currentSyncTask = Task.Run(DoSyncAsync);
             return _currentSyncTask;
         }
     }
@@ -209,108 +213,48 @@ public class SyncService(
 
     private async Task PullAsync(DateTime? lastSync)
     {
-        // 1. Get all remote posts
-        var allRemotePosts = await apiClient.GetPostsModifiedAfter(DateTime.MinValue) ?? new List<PostL>();
-        var remotePostIds = allRemotePosts.Select(p => p.Id ?? p.RowKey).ToHashSet();
+        // 1. Only fetch posts modified since the last sync. On the first sync this is every post.
+        var changedRemotePosts = await apiClient.GetPostsModifiedAfter(lastSync ?? DateTime.MinValue) ?? new List<PostL>();
 
         // 2. Any post that was deleted on the online database while offline should be deleted locally.
+        var remotePostIds = await GetRemotePostIdsAsync(lastSync, changedRemotePosts);
         var localPosts = await localDataService.GetPostsAsync() ?? new List<Post>();
         var localPostMap = localPosts.ToDictionary(p => p.Id ?? p.RowKey);
 
-        foreach (var localPost in localPosts)
+        var deletedIds = localPostMap.Keys.Where(id => !remotePostIds.Contains(id)).ToList();
+        if (deletedIds.Count > 0)
         {
-            var id = localPost.Id ?? localPost.RowKey;
-            if (!remotePostIds.Contains(id))
+            await localDataService.RemovePostsAsync(deletedIds);
+            foreach (var id in deletedIds)
             {
-                await localDataService.DeletePostAsync(id, isPendingSync: false);
-                await localDataService.MarkSyncedAsync(id, isPost: true);
                 localPostMap.Remove(id);
             }
         }
 
-        // 3. Pull new/modified posts
-        var postsToPull = new List<PostL>();
-        foreach (var remotePostL in allRemotePosts)
-        {
-            var id = remotePostL.Id ?? remotePostL.RowKey;
-            if (!localPostMap.TryGetValue(id, out var lp))
-            {
-                lp = await localDataService.GetPostAsync(id);
-            }
-
-            if (lp is null || remotePostL.DateModified > lp.DateModified)
-            {
-                postsToPull.Add(remotePostL);
-            }
-        }
+        // 3. Pull new/modified posts. The API returns one row per post/note pair, so de-duplicate by id.
+        var postsToPull = changedRemotePosts
+            .DistinctBy(p => p.Id ?? p.RowKey)
+            .Where(remote => !localPostMap.TryGetValue(remote.Id ?? remote.RowKey, out var lp) || remote.DateModified > lp.DateModified)
+            .ToList();
 
         if (postsToPull.Count > 0)
         {
-            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, postsToPull.Count, $"Pulling 0 of {postsToPull.Count} posts..."));
+            int total = postsToPull.Count;
+            var progress = new ProgressThrottle(this, total, current => $"Pulling {current} of {total} posts...");
+            progress.Report(0, force: true);
 
-            for (int i = 0; i < postsToPull.Count; i++)
-            {
-                var remotePostL = postsToPull[i];
-                var id = remotePostL.Id ?? remotePostL.RowKey;
-
-                Post postToSave;
-                if (remotePostL.is_read == true)
+            var postsToSave = new Post[total];
+            await Parallel.ForEachAsync(
+                Enumerable.Range(0, total),
+                new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentRequests },
+                async (i, _) =>
                 {
-                    postToSave = new Post
-                    {
-                        Id = id,
-                        RowKey = remotePostL.RowKey,
-                        PartitionKey = remotePostL.PartitionKey,
-                        Title = remotePostL.Title,
-                        Url = remotePostL.Url,
-                        Date_published = remotePostL.Date_published,
-                        Excerpt = remotePostL.Excerpt,
-                        is_read = remotePostL.is_read,
-                        DateModified = remotePostL.DateModified
-                    };
-                }
-                else
-                {
-                    try
-                    {
-                        var fullPost = await apiClient.GetPost(id);
-                        postToSave = fullPost ?? new Post
-                        {
-                            Id = id,
-                            RowKey = remotePostL.RowKey,
-                            PartitionKey = remotePostL.PartitionKey,
-                            Title = remotePostL.Title,
-                            Url = remotePostL.Url,
-                            Date_published = remotePostL.Date_published,
-                            Excerpt = remotePostL.Excerpt,
-                            is_read = remotePostL.is_read,
-                            DateModified = remotePostL.DateModified
-                        };
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.LogWarning(ex, "Failed to retrieve full post for {PostId}, saving summary metadata", id);
-                        postToSave = new Post
-                        {
-                            Id = id,
-                            RowKey = remotePostL.RowKey,
-                            PartitionKey = remotePostL.PartitionKey,
-                            Title = remotePostL.Title,
-                            Url = remotePostL.Url,
-                            Date_published = remotePostL.Date_published,
-                            Excerpt = remotePostL.Excerpt,
-                            is_read = remotePostL.is_read,
-                            DateModified = remotePostL.DateModified
-                        };
-                    }
-                }
+                    postsToSave[i] = await BuildPostToSaveAsync(postsToPull[i]);
+                    progress.Increment();
+                });
 
-                await localDataService.SavePostAsync(postToSave, isPendingSync: false);
-                localPostMap[id] = postToSave;
-
-                int current = i + 1;
-                SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(current, postsToPull.Count, $"Pulling {current} of {postsToPull.Count} posts..."));
-            }
+            await localDataService.SavePostsAsync(postsToSave);
+            progress.Report(total, force: true);
         }
 
         // 4. Pull notes modified since lastSync
@@ -331,6 +275,90 @@ public class SyncService(
                     }
                 }
             }
+        }
+    }
+
+    private async Task<HashSet<string>> GetRemotePostIdsAsync(DateTime? lastSync, List<PostL> changedRemotePosts)
+    {
+        if (lastSync is null)
+        {
+            // First sync: the delta already holds every post.
+            return changedRemotePosts.Select(p => p.Id ?? p.RowKey).ToHashSet();
+        }
+
+        var ids = await apiClient.GetPostIds();
+        if (ids is not null)
+        {
+            return ids.ToHashSet();
+        }
+
+        // Older servers don't expose the ids endpoint; fall back to the full post list.
+        logger.LogInformation("Post ids endpoint unavailable, falling back to the full post list to detect deletions.");
+        var allRemotePosts = await apiClient.GetPostsModifiedAfter(DateTime.MinValue) ?? new List<PostL>();
+        return allRemotePosts.Select(p => p.Id ?? p.RowKey).ToHashSet();
+    }
+
+    private async Task<Post> BuildPostToSaveAsync(PostL remotePostL)
+    {
+        var id = remotePostL.Id ?? remotePostL.RowKey;
+
+        // Read posts only need the summary metadata; unread posts get the full details for offline reading.
+        if (remotePostL.is_read != true)
+        {
+            try
+            {
+                var fullPost = await apiClient.GetPost(id);
+                if (fullPost is not null)
+                {
+                    return fullPost;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to retrieve full post for {PostId}, saving summary metadata", id);
+            }
+        }
+
+        return new Post
+        {
+            Id = id,
+            RowKey = remotePostL.RowKey,
+            PartitionKey = remotePostL.PartitionKey,
+            Title = remotePostL.Title,
+            Url = remotePostL.Url,
+            Date_published = remotePostL.Date_published,
+            Excerpt = remotePostL.Excerpt,
+            is_read = remotePostL.is_read,
+            DateModified = remotePostL.DateModified
+        };
+    }
+
+    /// <summary>
+    /// Limits how often progress events fire so the UI isn't re-rendered for every single post.
+    /// </summary>
+    private sealed class ProgressThrottle(SyncService owner, int total, Func<int, string> formatStatus)
+    {
+        private readonly object _lock = new();
+        private readonly System.Diagnostics.Stopwatch _sinceLastReport = System.Diagnostics.Stopwatch.StartNew();
+        private int _current;
+
+        public void Increment()
+        {
+            var current = Interlocked.Increment(ref _current);
+            Report(current, force: current == total);
+        }
+
+        public void Report(int current, bool force = false)
+        {
+            lock (_lock)
+            {
+                if (!force && _sinceLastReport.Elapsed < ProgressReportInterval)
+                {
+                    return;
+                }
+                _sinceLastReport.Restart();
+            }
+            owner.SyncProgressChanged?.Invoke(owner, new SyncProgressEventArgs(current, total, formatStatus(current)));
         }
     }
 
@@ -357,7 +385,8 @@ public class SyncService(
 
         if (total > 0)
         {
-            SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, total, $"Downloading 0 of {total} posts..."));
+            var progress = new ProgressThrottle(this, total, current => $"Downloading {current} of {total} posts...");
+            progress.Report(0, force: true);
 
             for (int i = 0; i < unreadToDownload.Count; i++)
             {
@@ -377,8 +406,7 @@ public class SyncService(
                     logger.LogWarning(ex, "Failed to download HTML for post {PostId}", id);
                 }
 
-                int current = i + 1;
-                SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(current, total, $"Downloading {current} of {total} posts..."));
+                progress.Increment();
             }
         }
     }

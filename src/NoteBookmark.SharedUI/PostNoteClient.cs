@@ -198,6 +198,17 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         return unread.Concat(read).ToList();
     }
 
+    /// <summary>
+    /// Returns the ids of every post on the server, or null when the server does not expose the endpoint.
+    /// </summary>
+    public async Task<List<string>?> GetPostIds()
+    {
+        var response = await httpClient.GetAsync("api/posts/ids");
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<string>>();
+    }
+
     public async Task<List<Note>> GetNotesModifiedAfter(DateTime modifiedAfter)
     {
         try

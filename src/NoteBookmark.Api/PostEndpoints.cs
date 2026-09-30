@@ -19,6 +19,8 @@ public static class PostEndpoints
 			.WithDescription("Get all unread posts");
 		endpoints.MapGet("/read", GetReadPosts)
 			.WithDescription("Get all read posts");
+		endpoints.MapGet("/ids", GetPostIds)
+			.WithDescription("Get the ids of all existing posts (read and unread)");
 		endpoints.MapGet("/{id}", Get)
 			.WithDescription("Get a post by id");
 		endpoints.MapGet("/{postId}/html", GetPostHtml)
@@ -55,6 +57,12 @@ public static class PostEndpoints
 			posts = posts.Where(p => p.DateModified > threshold).ToList();
 		}
 		return posts;
+	}
+
+	static List<string> GetPostIds(TableServiceClient tblClient, BlobServiceClient blobClient)
+	{
+		var dataStorageService = new DataStorageService(tblClient, blobClient);
+		return dataStorageService.GetPostIds();
 	}
 
 	static async Task<Results<ContentHttpResult, NotFound<ErrorMessage>>> GetPostHtml(

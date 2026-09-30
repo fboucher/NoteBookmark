@@ -123,6 +123,16 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
         return lstPosts;
 	}
 
+	public List<string> GetPostIds()
+	{
+		var tblPosts = GetPostTable();
+		// Only project the key columns so the query stays small even with thousands of posts.
+		// Clients identify posts by Id, falling back to RowKey, so return the same value.
+		return tblPosts.Query<Post>(select: new[] { "RowKey", "id", "Id" })
+			.Select(p => p.Id ?? p.RowKey)
+			.ToList();
+	}
+
 	public Post? GetPost(string rowKey)
     {
         var tblPost = GetPostTable();

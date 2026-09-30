@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using NoteBookmark.Domain;
@@ -160,5 +161,44 @@ public class LocalDataServiceTests : IAsyncLifetime
         var retrieved = await _sut.GetSettingsAsync();
         retrieved.Should().NotBeNull();
         retrieved!.FontSize.Should().Be("large");
+    }
+
+    [Fact]
+    public async Task RemovePostsAsync_ShouldPermanentlyRemoveOnlyGivenPosts()
+    {
+        await _sut.SavePostsAsync(new[]
+        {
+            new Post { Id = "p1", PartitionKey = "pk", RowKey = "p1", Title = "One", DateModified = DateTime.UtcNow },
+            new Post { Id = "p2", PartitionKey = "pk", RowKey = "p2", Title = "Two", DateModified = DateTime.UtcNow },
+            new Post { Id = "p3", PartitionKey = "pk", RowKey = "p3", Title = "Three", DateModified = DateTime.UtcNow }
+        });
+        await _sut.SavePostAsync(new Post { Id = "p2", PartitionKey = "pk", RowKey = "p2", Title = "Two edited" }, isPendingSync: true);
+
+        await _sut.RemovePostsAsync(new[] { "p1", "p2", "missing" });
+
+        var remaining = await _sut.GetPostsAsync();
+        remaining.Select(p => p.Id).Should().BeEquivalentTo(new[] { "p3" });
+        (await _sut.GetPendingSyncPostsAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RemovePostsAsync_WithNoIds_ShouldDoNothing()
+    {
+        await _sut.SavePostAsync(new Post { Id = "p1", PartitionKey = "pk", RowKey = "p1", Title = "One" });
+
+        await _sut.RemovePostsAsync(Array.Empty<string>());
+
+        (await _sut.GetPostsAsync()).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task SavePostsAsync_ShouldPreservePendingSyncFlag_ForLocallyEditedPosts()
+    {
+        await _sut.SavePostAsync(new Post { Id = "p1", PartitionKey = "pk", RowKey = "p1", Title = "Local edit" }, isPendingSync: true);
+
+        await _sut.SavePostsAsync(new[] { new Post { Id = "p1", PartitionKey = "pk", RowKey = "p1", Title = "From server" } });
+
+        var pending = await _sut.GetPendingSyncPostsAsync();
+        pending.Should().ContainSingle(p => p.Id == "p1");
     }
 }
