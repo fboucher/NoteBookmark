@@ -15,6 +15,8 @@ public interface ILocalDataService
     Task SaveNoteAsync(Note note, bool isPendingSync = false);
     Task DeleteNoteAsync(string rowKey, bool isPendingSync = false);
     Task DeletePostAsync(string rowKey, bool isPendingSync = false);
+    /// <summary>Permanently removes posts that no longer exist on the server, in a single transaction.</summary>
+    Task RemovePostsAsync(IEnumerable<string> ids);
     Task<List<Summary>> GetSummariesAsync();
     Task SaveSummariesAsync(IEnumerable<Summary> summaries);
     Task<Settings?> GetSettingsAsync();

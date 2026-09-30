@@ -158,11 +158,15 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<bool> ExtractPostDetailsAndSave(string url)
+    public async Task<Post?> ExtractPostDetailsAndSave(string url)
     {
         var requestBody = new { url = url };
         var response = await httpClient.PostAsJsonAsync($"api/posts/extractPostDetails", requestBody);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<Post>();
+        }
+        return null;
     }
 
     public async Task<bool> DeletePost(string id)
@@ -192,6 +196,17 @@ public class PostNoteClient(HttpClient httpClient) : IDataService
         var unread = await httpClient.GetFromJsonAsync<List<PostL>>($"api/posts?modifiedAfter={encoded}") ?? new List<PostL>();
         var read = await httpClient.GetFromJsonAsync<List<PostL>>($"api/posts/read?modifiedAfter={encoded}") ?? new List<PostL>();
         return unread.Concat(read).ToList();
+    }
+
+    /// <summary>
+    /// Returns the ids of every post on the server, or null when the server does not expose the endpoint.
+    /// </summary>
+    public async Task<List<string>?> GetPostIds()
+    {
+        var response = await httpClient.GetAsync("api/posts/ids");
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<List<string>>();
     }
 
     public async Task<List<Note>> GetNotesModifiedAfter(DateTime modifiedAfter)

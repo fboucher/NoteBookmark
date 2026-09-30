@@ -7,6 +7,8 @@ namespace NoteBookmark.Api;
 public interface IDataStorageService
 {
 	public List<PostL> GetFilteredPosts(string filter);
+
+	public List<string> GetPostIds();
 		
 	public Post? GetPost(string rowKey);
 

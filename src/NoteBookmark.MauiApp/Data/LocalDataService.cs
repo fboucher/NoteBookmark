@@ -170,6 +170,22 @@ public class LocalDataService : ILocalDataService
         }
     }
 
+    public async Task RemovePostsAsync(IEnumerable<string> ids)
+    {
+        await InitAsync();
+        var idList = ids.ToList();
+        if (idList.Count == 0)
+            return;
+
+        await _database.RunInTransactionAsync(conn =>
+        {
+            foreach (var id in idList)
+            {
+                conn.Delete<LocalPost>(id);
+            }
+        });
+    }
+
     public async Task<List<Summary>> GetSummariesAsync()
     {
         await InitAsync();
