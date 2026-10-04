@@ -12,6 +12,8 @@ public interface IDataStorageService
 		
 	public Post? GetPost(string rowKey);
 
+	public Post? GetPostByUrl(string url);
+
 	public bool SavePost(Post post);
 
 	public List<Summary> GetSummaries();

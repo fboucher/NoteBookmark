@@ -54,6 +54,34 @@ public class DataStorageServiceTests : IClassFixture<AzureStorageTestFixture>
     }
 
     [Fact]
+    public void GetPostByUrl_WhenPostExists_ReturnsPost()
+    {
+        // Arrange
+        var testPost = CreateTestPost();
+        testPost.Url = "https://example.com/by-url-" + Guid.NewGuid();
+        var table = _fixture.TableServiceClient!.GetTableClient("Posts");
+        table.CreateIfNotExists();
+        table.AddEntity(testPost);
+
+        // Act
+        var result = _dataStorageService.GetPostByUrl(testPost.Url);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.RowKey.Should().Be(testPost.RowKey);
+    }
+
+    [Fact]
+    public void GetPostByUrl_WhenNoPostHasUrl_ReturnsNull()
+    {
+        // Act
+        var result = _dataStorageService.GetPostByUrl("https://example.com/missing-" + Guid.NewGuid());
+
+        // Assert
+        result.Should().BeNull();
+    }
+
+    [Fact]
     public void SavePost_WhenNewPost_AddsPostSuccessfully()
     {
         // Arrange
