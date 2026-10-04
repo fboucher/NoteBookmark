@@ -171,6 +171,36 @@ public class PostEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
     }
 
     [Fact]
+    public async Task ExtractPostDetails_CalledTwiceForSameUrl_StoresSinglePostAndReturnsExisting()
+    {
+        // Arrange
+        var extractRequest = new
+        {
+            url = "https://example.com/blog/duplicate-check-" + Guid.NewGuid(),
+            tags = "test",
+            category = "Test"
+        };
+
+        // Act
+        var firstResponse = await _client.PostAsJsonAsync("/api/posts/extractPostDetails", extractRequest);
+        var secondResponse = await _client.PostAsJsonAsync("/api/posts/extractPostDetails", extractRequest);
+
+        // Assert
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var firstPost = await firstResponse.Content.ReadFromJsonAsync<Post>();
+        var secondPost = await secondResponse.Content.ReadFromJsonAsync<Post>();
+        firstPost.Should().NotBeNull();
+        secondPost.Should().NotBeNull();
+        secondPost!.RowKey.Should().Be(firstPost!.RowKey);
+
+        var unreadPosts = await _client.GetFromJsonAsync<List<PostL>>("/api/posts/");
+        unreadPosts.Should().NotBeNull();
+        unreadPosts!.Count(p => p.Url == extractRequest.url).Should().Be(1);
+    }
+
+    [Fact]
     public async Task ExtractPostDetails_WithInvalidUrl_ReturnsBadRequest()
     {
         // Arrange
