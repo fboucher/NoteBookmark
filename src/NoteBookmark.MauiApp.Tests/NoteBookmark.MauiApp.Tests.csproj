@@ -38,6 +38,8 @@
     <Compile Include="..\NoteBookmark.MauiApp\Data\LocalHtmlStorageService.cs" Link="Data\LocalHtmlStorageService.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\StorageService.cs" Link="Data\StorageService.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\SyncService.cs" Link="Data\SyncService.cs" />
+    <Compile Include="..\NoteBookmark.MauiApp\Data\INewsFeedService.cs" Link="Data\INewsFeedService.cs" />
+    <Compile Include="..\NoteBookmark.MauiApp\Data\NewsFeedService.cs" Link="Data\NewsFeedService.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\SyncApiClient.cs" Link="Data\SyncApiClient.cs" />
     <Compile Include="..\NoteBookmark.MauiApp\Data\MauiUrlLauncher.cs" Link="Data\MauiUrlLauncher.cs" />
   </ItemGroup>
