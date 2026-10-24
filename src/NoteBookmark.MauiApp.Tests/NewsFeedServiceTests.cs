@@ -96,6 +96,56 @@ public sealed class NewsFeedServiceTests : IDisposable
         (await service.GetHtmlAsync()).Should().Contain("Welcome to NoteBookmark");
     }
 
+    [Fact]
+    public async Task RefreshAsync_CachesReferenceStyleImagesAndPathsWithParentheses()
+    {
+        var service = CreateService(CreateFeedHandler(
+            "# Updates\n\n![Logo][logo]\n\n![Chart](assets/chart(1).png)\n\n[logo]: assets/logo.png",
+            "/docs/assets/logo.png",
+            "/docs/assets/chart%281%29.png"));
+
+        await service.RefreshAsync();
+        var html = await service.GetHtmlAsync();
+
+        html.Should().NotContain("assets/");
+        html.Should().Contain("src=\"data:image/png;base64,AQID\" alt=\"Logo\"");
+        html.Should().Contain("src=\"data:image/png;base64,AQID\" alt=\"Chart\"");
+        File.Exists(Path.Combine(_appDataDirectory, "docs", "assets", "logo.png")).Should().BeTrue();
+        File.Exists(Path.Combine(_appDataDirectory, "docs", "assets", "chart(1).png")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RefreshAsync_IgnoresImageSyntaxInsideCodeBlocks()
+    {
+        var service = CreateService(CreateFeedHandler(
+            "# Updates\n\n```markdown\n![Example](assets/missing.png)\n```\n\n`![Inline](assets/also-missing.png)`"));
+
+        await service.RefreshAsync();
+        var html = await service.GetHtmlAsync();
+
+        html.Should().Contain("![Example](assets/missing.png)");
+        Directory.Exists(Path.Combine(_appDataDirectory, "docs", "assets")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RefreshAsync_RaisesFeedUpdatedOnlyAfterSuccessfulRefresh()
+    {
+        var fail = false;
+        var handler = new StubHttpMessageHandler(_ => fail
+            ? throw new HttpRequestException("Network unavailable.")
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("# Feed", Encoding.UTF8, "text/plain") });
+        var service = CreateService(handler);
+        var updates = 0;
+        service.FeedUpdated += (_, _) => updates++;
+
+        await service.RefreshAsync();
+        fail = true;
+        var act = () => service.RefreshAsync();
+
+        await act.Should().ThrowAsync<HttpRequestException>();
+        updates.Should().Be(1);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_appDataDirectory))
@@ -109,6 +159,23 @@ public sealed class NewsFeedServiceTests : IDisposable
         var logger = new Mock<ILogger<NewsFeedService>>();
         return new NewsFeedService(new HttpClient(handler), logger.Object, _appDataDirectory);
     }
+
+    private static StubHttpMessageHandler CreateFeedHandler(string markdown, params string[] assetPaths) =>
+        new(request =>
+        {
+            var path = request.RequestUri!.AbsolutePath;
+            if (path.EndsWith("/docs/news.md", StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(markdown, Encoding.UTF8, "text/plain")
+                };
+            }
+
+            return Array.Exists(assetPaths, assetPath => path.EndsWith(assetPath, StringComparison.Ordinal))
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(new byte[] { 1, 2, 3 }) }
+                : new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
 
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
     {

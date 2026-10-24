@@ -19,7 +19,7 @@
 
     protected override void OnInitialized()
     {
-        // No-op
+        NewsFeed.FeedUpdated += OnFeedUpdated;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -29,17 +29,20 @@
             return;
         }
 
-        newsHtml = await NewsFeed.GetHtmlAsync();
-        await InvokeAsync(StateHasChanged);
+        await LoadNewsAsync();
     }
 
-    private async Task LogoutAsync()
+    // Sync refreshes the feed on a background thread, so marshal the reload back to the renderer.
+    private void OnFeedUpdated(object? sender, EventArgs e) => _ = InvokeAsync(LoadNewsAsync);
+
+    private async Task LoadNewsAsync()
     {
-        await AuthService.LogoutAsync();
+        newsHtml = await NewsFeed.GetHtmlAsync();
+        StateHasChanged();
     }
 
     void IDisposable.Dispose()
     {
-        // Cleanup resources if needed
+        NewsFeed.FeedUpdated -= OnFeedUpdated;
     }
 }
