@@ -1,17 +1,36 @@
 @page "/"
 @inject IAuthService AuthService
 @inject NavigationManager Nav
+@inject NoteBookmark.MauiApp.Data.INewsFeedService NewsFeed
 @implements IDisposable
 
 <div class="home-container">
     <h2>Hello, @(AuthService.Username ?? "there")!</h2>
     <p>You are signed in to NoteBookmark.</p>
+
+    <section class="news-section" aria-labelledby="news-heading">
+        <h3 id="news-heading">News &amp; Updates</h3>
+        <div class="news-content">@((MarkupString)newsHtml)</div>
+    </section>
 </div>
 
 @code {
+    private string newsHtml = "<p>Welcome to NoteBookmark! Check back here for product updates.</p>";
+
     protected override void OnInitialized()
     {
         // No-op
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        newsHtml = await NewsFeed.GetHtmlAsync();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task LogoutAsync()
@@ -24,4 +43,3 @@
         // Cleanup resources if needed
     }
 }
-

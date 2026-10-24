@@ -90,6 +90,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+        <PackageReference Include="Markdig" />
         <PackageReference Include="sqlite-net-pcl" />
         <PackageReference Include="SQLitePCLRaw.bundle_green" />
     </ItemGroup>

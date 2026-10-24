@@ -39,6 +39,7 @@ public static class MauiProgram
             sp => new NoteBookmark.MauiApp.Data.LocalHtmlStorageService(FileSystem.AppDataDirectory));
         builder.Services.AddSingleton<NoteBookmark.MauiApp.Data.ILocalHtmlStorageService>(
             sp => sp.GetRequiredService<NoteBookmark.MauiApp.Data.LocalHtmlStorageService>());
+        builder.Services.AddHttpClient<NoteBookmark.MauiApp.Data.INewsFeedService, NoteBookmark.MauiApp.Data.NewsFeedService>();
 
         builder.Services.AddTransient<ApiBaseUrlDelegatingHandler>();
         builder.Services.AddHttpClient<NoteBookmark.SharedUI.PostNoteClient>(client => 
