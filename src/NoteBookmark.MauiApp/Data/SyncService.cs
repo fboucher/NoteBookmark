@@ -25,7 +25,8 @@ public class SyncService(
     ISyncApiClient apiClient, 
     ILocalDataService localDataService,
     ILogger<SyncService> logger,
-    ILocalHtmlStorageService localHtmlStorageService) : ISyncService
+    ILocalHtmlStorageService localHtmlStorageService,
+    INewsFeedService newsFeedService) : ISyncService
 {
     private const string LastSyncTimestampKey = "LastSyncTimestamp";
     private const int MaxConcurrentRequests = 5;
@@ -81,6 +82,7 @@ public class SyncService(
             await PullAsync(lastSync);
 
             await SyncHtmlAsync();
+            await RefreshNewsFeedAsync();
 
             await SetPreferenceAsync(LastSyncTimestampKey, DateTime.UtcNow.ToString("O"));
             SyncProgressChanged?.Invoke(this, new SyncProgressEventArgs(0, 0, "Synchronization complete!", isComplete: true));
@@ -408,6 +410,18 @@ public class SyncService(
 
                 progress.Increment();
             }
+        }
+    }
+
+    private async Task RefreshNewsFeedAsync()
+    {
+        try
+        {
+            await newsFeedService.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Unable to refresh the news feed; keeping the cached copy.");
         }
     }
 

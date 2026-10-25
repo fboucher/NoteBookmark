@@ -15,6 +15,9 @@ namespace NoteBookmark.BlazorApp.Tests.Tests;
 
 public sealed class QuickAddTests : BunitContext
 {
+    private static readonly RendererInfo Prerendering = new("Static", isInteractive: false);
+    private static readonly RendererInfo Interactive = new("Server", isInteractive: true);
+
     private readonly Mock<IDataService> _dataServiceMock;
 
     public QuickAddTests()
@@ -28,6 +31,8 @@ public sealed class QuickAddTests : BunitContext
         Services.AddSingleton(_dataServiceMock.Object);
         Services.AddSingleton(new Mock<IToastService>().Object);
         Services.AddSingleton(new Mock<IDialogService>().Object);
+
+        SetRendererInfo(Interactive);
     }
 
     [Fact]
@@ -127,5 +132,53 @@ public sealed class QuickAddTests : BunitContext
 
         cut.Markup.Should().Contain("Enter or paste URL");
         cut.Markup.Should().Contain("Close Window");
+    }
+
+    [Fact]
+    public void QuickAdd_WhenPrerenderedThenRenderedInteractively_SavesPostOnlyOnce()
+    {
+        const string testUrl = "https://example.com/bookmarklet-post";
+        var samplePost = new Post
+        {
+            PartitionKey = "p",
+            RowKey = "bookmarklet-row-key",
+            Title = "Bookmarklet Post",
+            Author = "Jane Doe",
+            Url = testUrl
+        };
+
+        _dataServiceMock.Setup(s => s.ExtractPostDetailsAndSave(testUrl))
+            .ReturnsAsync(samplePost);
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo($"http://localhost/quickadd?url={Uri.EscapeDataString(testUrl)}");
+
+        // A page visit under InteractiveServer creates one instance for the prerender
+        // and a second, fresh instance once the circuit is interactive.
+        SetRendererInfo(Prerendering);
+        Render<QuickAdd>();
+
+        SetRendererInfo(Interactive);
+        var cut = Render<QuickAdd>();
+
+        cut.Markup.Should().Contain("Post saved successfully!");
+        cut.Markup.Should().Contain("Bookmarklet Post");
+        _dataServiceMock.Verify(s => s.ExtractPostDetailsAndSave(testUrl), Times.Once);
+    }
+
+    [Fact]
+    public void QuickAdd_WhenPrerendering_ShowsProgressWithoutSaving()
+    {
+        const string testUrl = "https://example.com/prerender";
+        SetRendererInfo(Prerendering);
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        nav.NavigateTo($"http://localhost/quickadd?url={Uri.EscapeDataString(testUrl)}");
+
+        var cut = Render<QuickAdd>();
+
+        cut.Markup.Should().Contain("Extracting and saving post details...");
+        cut.Markup.Should().NotContain("Enter or paste URL");
+        _dataServiceMock.Verify(s => s.ExtractPostDetailsAndSave(It.IsAny<string>()), Times.Never);
     }
 }

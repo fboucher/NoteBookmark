@@ -141,6 +141,12 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
         return post;
     }
 
+    public Post? GetPostByUrl(string url)
+    {
+        var tblPost = GetPostTable();
+        return tblPost.Query<Post>(p => p.Url == url).FirstOrDefault();
+    }
+
     public bool SavePost(Post post)
     {
         var tblPost = GetPostTable();

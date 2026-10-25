@@ -91,6 +91,15 @@
         var targetUrl = !string.IsNullOrWhiteSpace(Url) ? Url : AddUrl;
         if (!string.IsNullOrWhiteSpace(targetUrl) && targetUrl != _processedUrl)
         {
+            // During prerendering this instance is discarded and a new one is created once the
+            // interactive circuit starts, so saving here would add the post twice. Show the
+            // spinner and let the interactive render do the save.
+            if (!RendererInfo.IsInteractive)
+            {
+                isLoading = true;
+                return;
+            }
+
             _processedUrl = targetUrl;
             await ProcessUrlAsync(targetUrl);
         }

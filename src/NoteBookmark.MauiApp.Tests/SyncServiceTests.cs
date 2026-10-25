@@ -19,6 +19,7 @@ public class SyncServiceTests
     private readonly Mock<ILocalDataService> _localDataServiceMock;
     private readonly Mock<ILogger<SyncService>> _loggerMock;
     private readonly Mock<ILocalHtmlStorageService> _localHtmlStorageServiceMock;
+    private readonly Mock<INewsFeedService> _newsFeedServiceMock;
     private readonly SyncService _sut;
 
     public SyncServiceTests()
@@ -27,13 +28,15 @@ public class SyncServiceTests
         _localDataServiceMock = new Mock<ILocalDataService>();
         _loggerMock = new Mock<ILogger<SyncService>>();
         _localHtmlStorageServiceMock = new Mock<ILocalHtmlStorageService>();
+        _newsFeedServiceMock = new Mock<INewsFeedService>();
         
         _apiClientMock.Setup(c => c.GetNote(It.IsAny<string>())).ReturnsAsync((Note?)null);
         _apiClientMock.Setup(c => c.GetPostHtmlAsync(It.IsAny<string>())).ReturnsAsync((string?)null);
         _localDataServiceMock.Setup(c => c.GetPostsAsync()).ReturnsAsync(new List<Post>());
         _localHtmlStorageServiceMock.Setup(s => s.GetCachedPostIds()).Returns(new List<string>());
+        _newsFeedServiceMock.Setup(s => s.RefreshAsync()).Returns(Task.CompletedTask);
         
-        _sut = new SyncService(_apiClientMock.Object, _localDataServiceMock.Object, _loggerMock.Object, _localHtmlStorageServiceMock.Object);
+        _sut = new SyncService(_apiClientMock.Object, _localDataServiceMock.Object, _loggerMock.Object, _localHtmlStorageServiceMock.Object, _newsFeedServiceMock.Object);
         
         SyncService.ClearInMemoryPreferences();
     }
@@ -247,6 +250,19 @@ public class SyncServiceTests
         await Task.WhenAll(task1, task2);
 
         _localDataServiceMock.Verify(c => c.GetPendingSyncNotesAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task SyncAsync_ShouldRefreshNewsFeed()
+    {
+        _localDataServiceMock.Setup(c => c.GetPendingSyncPostsAsync()).ReturnsAsync(new List<Post>());
+        _localDataServiceMock.Setup(c => c.GetPendingSyncNotesAsync()).ReturnsAsync(new List<Note>());
+        _apiClientMock.Setup(c => c.GetPostsModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<PostL>());
+        _apiClientMock.Setup(c => c.GetNotesModifiedAfter(It.IsAny<DateTime>())).ReturnsAsync(new List<Note>());
+
+        await _sut.SyncAsync();
+
+        _newsFeedServiceMock.Verify(s => s.RefreshAsync(), Times.Once);
     }
 
     [Fact]

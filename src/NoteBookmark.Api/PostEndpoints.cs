@@ -113,6 +113,15 @@ public static class PostEndpoints
 		try
 		{
 			var decodeUrl = System.Net.WebUtility.UrlDecode(request.url);
+
+			// The same URL can be submitted more than once (e.g. a prerendered page followed
+			// by its interactive render), so return the existing post instead of adding a duplicate.
+			var existingPost = dataStorageService.GetPostByUrl(decodeUrl);
+			if (existingPost != null)
+			{
+				return TypedResults.Ok(existingPost);
+			}
+
 			var post = await ExtractPostDetailsFromUrl(decodeUrl);
 			if (post != null)
 			{
