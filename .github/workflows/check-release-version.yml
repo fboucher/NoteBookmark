@@ -1,0 +1,69 @@
+name: Check Release Version
+
+# Fails when the version numbers in the project files don't match the release tag.
+# Reminder to bump versions before tagging a release.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to check against (e.g. v1.4.5)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    name: Versions match tag
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Compare versions to tag
+        env:
+          TAG: ${{ github.event.inputs.tag || github.event.release.tag_name || github.ref_name }}
+        run: |
+          EXPECTED="${TAG#v}"
+          echo "Release tag: $TAG (expected version: $EXPECTED)"
+          echo
+
+          # file|element pairs to check
+          CHECKS=(
+            "Directory.Build.props|Version"
+            "src/NoteBookmark.BlazorApp/NoteBookmark.BlazorApp.csproj|Version"
+            "src/NoteBookmark.MauiApp/NoteBookmark.MauiApp.csproj|Version"
+            "src/NoteBookmark.MauiApp/NoteBookmark.MauiApp.csproj|ApplicationDisplayVersion"
+          )
+
+          FAILED=0
+          for check in "${CHECKS[@]}"; do
+            FILE="${check%%|*}"
+            ELEMENT="${check##*|}"
+            ACTUAL=$(grep -oPm1 "(?<=<${ELEMENT}>)[^<]+" "$FILE" || true)
+
+            if [ -z "$ACTUAL" ]; then
+              echo "::error file=$FILE::<$ELEMENT> not found in $FILE"
+              FAILED=1
+            elif [ "$ACTUAL" != "$EXPECTED" ]; then
+              echo "::error file=$FILE::<$ELEMENT> is $ACTUAL but the tag is $TAG"
+              echo "❌ $FILE <$ELEMENT> = $ACTUAL"
+              FAILED=1
+            else
+              echo "✅ $FILE <$ELEMENT> = $ACTUAL"
+            fi
+          done
+
+          echo
+          if [ "$FAILED" -ne 0 ]; then
+            echo "Version mismatch: update the files above to $EXPECTED before releasing $TAG."
+            exit 1
+          fi
+          echo "All versions match $TAG."
