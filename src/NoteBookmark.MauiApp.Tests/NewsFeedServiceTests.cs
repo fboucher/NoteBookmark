@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -48,6 +49,24 @@ public sealed class NewsFeedServiceTests : IDisposable
         html.Should().Contain("href=\"#\"");
         File.Exists(Path.Combine(_appDataDirectory, "docs", "news.md")).Should().BeTrue();
         File.Exists(Path.Combine(_appDataDirectory, "docs", "assets", "logo.png")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RefreshAsync_DownloadsFeedAndAssetsFromMainBranch()
+    {
+        var requestedUrls = new List<string>();
+        var handler = CreateFeedHandler("# Updates\n\n![Logo](assets/logo.png)", "/docs/assets/logo.png");
+        var service = CreateService(new StubHttpMessageHandler(request =>
+        {
+            requestedUrls.Add(request.RequestUri!.AbsoluteUri);
+            return handler.Respond(request);
+        }));
+
+        await service.RefreshAsync();
+
+        requestedUrls.Should().Equal(
+            "https://raw.githubusercontent.com/fboucher/NoteBookmark/main/docs/news.md",
+            "https://raw.githubusercontent.com/fboucher/NoteBookmark/main/docs/assets/logo.png");
     }
 
     [Fact]
@@ -180,6 +199,8 @@ public sealed class NewsFeedServiceTests : IDisposable
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(responseFactory(request));
+            Task.FromResult(Respond(request));
+
+        public HttpResponseMessage Respond(HttpRequestMessage request) => responseFactory(request);
     }
 }
