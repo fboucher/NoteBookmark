@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Manual runs inspect the requested tag; automatic runs keep the event's commit
+          ref: ${{ github.event.inputs.tag || '' }}
 
       - name: Compare versions to tag
         env:
