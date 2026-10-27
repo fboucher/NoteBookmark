@@ -19,6 +19,10 @@ builder.Services.AddHttpClient<PostNoteClient>(client =>
             });
 builder.Services.AddTransient<IDataService>(sp => sp.GetRequiredService<PostNoteClient>());
 builder.Services.AddScoped<IUrlLauncher, JsUrlLauncher>();
+builder.Services.AddHttpClient(nameof(NewsFeedService));
+builder.Services.AddSingleton<INewsFeedService>(sp => new NewsFeedService(
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(NewsFeedService)),
+    sp.GetRequiredService<ILogger<NewsFeedService>>()));
 
 // Register server-side AI settings provider (direct database access, unmasked)
 builder.Services.AddScoped<AISettingsProvider>();
