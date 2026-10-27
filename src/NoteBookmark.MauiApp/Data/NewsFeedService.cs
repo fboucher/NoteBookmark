@@ -15,8 +15,8 @@ namespace NoteBookmark.MauiApp.Data;
 
 public sealed class NewsFeedService : INewsFeedService
 {
-    private const string NewsFeedUrl = "https://raw.githubusercontent.com/fboucher/NoteBookmark/v-next/docs/news.md";
-    private const string NewsAssetsUrl = "https://raw.githubusercontent.com/fboucher/NoteBookmark/v-next/docs/assets/";
+    private const string NewsFeedUrl = "https://raw.githubusercontent.com/fboucher/NoteBookmark/main/docs/news.md";
+    private const string NewsAssetsUrl = "https://raw.githubusercontent.com/fboucher/NoteBookmark/main/docs/assets/";
     private const string FallbackHtml = "<p>Welcome to NoteBookmark! Check back here for product updates.</p>";
     private static readonly Regex HtmlUrlAttributePattern = new(
         @"(?<attribute>href|src)=""(?<value>[^""]*)""",
