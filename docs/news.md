@@ -1,6 +1,10 @@
-# News & Updates
 
-Welcome to NoteBookmark! Check back here for product updates.
+> 💬 Questions or ideas? Join us on [Discord](https://discord.gg/6zA3jKw) · 🐛 Found a bug or want a feature? [Open an issue on GitHub](https://github.com/fboucher/NoteBookmark/issues)
+
+---
+
+## October 27, 2026 - [Version 1.4.6](https://github.com/fboucher/NoteBookmark/releases/tag/v1.4.6)
+- Improves AI configuration & bug fixes
 
 ## October 25, 2026 - [Version 1.4.5](https://github.com/fboucher/NoteBookmark/releases/tag/v1.4.5)
 - **News & Updates on the Home Page**: You can now read the latest NoteBookmark news right from your Home screen, even when you're offline... which you probably already figured out since you're reading this right now! 👋
@@ -18,3 +22,7 @@ Welcome to NoteBookmark! Check back here for product updates.
 ## September 5, 2026 - [Version 1.4.2](https://github.com/fboucher/NoteBookmark/releases/tag/v1.4.2)
 - **Reader Controls at Top & Bottom**: Added a Back button and text size controls at both the top and bottom of the article reader, so you don't have to scroll all the way back up when you finish reading.
 - **Live Sync Progress**: The Posts page now displays a live progress bar and status message while your articles and offline reading content are syncing.
+
+---
+
+❤️ Enjoying NoteBookmark? [Sponsor on GitHub](https://github.com/sponsors/fboucher) or [buy me a coffee](https://buymeacoffee.com/fboucheros)
