@@ -195,4 +195,46 @@ public class AISettingsProviderTests
             Environment.SetEnvironmentVariable("REKA_API_KEY", originalValue);
         }
     }
+
+    [Fact]
+    public async Task GetAISettingsAsync_EmptyAiApiKeyConfig_FallsBackToRekaApiKeyConfig()
+    {
+        // An unset docker-compose variable arrives as an empty string, not null
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("");
+        _mockConfig.Setup(c => c["AppSettings:REKA_API_KEY"]).Returns("reka-config-key");
+
+        var (apiKey, _, _) = await CreateSut().GetAISettingsAsync();
+
+        apiKey.Should().Be("reka-config-key");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_EmptyConfigBaseUrlAndModel_UsesDefaults()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-key");
+        _mockConfig.Setup(c => c["AppSettings:AiBaseUrl"]).Returns("");
+        _mockConfig.Setup(c => c["AppSettings:AiModelName"]).Returns(" ");
+
+        var (_, baseUrl, modelName) = await CreateSut().GetAISettingsAsync();
+
+        baseUrl.Should().Be("https://api.reka.ai/v1");
+        modelName.Should().Be("reka-flash-3.1");
+    }
+
+    [Fact]
+    public async Task GetAISettingsAsync_ConfigFallback_UsesConfigModelNameWhenProvided()
+    {
+        _mockDataStorage.Setup(s => s.GetSettings())
+            .ReturnsAsync(MakeSettings());
+        _mockConfig.Setup(c => c["AppSettings:AiApiKey"]).Returns("config-key");
+        _mockConfig.Setup(c => c["AppSettings:AiModelName"]).Returns("mistralai/mistral-small-3.2-24b-instruct");
+
+        var (_, _, modelName) = await CreateSut().GetAISettingsAsync();
+
+        modelName.Should().Be("mistralai/mistral-small-3.2-24b-instruct");
+    }
 }

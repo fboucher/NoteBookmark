@@ -64,15 +64,26 @@ public class AISettingsProvider
         // Fallback to IConfiguration (environment variables, appsettings.json)
         _logger.LogDebug("Using AI settings from IConfiguration fallback");
         
-        string? apiKey = _config["AppSettings:AiApiKey"]
-            ?? _config["AppSettings:REKA_API_KEY"]
-            ?? Environment.GetEnvironmentVariable("REKA_API_KEY");
+        // Empty values (e.g. an unset docker-compose variable) count as missing
+        string? apiKey = new[]
+            {
+                _config["AppSettings:AiApiKey"],
+                _config["AppSettings:REKA_API_KEY"],
+                Environment.GetEnvironmentVariable("REKA_API_KEY")
+            }.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
         if (string.IsNullOrEmpty(apiKey))
-            throw new InvalidOperationException("AI API key not configured. Set AiApiKey in settings or REKA_API_KEY environment variable.");
+            throw new InvalidOperationException("AI API key not configured. Set the API Key on the Settings page, AppSettings:AiApiKey in configuration, or the REKA_API_KEY environment variable.");
 
-        string fallbackBaseUrl = _config["AppSettings:AiBaseUrl"] ?? "https://api.reka.ai/v1";
-        string fallbackModelName = _config["AppSettings:AiModelName"] ?? "reka-flash-3.1";
+        string? configBaseUrl = _config["AppSettings:AiBaseUrl"];
+        string? configModelName = _config["AppSettings:AiModelName"];
+
+        string fallbackBaseUrl = !string.IsNullOrWhiteSpace(configBaseUrl)
+            ? configBaseUrl
+            : "https://api.reka.ai/v1";
+        string fallbackModelName = !string.IsNullOrWhiteSpace(configModelName)
+            ? configModelName
+            : "reka-flash-3.1";
 
         return (apiKey, fallbackBaseUrl, fallbackModelName);
     }
