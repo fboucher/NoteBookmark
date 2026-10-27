@@ -2,28 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Markdig;
-using Markdig.Syntax;
-using Markdig.Syntax.Inlines;
 using Microsoft.Extensions.Logging;
+using NoteBookmark.SharedUI;
 
 namespace NoteBookmark.MauiApp.Data;
 
 public sealed class NewsFeedService : INewsFeedService
 {
-    private const string NewsFeedUrl = "https://raw.githubusercontent.com/fboucher/NoteBookmark/main/docs/news.md";
-    private const string NewsAssetsUrl = "https://raw.githubusercontent.com/fboucher/NoteBookmark/main/docs/assets/";
-    private const string FallbackHtml = "<p>Welcome to NoteBookmark! Check back here for product updates.</p>";
-    private static readonly Regex HtmlUrlAttributePattern = new(
-        @"(?<attribute>href|src)=""(?<value>[^""]*)""",
-        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
-        .DisableHtml()
-        .Build();
+    private const string NewsFeedUrl = NewsFeedMarkdownRenderer.DefaultNewsFeedUrl;
+    private const string NewsAssetsUrl = NewsFeedMarkdownRenderer.DefaultNewsAssetsUrl;
+    private const string FallbackHtml = NewsFeedMarkdownRenderer.FallbackHtml;
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<NewsFeedService> _logger;
@@ -49,8 +39,8 @@ public sealed class NewsFeedService : INewsFeedService
         try
         {
             var markdown = await _httpClient.GetStringAsync(NewsFeedUrl);
-            var images = GetImages(Markdown.Parse(markdown, MarkdownPipeline))
-                .Select(image => TryGetAssetRelativePath(image.Url))
+            var images = NewsFeedMarkdownRenderer.GetImages(NewsFeedMarkdownRenderer.Parse(markdown))
+                .Select(image => NewsFeedMarkdownRenderer.TryGetAssetRelativePath(image.Url))
                 .Where(path => path is not null)
                 .Cast<string>()
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -59,9 +49,7 @@ public sealed class NewsFeedService : INewsFeedService
 
             foreach (var relativePath in images)
             {
-                var url = NewsAssetsUrl + string.Join(
-                    "/",
-                    relativePath.Split('/').Select(Uri.EscapeDataString));
+                var url = NewsFeedMarkdownRenderer.BuildAssetUrl(relativePath, NewsAssetsUrl);
                 var content = await _httpClient.GetByteArrayAsync(url);
                 downloadedAssets.Add((GetAssetFilePath(relativePath), content));
             }
@@ -104,10 +92,10 @@ public sealed class NewsFeedService : INewsFeedService
         try
         {
             var markdown = await File.ReadAllTextAsync(_newsFilePath);
-            var document = Markdown.Parse(markdown, MarkdownPipeline);
-            foreach (var image in GetImages(document))
+            var document = NewsFeedMarkdownRenderer.Parse(markdown);
+            foreach (var image in NewsFeedMarkdownRenderer.GetImages(document))
             {
-                var relativePath = TryGetAssetRelativePath(image.Url);
+                var relativePath = NewsFeedMarkdownRenderer.TryGetAssetRelativePath(image.Url);
                 if (relativePath is null)
                 {
                     continue;
@@ -123,8 +111,7 @@ public sealed class NewsFeedService : INewsFeedService
                 image.Url = $"data:{GetImageMimeType(filePath)};base64,{Convert.ToBase64String(imageBytes)}";
             }
 
-            var html = document.ToHtml(MarkdownPipeline);
-            return SanitizeGeneratedHtml(html);
+            return NewsFeedMarkdownRenderer.RenderToHtml(document, _ => null);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -132,27 +119,6 @@ public sealed class NewsFeedService : INewsFeedService
             return FallbackHtml;
         }
     }
-
-    private static string SanitizeGeneratedHtml(string html) =>
-        HtmlUrlAttributePattern.Replace(html, match =>
-        {
-            var attribute = match.Groups["attribute"].Value;
-            var value = WebUtility.HtmlDecode(match.Groups["value"].Value);
-            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
-            {
-                return match.Value;
-            }
-
-            var isAllowed = uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
-                || uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-                || (attribute.Equals("href", StringComparison.OrdinalIgnoreCase)
-                    && uri.Scheme.Equals("mailto", StringComparison.OrdinalIgnoreCase))
-                || (attribute.Equals("src", StringComparison.OrdinalIgnoreCase)
-                    && uri.Scheme.Equals("data", StringComparison.OrdinalIgnoreCase)
-                    && value.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase));
-
-            return isAllowed ? match.Value : $"{attribute}=\"#\"";
-        });
 
     private string GetAssetFilePath(string relativePath)
     {
@@ -164,39 +130,6 @@ public sealed class NewsFeedService : INewsFeedService
         }
 
         return path;
-    }
-
-    // Uses Markdig's parse tree so inline and reference-style images are found exactly as they render,
-    // and image syntax shown inside code blocks is ignored.
-    private static IEnumerable<LinkInline> GetImages(MarkdownDocument document) =>
-        document.Descendants<LinkInline>().Where(link => link.IsImage);
-
-    private static string? TryGetAssetRelativePath(string? imagePath)
-    {
-        if (string.IsNullOrWhiteSpace(imagePath) || Uri.TryCreate(imagePath, UriKind.Absolute, out _))
-        {
-            return null;
-        }
-
-        var path = Uri.UnescapeDataString(imagePath).Replace('\\', '/');
-        if (path.StartsWith("./", StringComparison.Ordinal))
-        {
-            path = path[2..];
-        }
-
-        if (!path.StartsWith("assets/", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-
-        var relativePath = path["assets/".Length..];
-        var segments = relativePath.Split('/');
-        if (segments.Length == 0 || segments.Any(segment => string.IsNullOrWhiteSpace(segment) || segment is "." or ".."))
-        {
-            return null;
-        }
-
-        return relativePath;
     }
 
     private static string GetImageMimeType(string path) =>
