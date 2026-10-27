@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using Microsoft.FluentUI.AspNetCore.Components
 @inject NavigationManager Navigation
+@inject INewsFeedService NewsFeed
 
 <PageTitle>Home - NoteBookmark</PageTitle>
 
@@ -40,6 +41,13 @@
         </FluentCard>
     </FluentStack>
 
+    <FluentCard Width="932px">
+        <section class="news-section" aria-labelledby="news-heading">
+            <h3 id="news-heading">News &amp; Updates</h3>
+            <div class="news-content">@((MarkupString)newsHtml)</div>
+        </section>
+    </FluentCard>
+
     <FluentDivider />
 
     <FluentStack Orientation="Orientation.Vertical" VerticalGap="8">
@@ -66,3 +74,12 @@
         </FluentStack>
     </FluentStack>
 </FluentStack>
+
+@code {
+    private string newsHtml = NewsFeedMarkdownRenderer.FallbackHtml;
+
+    protected override async Task OnInitializedAsync()
+    {
+        newsHtml = await NewsFeed.GetHtmlAsync();
+    }
+}

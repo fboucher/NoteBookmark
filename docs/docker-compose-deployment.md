@@ -25,6 +25,8 @@ cp .env-sample docker-compose/.env
 
 Edit `docker-compose/.env` and set all required values.
 
+For the AI provider (`AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL_NAME`), see [AI Provider Setup](ai-provider-setup.md). You can also leave them empty and set the provider on the Settings page instead.
+
 Important Keycloak values for NoteBookmark:
 
 - `KEYCLOAK_AUTHORITY` (for example `http://localhost:8080/realms/notebookmark`)

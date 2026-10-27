@@ -67,6 +67,7 @@ For detailed setup guides and configuration information:
 - [Keycloak Container Setup](/docs/keycloak-container-setup.md) - Start a local Keycloak instance if you do not already have one
 - [Keycloak Authentication Setup](/docs/keycloak-setup.md) - Complete guide for setting up Keycloak authentication
 - [Docker Compose Deployment](/docs/docker-compose-deployment.md) - Deploy NoteBookmark containers (assumes a healthy Keycloak + configured realm)
+- [AI Provider Setup](/docs/ai-provider-setup.md) - Configure the AI provider (API key, Base URL, model) with OpenCode, OpenRouter or Ollama examples
 
 ## Contributing
 

@@ -35,7 +35,9 @@ services:
       services__keycloak__http__0: "http://keycloak:8080"
       ConnectionStrings__nb-tables: ${NB_STORAGE_OUTPUTS_TABLEENDPOINT}
       ConnectionStrings__nb-blobs: ${NB_STORAGE_OUTPUTS_BLOBENDPOINT}
-      REKA_API_KEY: ${REKA_API_KEY}
+      AppSettings__AiApiKey: ${AI_API_KEY:-${REKA_API_KEY:-}}
+      AppSettings__AiBaseUrl: ${AI_BASE_URL:-}
+      AppSettings__AiModelName: ${AI_MODEL_NAME:-}
       Keycloak__Authority: ${KEYCLOAK_AUTHORITY}
       Keycloak__ClientId: ${KEYCLOAK_CLIENT_ID}
       Keycloak__ClientSecret: ${KEYCLOAK_CLIENT_SECRET}

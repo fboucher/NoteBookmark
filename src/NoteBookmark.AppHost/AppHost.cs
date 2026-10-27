@@ -11,6 +11,14 @@ var parserUrl = builder.Configuration["Parser:BaseUrl"]
 var parserKey = builder.Configuration["Parser:ApiKey"] 
     ?? Environment.GetEnvironmentVariable("PARSER_API_KEY");
 
+// AI provider settings (see docs/ai-provider-setup.md). REKA_API_KEY is kept for backward compatibility.
+var aiApiKey = builder.Configuration["AppSettings:AiApiKey"]
+    ?? builder.Configuration["AppSettings:REKA_API_KEY"]
+    ?? Environment.GetEnvironmentVariable("REKA_API_KEY")
+    ?? throw new InvalidOperationException("AI API key is not set. Set AppSettings:AiApiKey (or REKA_API_KEY).");
+var aiBaseUrl = builder.Configuration["AppSettings:AiBaseUrl"] ?? string.Empty;
+var aiModelName = builder.Configuration["AppSettings:AiModelName"] ?? string.Empty;
+
 // Load docker-compose environment
 var compose = builder.AddDockerComposeEnvironment("docker-env");
 
@@ -22,8 +30,6 @@ if (builder.Environment.IsDevelopment())
 {
 
     var noteStorage = builder.AddAzureStorage("nb-storage");
-
-    var apiKey = builder.Configuration["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
 
     noteStorage.RunAsEmulator();
 
@@ -55,7 +61,9 @@ if (builder.Environment.IsDevelopment())
         .WaitFor(keycloak)
         //.WaitFor(compose)  // Wait for docker-compose services to be ready
         .WithExternalHttpEndpoints()
-        .WithEnvironment("REKA_API_KEY", apiKey)
+        .WithEnvironment("AppSettings__AiApiKey", aiApiKey)
+        .WithEnvironment("AppSettings__AiBaseUrl", aiBaseUrl)
+        .WithEnvironment("AppSettings__AiModelName", aiModelName)
         .PublishAsDockerComposeService((resource, service) =>
         {
             service.ContainerName = "notebookmark-blazor";
@@ -65,8 +73,6 @@ else
 {
     // Production mode - no Aspire resources, expects docker-compose or Azure deployment
     var noteStorage = builder.AddAzureStorage("nb-storage");
-
-    var apiKey = builder.Configuration["AppSettings:REKA_API_KEY"] ?? Environment.GetEnvironmentVariable("REKA_API_KEY") ?? throw new InvalidOperationException("REKA_API_KEY environment variable is not set.");
 
     var tables = noteStorage.AddTables("nb-tables");
     var blobs = noteStorage.AddBlobs("nb-blobs");
@@ -93,7 +99,9 @@ else
         .WithReference(tables)  // Server-side access to Azure Tables for unmasked settings
         .WaitFor(api)
         .WithExternalHttpEndpoints()
-        .WithEnvironment("REKA_API_KEY", apiKey)
+        .WithEnvironment("AppSettings__AiApiKey", aiApiKey)
+        .WithEnvironment("AppSettings__AiBaseUrl", aiBaseUrl)
+        .WithEnvironment("AppSettings__AiModelName", aiModelName)
         .PublishAsDockerComposeService((resource, service) =>
         {
             service.ContainerName = "notebookmark-blazor";
