@@ -363,4 +363,129 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
         return string.Empty;
     }
 
+    // ----- Feeds (RSS reader) -----
+
+    private async Task<TableClient> GetTableAsync(string name)
+    {
+        var table = tblClient.GetTableClient(name);
+        await table.CreateIfNotExistsAsync();
+        return table;
+    }
+
+    private Task<TableClient> GetFeedGroupTable() => GetTableAsync("FeedGroups");
+
+    private Task<TableClient> GetFeedTable() => GetTableAsync("Feeds");
+
+    private Task<TableClient> GetFeedItemStateTable() => GetTableAsync("FeedItemStates");
+
+    private static async Task<List<T>> QueryAllAsync<T>(TableClient table, string partitionKey) where T : class, ITableEntity
+    {
+        var results = new List<T>();
+        await foreach (var entity in table.QueryAsync<T>(e => e.PartitionKey == partitionKey))
+        {
+            results.Add(entity);
+        }
+        return results;
+    }
+
+    private static async Task<T?> GetEntityAsync<T>(TableClient table, string partitionKey, string rowKey) where T : class, ITableEntity
+    {
+        var result = await table.GetEntityIfExistsAsync<T>(partitionKey, rowKey);
+        return result.HasValue ? result.Value : null;
+    }
+
+    public async Task<List<FeedGroup>> GetFeedGroups()
+    {
+        var groups = await QueryAllAsync<FeedGroup>(await GetFeedGroupTable(), FeedGroup.Partition);
+        return groups.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    public async Task<FeedGroup?> GetFeedGroup(string id) =>
+        await GetEntityAsync<FeedGroup>(await GetFeedGroupTable(), FeedGroup.Partition, id);
+
+    public async Task SaveFeedGroup(FeedGroup group)
+    {
+        group.PartitionKey = FeedGroup.Partition;
+        group.DateModified = DateTime.UtcNow;
+        var table = await GetFeedGroupTable();
+        await table.UpsertEntityAsync(group, TableUpdateMode.Replace);
+    }
+
+    public async Task<bool> DeleteFeedGroup(string id)
+    {
+        var table = await GetFeedGroupTable();
+        var response = await table.DeleteEntityAsync(FeedGroup.Partition, id);
+        return response.Status != 404;
+    }
+
+    public async Task<List<Feed>> GetFeeds()
+    {
+        var feeds = await QueryAllAsync<Feed>(await GetFeedTable(), Feed.Partition);
+        return feeds.OrderBy(f => f.Title, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    public async Task<Feed?> GetFeed(string id) =>
+        await GetEntityAsync<Feed>(await GetFeedTable(), Feed.Partition, id);
+
+    public async Task SaveFeed(Feed feed)
+    {
+        feed.PartitionKey = Feed.Partition;
+        feed.DateModified = DateTime.UtcNow;
+        var table = await GetFeedTable();
+        await table.UpsertEntityAsync(feed, TableUpdateMode.Replace);
+    }
+
+    public async Task<bool> DeleteFeed(string id)
+    {
+        var table = await GetFeedTable();
+        var response = await table.DeleteEntityAsync(Feed.Partition, id);
+        return response.Status != 404;
+    }
+
+    public async Task<List<FeedItemState>> GetFeedItemStates() =>
+        await QueryAllAsync<FeedItemState>(await GetFeedItemStateTable(), FeedItemState.Partition);
+
+    public async Task SaveFeedItemStates(IEnumerable<FeedItemState> states)
+    {
+        var table = await GetFeedItemStateTable();
+        // One state per URL; the last one wins when a URL is sent twice.
+        var unique = states
+            .Select(s =>
+            {
+                s.PartitionKey = FeedItemState.Partition;
+                s.RowKey = FeedItemState.KeyForUrl(s.Url);
+                s.DateModified = DateTime.UtcNow;
+                return s;
+            })
+            .GroupBy(s => s.RowKey)
+            .Select(g => g.Last())
+            .ToList();
+
+        // Table transactions accept at most 100 entities from the same partition.
+        foreach (var chunk in unique.Chunk(100))
+        {
+            var actions = chunk.Select(s => new TableTransactionAction(TableTransactionActionType.UpsertReplace, s));
+            await table.SubmitTransactionAsync(actions);
+        }
+    }
+
+    public async Task<int> PruneSkippedFeedItemStates(DateTime olderThan)
+    {
+        var table = await GetFeedItemStateTable();
+        var cutoff = olderThan.ToUniversalTime();
+        var stale = new List<FeedItemState>();
+        await foreach (var state in table.QueryAsync<FeedItemState>(s =>
+            s.PartitionKey == FeedItemState.Partition && s.State == FeedItemState.Skipped && s.DateModified < cutoff))
+        {
+            stale.Add(state);
+        }
+
+        foreach (var chunk in stale.Chunk(100))
+        {
+            var actions = chunk.Select(s => new TableTransactionAction(TableTransactionActionType.Delete, s, ETag.All));
+            await table.SubmitTransactionAsync(actions);
+        }
+
+        return stale.Count;
+    }
 }

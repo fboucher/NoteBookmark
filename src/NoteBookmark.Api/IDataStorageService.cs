@@ -38,4 +38,26 @@ public interface IDataStorageService
     public bool DeletePost(string rowKey);
 
     public Task<string> SaveReadingNotesMarkdown(string markdown, string number);
+
+    public Task<List<FeedGroup>> GetFeedGroups();
+
+    public Task<FeedGroup?> GetFeedGroup(string id);
+
+    public Task SaveFeedGroup(FeedGroup group);
+
+    public Task<bool> DeleteFeedGroup(string id);
+
+    public Task<List<Feed>> GetFeeds();
+
+    public Task<Feed?> GetFeed(string id);
+
+    public Task SaveFeed(Feed feed);
+
+    public Task<bool> DeleteFeed(string id);
+
+    public Task<List<FeedItemState>> GetFeedItemStates();
+
+    public Task SaveFeedItemStates(IEnumerable<FeedItemState> states);
+
+    public Task<int> PruneSkippedFeedItemStates(DateTime olderThan);
 }

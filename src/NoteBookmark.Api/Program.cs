@@ -40,6 +40,7 @@ app.MapPostEndpoints();
 app.MapNoteEndpoints();
 app.MapSummaryEndpoints();
 app.MapSettingEndpoints();
+app.MapFeedEndpoints();
 
 app.Run();
 
