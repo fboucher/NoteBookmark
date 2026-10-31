@@ -55,4 +55,12 @@ public sealed class NavMenuTests : BunitContext
 
         cut.Markup.Should().Contain("search");
     }
+
+    [Fact]
+    public void NavMenu_ContainsFeedsLink()
+    {
+        var cut = Render<NavMenu>();
+
+        cut.Markup.Should().Contain("href=\"feeds\"");
+    }
 }
