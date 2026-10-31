@@ -1,0 +1,131 @@
+@implements IDialogContentComponent<FeedItem>
+@inject IDataService dataService
+@inject IFeedService feedService
+@inject IToastService toastService
+@inject IUrlLauncher urlLauncher
+
+<div class="feed-preview">
+    <div class="feed-preview-meta">
+        <strong>@Content.FeedTitle</strong>
+        @if (Content.Published is not null)
+        {
+            <span> · @Content.Published.Value.ToLocalTime().ToString("MMMM d, yyyy")</span>
+        }
+        @if (!string.IsNullOrEmpty(Content.Author))
+        {
+            <span> · @Content.Author</span>
+        }
+    </div>
+
+    @if (ShowLeadImage)
+    {
+        <img class="feed-preview-image" src="@Content.LeadImageUrl" alt="" />
+    }
+
+    <div class="feed-preview-body">
+        @if (string.IsNullOrWhiteSpace(Content.Body))
+        {
+            <p class="feed-preview-empty">This feed doesn't include the article text. Use "Open original" to read it.</p>
+        }
+        else
+        {
+            @* Body is sanitized by the API (allow-list of tags, http(s) URLs only, no scripts or handlers). *@
+            @((MarkupString)Content.Body)
+        }
+    </div>
+</div>
+
+<FluentDialogFooter>
+    <FluentButton Id="preview-open" Appearance="Appearance.Lightweight" OnClick="OpenOriginal"
+                  IconStart="@(new Icons.Regular.Size20.Open())">Open original</FluentButton>
+    <FluentSpacer />
+    <FluentButton Id="preview-skip" Appearance="Appearance.Neutral" OnClick="Skip" Disabled="@busy">Skip</FluentButton>
+    <FluentButton Id="preview-close" Appearance="Appearance.Neutral" OnClick="Close" Disabled="@busy">Close</FluentButton>
+    <FluentButton Id="preview-add" Appearance="Appearance.Accent" OnClick="Add" Loading="@adding" Disabled="@busy"
+                  IconStart="@(new Icons.Regular.Size20.Add())">Add</FluentButton>
+</FluentDialogFooter>
+
+<style>
+    .feed-preview { max-height: 65vh; overflow-y: auto; }
+    .feed-preview-meta { color: var(--neutral-foreground-hint); margin-bottom: 0.75rem; }
+    .feed-preview-image { max-width: 100%; max-height: 320px; object-fit: cover; border-radius: 4px; margin-bottom: 0.75rem; }
+    .feed-preview-body img { max-width: 100%; height: auto; }
+    .feed-preview-body pre { white-space: pre-wrap; }
+    .feed-preview-empty { font-style: italic; }
+</style>
+
+@code {
+    [Parameter]
+    public FeedItem Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+    /// <summary>Raised with <see cref="FeedItemState.Added"/>, <see cref="FeedItemState.Skipped"/>, or null for Close.</summary>
+    [Parameter]
+    public EventCallback<string?> OnClose { get; set; }
+
+    private bool adding;
+    private bool skipping;
+    private bool busy => adding || skipping;
+
+    /// <summary>Skip the lead image when the body already starts with it.</summary>
+    private bool ShowLeadImage => !string.IsNullOrEmpty(Content.LeadImageUrl)
+        && !Content.Body.Contains(Content.LeadImageUrl, StringComparison.Ordinal);
+
+    private async Task Add()
+    {
+        adding = true;
+        try
+        {
+            // Same path as Search suggestions "+" and QuickAdd: saves an unread Post.
+            var post = await dataService.ExtractPostDetailsAndSave(Content.Url);
+            if (post is null)
+            {
+                toastService.ShowError("The article could not be added. Please try again.");
+                return;
+            }
+
+            // The Post's URL already hides the item; the state also covers redirects to another URL.
+            await feedService.SetItemStates([Content], FeedItemState.Added);
+            toastService.ShowSuccess($"\"{post.Title ?? Content.Title}\" added to your posts.");
+            await Finish(FeedItemState.Added);
+        }
+        finally
+        {
+            adding = false;
+        }
+    }
+
+    private async Task Skip()
+    {
+        skipping = true;
+        try
+        {
+            if (!await feedService.SetItemStates([Content], FeedItemState.Skipped))
+            {
+                toastService.ShowError("The item could not be skipped. Please try again.");
+                return;
+            }
+            await Finish(FeedItemState.Skipped);
+        }
+        finally
+        {
+            skipping = false;
+        }
+    }
+
+    private async Task Close()
+    {
+        await OnClose.InvokeAsync(null);
+        await (Dialog?.CancelAsync() ?? Task.CompletedTask);
+    }
+
+    private Task OpenOriginal() => urlLauncher.OpenUrlAsync(Content.Url);
+
+    private async Task Finish(string state)
+    {
+        await OnClose.InvokeAsync(state);
+        await (Dialog?.CloseAsync(state) ?? Task.CompletedTask);
+    }
+}

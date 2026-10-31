@@ -18,6 +18,11 @@ builder.Services.AddHttpClient<PostNoteClient>(client =>
                 client.BaseAddress = new Uri("https+http://api");
             });
 builder.Services.AddTransient<IDataService>(sp => sp.GetRequiredService<PostNoteClient>());
+// Feeds tab (web app only in v1)
+builder.Services.AddHttpClient<IFeedService, FeedClient>(client =>
+            {
+                client.BaseAddress = new Uri("https+http://api");
+            });
 builder.Services.AddScoped<IUrlLauncher, JsUrlLauncher>();
 builder.Services.AddHttpClient(nameof(NewsFeedService));
 builder.Services.AddSingleton<INewsFeedService>(sp => new NewsFeedService(

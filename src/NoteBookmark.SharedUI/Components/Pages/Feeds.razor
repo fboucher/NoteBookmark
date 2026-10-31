@@ -1,0 +1,290 @@
+@page "/feeds"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@inject IFeedService feedService
+@inject IToastService toastService
+@inject IDialogService dialogService
+
+<PageTitle>Feeds</PageTitle>
+
+<FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Wrap="true">
+    <h3>Feeds</h3>
+    <FluentSpacer />
+    <FluentButton Id="refresh-feeds" OnClick="Refresh" Loading="@refreshing" Disabled="@loading"
+                  IconStart="@(new Icons.Regular.Size20.ArrowClockwise())">Refresh</FluentButton>
+    <FluentButton Id="skip-all" OnClick="MarkAllSkipped" Disabled="@(selection.IsAll || VisibleItems.Count == 0 || loading)"
+                  Title="Mark every item shown here as skipped"
+                  IconStart="@(new Icons.Regular.Size20.CheckmarkCircle())">Mark all as skipped</FluentButton>
+    <FluentAnchor Href="feeds/manage" Appearance="Appearance.Neutral" IconStart="@(new Icons.Regular.Size20.Settings())">Manage feeds</FluentAnchor>
+</FluentStack>
+
+@if (loading)
+{
+    <FluentProgressRing />
+}
+else if (feeds.Count == 0)
+{
+    <p id="no-feeds">You don't follow any feeds yet. <a href="feeds/manage">Add a feed or import an OPML file</a>.</p>
+}
+else
+{
+    <div class="feeds-layout">
+        <nav class="feeds-nav" aria-label="Feed groups">
+            <div class="feeds-nav-row @(selection.IsAll ? "selected" : "")" id="nav-all" @onclick="() => Select(Selection.All)">
+                <span class="feeds-nav-name">All</span>
+                <span class="feeds-count">@items.Count</span>
+            </div>
+            @foreach (var group in groups)
+            {
+                var groupFeeds = feeds.Where(f => f.GroupId == group.RowKey).ToList();
+                var groupHasError = groupFeeds.Any(f => ErrorFor(f.RowKey) is not null);
+                var expanded = expandedGroups.Contains(group.RowKey);
+                <div class="feeds-nav-row group @(selection.GroupId == group.RowKey && selection.FeedId is null ? "selected" : "")"
+                     data-group-id="@group.RowKey" @onclick="() => Select(Selection.ForGroup(group.RowKey))">
+                    <span class="feeds-expand" title="@(expanded ? "Collapse" : "Expand")" @onclick="() => Toggle(group.RowKey)" @onclick:stopPropagation="true">
+                        <FluentIcon Value="@(expanded ? (Icon)new Icons.Regular.Size16.ChevronDown() : new Icons.Regular.Size16.ChevronRight())" Color="Color.Neutral" />
+                    </span>
+                    <span class="feeds-nav-name">@group.Name</span>
+                    @if (groupHasError && !expanded)
+                    {
+                        <span class="feeds-warning" title="Some feeds in this group failed to load">
+                            <FluentIcon Value="@(new Icons.Regular.Size16.Warning())" Color="Color.Warning" />
+                        </span>
+                    }
+                    <span class="feeds-count">@CountFor(group.RowKey, null)</span>
+                </div>
+                @if (expanded)
+                {
+                    @foreach (var feed in groupFeeds)
+                    {
+                        var error = ErrorFor(feed.RowKey);
+                        <div class="feeds-nav-row feed @(selection.FeedId == feed.RowKey ? "selected" : "")"
+                             data-feed-id="@feed.RowKey" @onclick="() => Select(Selection.ForFeed(feed.GroupId, feed.RowKey))">
+                            <span class="feeds-nav-name">@feed.Title</span>
+                            @if (error is not null)
+                            {
+                                <span class="feeds-warning" title="@error">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Warning())" Color="Color.Warning" />
+                                </span>
+                            }
+                            <span class="feeds-count">@CountFor(null, feed.RowKey)</span>
+                        </div>
+                    }
+                }
+            }
+        </nav>
+
+        <section class="feeds-items" aria-label="Feed items">
+            @if (VisibleItems.Count == 0)
+            {
+                <p class="feeds-empty">
+                    <FluentIcon Value="@(new Icons.Filled.Size20.Crown())" Color="@Color.Accent" />&nbsp; All caught up. Nothing new here.
+                </p>
+            }
+            @foreach (var item in VisibleItems)
+            {
+                <div class="feed-item" role="button" tabindex="0" data-url="@item.Url"
+                     @onclick="() => OpenPreview(item)" @onkeydown="e => OnItemKey(e, item)">
+                    <div class="feed-item-title">@item.Title</div>
+                    <div class="feed-item-meta">@item.FeedTitle · @Age(item.Published)</div>
+                    @if (!string.IsNullOrEmpty(item.Excerpt))
+                    {
+                        <div class="feed-item-excerpt">@item.Excerpt</div>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+}
+
+<style>
+    .feeds-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+    .feeds-nav { flex: 0 0 260px; position: sticky; top: 0; }
+    .feeds-nav-row { display: flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.5rem; border-radius: 4px; cursor: pointer; }
+    .feeds-nav-row:hover { background: var(--neutral-fill-stealth-hover); }
+    .feeds-nav-row.selected { background: var(--neutral-fill-stealth-active); font-weight: 600; }
+    .feeds-nav-row.feed { padding-left: 2rem; font-size: 0.92em; }
+    .feeds-nav-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feeds-expand { display: inline-flex; }
+    .feeds-count { color: var(--neutral-foreground-hint); font-variant-numeric: tabular-nums; }
+    .feeds-warning { display: inline-flex; cursor: help; }
+    .feeds-items { flex: 1; min-width: 0; }
+    .feed-item { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--neutral-stroke-divider-rest); cursor: pointer; }
+    .feed-item:hover, .feed-item:focus { background: var(--neutral-fill-stealth-hover); outline: none; }
+    .feed-item-title { font-weight: 600; }
+    .feed-item-meta { font-size: 0.85em; color: var(--neutral-foreground-hint); margin: 0.1rem 0; }
+    .feed-item-excerpt { font-size: 0.92em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    @@media (max-width: 800px) {
+        .feeds-layout { flex-direction: column; }
+        .feeds-nav { position: static; flex-basis: auto; width: 100%; }
+    }
+</style>
+
+@code {
+    /// <summary>What the right pane shows: everything, one group, or one feed.</summary>
+    public record Selection(string? GroupId, string? FeedId)
+    {
+        public static readonly Selection All = new(null, null);
+        public static Selection ForGroup(string groupId) => new(groupId, null);
+        public static Selection ForFeed(string groupId, string feedId) => new(groupId, feedId);
+        public bool IsAll => GroupId is null && FeedId is null;
+    }
+
+    private bool loading = true;
+    private bool refreshing;
+    private List<FeedGroup> groups = [];
+    private List<Feed> feeds = [];
+    private List<FeedItem> items = [];
+    private Dictionary<string, FeedStatus> statuses = [];
+    private readonly HashSet<string> expandedGroups = [];
+    private Selection selection = Selection.All;
+
+    private List<FeedItem> VisibleItems => items
+        .Where(i => selection.FeedId is null || i.FeedId == selection.FeedId)
+        .Where(i => selection.GroupId is null || i.GroupId == selection.GroupId)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            groups = await feedService.GetGroups();
+            feeds = await feedService.GetFeeds();
+            if (feeds.Count > 0)
+            {
+                Apply(await feedService.GetItems(), replaceAll: true);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            toastService.ShowError($"Feeds could not be loaded: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    /// <summary>Merges a response: items and statuses of the returned feeds replace what we had for them.</summary>
+    private void Apply(FeedItemsResponse response, bool replaceAll)
+    {
+        var feedIds = response.Feeds.Select(f => f.FeedId).ToHashSet();
+        if (replaceAll)
+        {
+            items = [];
+            statuses = [];
+        }
+        else
+        {
+            items.RemoveAll(i => feedIds.Contains(i.FeedId));
+        }
+
+        items.AddRange(response.Items);
+        items = items.OrderByDescending(i => i.Published ?? DateTimeOffset.MinValue).ToList();
+        foreach (var status in response.Feeds)
+        {
+            statuses[status.FeedId] = status;
+        }
+    }
+
+    private async Task Refresh()
+    {
+        refreshing = true;
+        try
+        {
+            var response = await feedService.GetItems(selection.FeedId is null ? selection.GroupId : null, selection.FeedId, refresh: true);
+            Apply(response, replaceAll: selection.IsAll);
+            var failed = response.Feeds.Count(f => f.Error is not null);
+            if (failed > 0)
+            {
+                toastService.ShowWarning($"{failed} feed(s) could not be loaded. Hover the warning icon for details.");
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            toastService.ShowError($"Refresh failed: {ex.Message}");
+        }
+        finally
+        {
+            refreshing = false;
+        }
+    }
+
+    private async Task MarkAllSkipped()
+    {
+        var toSkip = VisibleItems;
+        if (toSkip.Count == 0)
+        {
+            return;
+        }
+
+        if (await feedService.SetItemStates(toSkip, FeedItemState.Skipped))
+        {
+            var urls = toSkip.Select(i => i.Url).ToHashSet();
+            items.RemoveAll(i => urls.Contains(i.Url));
+            toastService.ShowSuccess($"Skipped {toSkip.Count} item(s).");
+        }
+        else
+        {
+            toastService.ShowError("The items could not be marked as skipped. Please try again.");
+        }
+    }
+
+    private void Select(Selection next) => selection = next;
+
+    private void Toggle(string groupId)
+    {
+        if (!expandedGroups.Remove(groupId))
+        {
+            expandedGroups.Add(groupId);
+        }
+    }
+
+    private int CountFor(string? groupId, string? feedId) =>
+        items.Count(i => (groupId is null || i.GroupId == groupId) && (feedId is null || i.FeedId == feedId));
+
+    private string? ErrorFor(string feedId) => statuses.TryGetValue(feedId, out var status) ? status.Error : null;
+
+    /// <summary>Removes an item from the list after it was added or skipped.</summary>
+    private void RemoveItem(FeedItem item) => items.RemoveAll(i => i.Url == item.Url);
+
+    private async Task OpenPreview(FeedItem item)
+    {
+        var dialog = await dialogService.ShowDialogAsync<FeedItemDialog>(item, new DialogParameters
+        {
+            Title = item.Title,
+            Width = "min(860px, 95vw)",
+            PreventScroll = true,
+            TrapFocus = true
+        });
+
+        var result = await dialog.Result;
+        if (!result.Cancelled && result.Data is string)
+        {
+            // Added or Skipped: the item leaves the list (inbox model).
+            RemoveItem(item);
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnItemKey(KeyboardEventArgs e, FeedItem item)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            await OpenPreview(item);
+        }
+    }
+
+    public static string Age(DateTimeOffset? published, DateTimeOffset? now = null)
+    {
+        if (published is null)
+        {
+            return "undated";
+        }
+        var span = (now ?? DateTimeOffset.UtcNow) - published.Value;
+        return span.TotalMinutes < 1 ? "just now"
+            : span.TotalHours < 1 ? $"{(int)span.TotalMinutes}m"
+            : span.TotalDays < 1 ? $"{(int)span.TotalHours}h"
+            : $"{(int)span.TotalDays}d";
+    }
+}
