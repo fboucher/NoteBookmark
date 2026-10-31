@@ -394,6 +394,20 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
         return result.HasValue ? result.Value : null;
     }
 
+    public async Task<List<string>> GetPostUrls()
+    {
+        var table = GetPostTable();
+        var urls = new List<string>();
+        await foreach (var post in table.QueryAsync<Post>(select: new[] { "url", "Url" }))
+        {
+            if (!string.IsNullOrWhiteSpace(post.Url))
+            {
+                urls.Add(post.Url);
+            }
+        }
+        return urls;
+    }
+
     public async Task<List<FeedGroup>> GetFeedGroups()
     {
         var groups = await QueryAllAsync<FeedGroup>(await GetFeedGroupTable(), FeedGroup.Partition);

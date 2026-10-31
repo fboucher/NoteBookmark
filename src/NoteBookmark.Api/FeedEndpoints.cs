@@ -9,6 +9,12 @@ public static class FeedEndpoints
     /// <summary>Skipped item records older than this are pruned.</summary>
     public static readonly TimeSpan SkippedRetention = TimeSpan.FromDays(60);
 
+    /// <summary>Feed items older than this are not shown.</summary>
+    public static readonly TimeSpan ItemMaxAge = TimeSpan.FromDays(30);
+
+    /// <summary>How many feeds are downloaded at the same time.</summary>
+    private const int MaxParallelFetches = 8;
+
     public static void MapFeedEndpoints(this IEndpointRouteBuilder app)
     {
         var endpoints = app.MapGroup("api/feeds")
@@ -28,6 +34,8 @@ public static class FeedEndpoints
         endpoints.MapDelete("/{id}", DeleteFeed)
             .WithDescription("Delete a feed");
 
+        endpoints.MapGet("/items", GetItems)
+            .WithDescription("Pending items (newest first) for all feeds, one group (groupId) or one feed (feedId); refresh=true bypasses the 15 minute cache");
         endpoints.MapGet("/items/states", GetItemStates)
             .WithDescription("List Added/Skipped feed item states; prunes Skipped records older than 60 days");
         endpoints.MapPost("/items/state", SaveItemState)
@@ -121,6 +129,63 @@ public static class FeedEndpoints
 
     static async Task<Results<Ok, NotFound>> DeleteFeed(string id, IDataStorageService storage) =>
         await storage.DeleteFeed(id) ? TypedResults.Ok() : TypedResults.NotFound();
+
+    // ----- Items -----
+
+    static async Task<Ok<FeedItemsResponse>> GetItems(IDataStorageService storage, IFeedReader reader,
+        string? groupId, string? feedId, bool? refresh, CancellationToken cancellationToken)
+    {
+        var feeds = (await storage.GetFeeds())
+            .Where(f => string.IsNullOrEmpty(groupId) || f.GroupId == groupId)
+            .Where(f => string.IsNullOrEmpty(feedId) || f.RowKey == feedId)
+            .ToList();
+
+        // Start the lookups for hidden URLs while the feeds download.
+        var statesTask = storage.GetFeedItemStates();
+        var postUrlsTask = storage.GetPostUrls();
+
+        using var throttle = new SemaphoreSlim(MaxParallelFetches);
+        var fetches = feeds.Select(async feed =>
+        {
+            await throttle.WaitAsync(cancellationToken);
+            try
+            {
+                return (Feed: feed, Result: await reader.FetchAsync(feed, refresh == true, cancellationToken));
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        }).ToList();
+        var results = await Task.WhenAll(fetches);
+
+        var hidden = new HashSet<string>((await statesTask).Select(s => s.RowKey));
+        hidden.UnionWith((await postUrlsTask).Select(FeedItemState.KeyForUrl));
+        var cutoff = DateTimeOffset.UtcNow - ItemMaxAge;
+
+        var response = new FeedItemsResponse();
+        foreach (var (feed, result) in results)
+        {
+            var pending = result.Items
+                .Where(i => i.Published is null || i.Published >= cutoff)
+                .Where(i => hidden.Add(FeedItemState.KeyForUrl(i.Url))) // also drops the same article listed by two feeds
+                .ToList();
+            response.Items.AddRange(pending);
+            response.Feeds.Add(new FeedStatus
+            {
+                FeedId = feed.RowKey,
+                Title = feed.Title,
+                GroupId = feed.GroupId,
+                PendingCount = pending.Count,
+                Error = result.Error
+            });
+        }
+
+        response.Items = response.Items
+            .OrderByDescending(i => i.Published ?? DateTimeOffset.MinValue)
+            .ToList();
+        return TypedResults.Ok(response);
+    }
 
     // ----- Item state -----
 

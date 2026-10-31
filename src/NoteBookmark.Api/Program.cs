@@ -23,6 +23,13 @@ builder.Services.AddHostedService<PostExtractionBackgroundWorker>();
 // Register AI settings provider
 builder.Services.AddScoped<IAISettingsProvider, AISettingsProvider>();
 
+// Feeds tab: on-demand RSS/Atom fetching with an in-memory cache
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<IFeedReader, FeedReader>(client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("NoteBookmark/1.0 (+https://github.com/fboucher/NoteBookmark)");
+});
+
 var app = builder.Build();
 
 app.MapDefaultEndpoints();

@@ -39,6 +39,9 @@ public interface IDataStorageService
 
     public Task<string> SaveReadingNotesMarkdown(string markdown, string number);
 
+    /// <summary>URLs of all saved Posts, used to hide feed items that are already Posts.</summary>
+    public Task<List<string>> GetPostUrls();
+
     public Task<List<FeedGroup>> GetFeedGroups();
 
     public Task<FeedGroup?> GetFeedGroup(string id);
