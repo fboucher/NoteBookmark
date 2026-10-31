@@ -1,0 +1,15 @@
+@using NoteBookmark.SharedUI.Components.Shared
+@using NoteBookmark.Domain
+@using Microsoft.FluentUI.AspNetCore.Components
+
+<FluentDialog>
+    <FeedItemDialog Content="@Content" OnClose="@OnClose" />
+</FluentDialog>
+
+@code {
+    [Parameter]
+    public FeedItem Content { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback<string?> OnClose { get; set; }
+}

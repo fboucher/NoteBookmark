@@ -176,6 +176,28 @@ public sealed class FeedsPageTests : BunitContext
     }
 
     [Theory]
+    [InlineData("Skipped", true)]
+    [InlineData("Added", true)]
+    [InlineData(null, false)]
+    public async Task ClickingItem_OpensPreview_AndRemovesItemOnlyWhenAddedOrSkipped(string? state, bool removed)
+    {
+        var dialogs = new Mock<IDialogService>();
+        var reference = new Mock<IDialogReference>();
+        reference.Setup(r => r.Result).ReturnsAsync(state is null ? DialogResult.Cancel() : DialogResult.Ok(state));
+        dialogs.Setup(d => d.ShowDialogAsync<NoteBookmark.SharedUI.Components.Shared.FeedItemDialog>(It.IsAny<object>(), It.IsAny<DialogParameters>()))
+            .ReturnsAsync(reference.Object);
+        Services.AddSingleton(dialogs.Object);
+        var cut = Render<Feeds>();
+
+        await cut.InvokeAsync(() => cut.FindAll(".feed-item")[0].Click());
+
+        dialogs.Verify(d => d.ShowDialogAsync<NoteBookmark.SharedUI.Components.Shared.FeedItemDialog>(
+            It.Is<object>(o => ((FeedItem)o).Title == "Dev newest"),
+            It.Is<DialogParameters>(p => p.Title == "Dev newest")), Times.Once);
+        Titles(cut).Contains("Dev newest").Should().Be(!removed);
+    }
+
+    [Theory]
     [InlineData(0.2, "just now")]
     [InlineData(45, "45m")]
     [InlineData(5 * 60, "5h")]

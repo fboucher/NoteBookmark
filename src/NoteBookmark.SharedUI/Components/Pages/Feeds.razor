@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject IFeedService feedService
 @inject IToastService toastService
+@inject IDialogService dialogService
 
 <PageTitle>Feeds</PageTitle>
 
@@ -247,7 +248,24 @@ else
     /// <summary>Removes an item from the list after it was added or skipped.</summary>
     private void RemoveItem(FeedItem item) => items.RemoveAll(i => i.Url == item.Url);
 
-    private Task OpenPreview(FeedItem item) => Task.CompletedTask;
+    private async Task OpenPreview(FeedItem item)
+    {
+        var dialog = await dialogService.ShowDialogAsync<FeedItemDialog>(item, new DialogParameters
+        {
+            Title = item.Title,
+            Width = "min(860px, 95vw)",
+            PreventScroll = true,
+            TrapFocus = true
+        });
+
+        var result = await dialog.Result;
+        if (!result.Cancelled && result.Data is string)
+        {
+            // Added or Skipped: the item leaves the list (inbox model).
+            RemoveItem(item);
+            StateHasChanged();
+        }
+    }
 
     private async Task OnItemKey(KeyboardEventArgs e, FeedItem item)
     {
