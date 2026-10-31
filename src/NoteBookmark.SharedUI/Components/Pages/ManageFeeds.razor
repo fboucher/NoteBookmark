@@ -1,0 +1,291 @@
+@page "/feeds/manage"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@inject IFeedService feedService
+@inject IToastService toastService
+
+<PageTitle>Manage feeds</PageTitle>
+
+<FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+    <h3>Manage feeds</h3>
+    <FluentSpacer />
+    <FluentAnchor Href="feeds" Appearance="Appearance.Neutral" IconStart="@(new Icons.Regular.Size20.ArrowLeft())">Back to feeds</FluentAnchor>
+</FluentStack>
+
+@if (loading)
+{
+    <FluentProgressRing />
+}
+else
+{
+    <section class="manage-feeds-section">
+        <h4>Add a feed</h4>
+        @if (groups.Count == 0)
+        {
+            <p id="no-group-hint">Create a group below first, or import an OPML file.</p>
+        }
+        <FluentStack Orientation="Orientation.Horizontal" Wrap="true" VerticalAlignment="VerticalAlignment.Bottom">
+            <FluentTextField Id="new-feed-url" @bind-Value="newFeedUrl" Immediate="true" Placeholder="Feed URL or website URL" Style="min-width: 320px;" />
+            <FluentSelect Id="new-feed-group" TOption="FeedGroup" Items="@groups" OptionText="@(g => g.Name)" OptionValue="@(g => g.RowKey)"
+                          @bind-SelectedOption="newFeedGroup" Width="220px" Disabled="@(groups.Count == 0)" />
+            <FluentButton Id="add-feed" Appearance="Appearance.Accent" Loading="@addingFeed" OnClick="AddFeed"
+                          Disabled="@(string.IsNullOrWhiteSpace(newFeedUrl) || newFeedGroup is null)">Add feed</FluentButton>
+        </FluentStack>
+    </section>
+
+    <section class="manage-feeds-section">
+        <h4>Groups</h4>
+        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Bottom">
+            <FluentTextField Id="new-group-name" @bind-Value="newGroupName" Immediate="true" Placeholder="New group name" />
+            <FluentButton Id="add-group" OnClick="AddGroup" Disabled="@string.IsNullOrWhiteSpace(newGroupName)"
+                          IconStart="@(new Icons.Regular.Size20.Add())">Add group</FluentButton>
+        </FluentStack>
+        <ul class="manage-feeds-list">
+            @foreach (var group in groups)
+            {
+                <li class="group-row" data-group-id="@group.RowKey">
+                    <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
+                        <FluentTextField Value="@renames[group.RowKey]" ValueChanged="@((string? v) => renames[group.RowKey] = v ?? string.Empty)" Immediate="true" aria-label="Group name" />
+                        <FluentButton Class="rename-group" OnClick="@(() => RenameGroup(group))"
+                                      Disabled="@(renames[group.RowKey].Trim() == group.Name || string.IsNullOrWhiteSpace(renames[group.RowKey]))">Rename</FluentButton>
+                        <FluentButton Class="delete-group" OnClick="@(() => DeleteGroup(group))" Title="Delete group"
+                                      IconStart="@(new Icons.Regular.Size20.Delete())">Delete</FluentButton>
+                        <span class="feed-count">@FeedsIn(group.RowKey).Count() feed(s)</span>
+                    </FluentStack>
+                </li>
+            }
+        </ul>
+    </section>
+
+    <section class="manage-feeds-section">
+        <h4>Feeds</h4>
+        @if (feeds.Count == 0)
+        {
+            <p>No feeds yet.</p>
+        }
+        @foreach (var feed in feeds.OrderBy(f => GroupName(f.GroupId)).ThenBy(f => f.Title))
+        {
+            <div class="feed-row" data-feed-id="@feed.RowKey">
+                <div class="feed-row-text">
+                    <strong>@feed.Title</strong>
+                    <div class="feed-row-url">@feed.FeedUrl</div>
+                </div>
+                <FluentSelect TOption="FeedGroup" Items="@groups" OptionText="@(g => g.Name)" OptionValue="@(g => g.RowKey)"
+                              SelectedOption="@groups.FirstOrDefault(g => g.RowKey == feed.GroupId)"
+                              SelectedOptionChanged="@(g => MoveFeed(feed, g))" Width="200px" aria-label="Group" />
+                <FluentButton Class="delete-feed" OnClick="@(() => DeleteFeed(feed))" Title="Delete feed"
+                              IconStart="@(new Icons.Regular.Size20.Delete())" />
+            </div>
+        }
+    </section>
+
+    <section class="manage-feeds-section">
+        <h4>Import OPML</h4>
+        <p>Import a subscription list, for example a Feedly export. Folders become groups; feeds you already follow are skipped.</p>
+        <InputFile id="opml-file" OnChange="ImportOpml" accept=".opml,.xml,text/xml,text/x-opml" disabled="@importing" />
+        @if (importing)
+        {
+            <FluentProgressRing Width="20px" />
+        }
+    </section>
+}
+
+<style>
+    .manage-feeds-section { margin-bottom: 2rem; }
+    .manage-feeds-list { list-style: none; padding: 0; }
+    .manage-feeds-list li { margin: 0.4rem 0; }
+    .feed-count { color: var(--neutral-foreground-hint); }
+    .feed-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; border-bottom: 1px solid var(--neutral-stroke-divider-rest); }
+    .feed-row-text { flex: 1; min-width: 0; }
+    .feed-row-url { font-size: 0.85em; color: var(--neutral-foreground-hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+@code {
+    /// <summary>OPML files larger than this are rejected (Feedly exports are a few KB).</summary>
+    private const long MaxOpmlBytes = 5 * 1024 * 1024;
+
+    private bool loading = true;
+    private bool addingFeed;
+    private bool importing;
+    private List<FeedGroup> groups = [];
+    private List<Feed> feeds = [];
+    private Dictionary<string, string> renames = [];
+    private string newFeedUrl = string.Empty;
+    private string newGroupName = string.Empty;
+    private FeedGroup? newFeedGroup;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Reload();
+        loading = false;
+    }
+
+    private async Task Reload()
+    {
+        groups = await feedService.GetGroups();
+        feeds = await feedService.GetFeeds();
+        renames = groups.ToDictionary(g => g.RowKey, g => g.Name);
+        newFeedGroup = groups.FirstOrDefault(g => g.RowKey == newFeedGroup?.RowKey) ?? groups.FirstOrDefault();
+    }
+
+    private IEnumerable<Feed> FeedsIn(string groupId) => feeds.Where(f => f.GroupId == groupId);
+
+    private string GroupName(string groupId) => groups.FirstOrDefault(g => g.RowKey == groupId)?.Name ?? string.Empty;
+
+    private async Task AddFeed()
+    {
+        if (string.IsNullOrWhiteSpace(newFeedUrl) || newFeedGroup is null)
+        {
+            return;
+        }
+
+        addingFeed = true;
+        try
+        {
+            var discovered = await feedService.Discover(newFeedUrl.Trim());
+            if (!discovered.Success || discovered.Value is null)
+            {
+                toastService.ShowError(discovered.Error ?? "No feed found at this address.");
+                return;
+            }
+
+            var saved = await feedService.SaveFeed(new Feed
+            {
+                Title = discovered.Value.Title,
+                FeedUrl = discovered.Value.FeedUrl,
+                SiteUrl = discovered.Value.SiteUrl,
+                GroupId = newFeedGroup.RowKey
+            });
+            if (!saved.Success || saved.Value is null)
+            {
+                toastService.ShowError(saved.Error ?? "The feed could not be saved.");
+                return;
+            }
+
+            feeds.Add(saved.Value);
+            newFeedUrl = string.Empty;
+            toastService.ShowSuccess($"Added \"{saved.Value.Title}\" to {newFeedGroup.Name}.");
+        }
+        finally
+        {
+            addingFeed = false;
+        }
+    }
+
+    private async Task AddGroup()
+    {
+        var result = await feedService.SaveGroup(new FeedGroup { Name = newGroupName.Trim() });
+        if (!result.Success || result.Value is null)
+        {
+            toastService.ShowError(result.Error ?? "The group could not be created.");
+            return;
+        }
+
+        groups.Add(result.Value);
+        groups = groups.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        renames[result.Value.RowKey] = result.Value.Name;
+        newFeedGroup ??= result.Value;
+        newGroupName = string.Empty;
+        toastService.ShowSuccess($"Group \"{result.Value.Name}\" created.");
+    }
+
+    private async Task RenameGroup(FeedGroup group)
+    {
+        var renamed = new FeedGroup { RowKey = group.RowKey, Name = renames[group.RowKey].Trim() };
+        var result = await feedService.SaveGroup(renamed);
+        if (!result.Success)
+        {
+            toastService.ShowError(result.Error ?? "The group could not be renamed.");
+            renames[group.RowKey] = group.Name;
+            return;
+        }
+
+        group.Name = renamed.Name;
+        toastService.ShowSuccess($"Group renamed to \"{group.Name}\".");
+    }
+
+    private async Task DeleteGroup(FeedGroup group)
+    {
+        var result = await feedService.DeleteGroup(group.RowKey);
+        if (!result.Success)
+        {
+            // The API refuses to delete a group that still has feeds.
+            toastService.ShowError(result.Error ?? "The group could not be deleted.");
+            return;
+        }
+
+        groups.Remove(group);
+        renames.Remove(group.RowKey);
+        if (newFeedGroup?.RowKey == group.RowKey)
+        {
+            newFeedGroup = groups.FirstOrDefault();
+        }
+        toastService.ShowSuccess($"Group \"{group.Name}\" deleted.");
+    }
+
+    private async Task MoveFeed(Feed feed, FeedGroup? group)
+    {
+        if (group is null || group.RowKey == feed.GroupId)
+        {
+            return;
+        }
+
+        var previous = feed.GroupId;
+        feed.GroupId = group.RowKey;
+        var result = await feedService.SaveFeed(feed);
+        if (!result.Success)
+        {
+            feed.GroupId = previous;
+            toastService.ShowError(result.Error ?? "The feed could not be moved.");
+            return;
+        }
+        toastService.ShowSuccess($"Moved \"{feed.Title}\" to {group.Name}.");
+    }
+
+    private async Task DeleteFeed(Feed feed)
+    {
+        var result = await feedService.DeleteFeed(feed.RowKey);
+        if (!result.Success)
+        {
+            toastService.ShowError(result.Error ?? "The feed could not be deleted.");
+            return;
+        }
+
+        feeds.Remove(feed);
+        toastService.ShowSuccess($"Removed \"{feed.Title}\".");
+    }
+
+    private async Task ImportOpml(InputFileChangeEventArgs e)
+    {
+        importing = true;
+        try
+        {
+            if (e.File.Size > MaxOpmlBytes)
+            {
+                toastService.ShowError("This file is too large to be an OPML subscription list.");
+                return;
+            }
+
+            string content;
+            using (var reader = new StreamReader(e.File.OpenReadStream(MaxOpmlBytes)))
+            {
+                content = await reader.ReadToEndAsync();
+            }
+
+            var result = await feedService.ImportOpml(content);
+            if (!result.Success || result.Value is null)
+            {
+                toastService.ShowError(result.Error ?? "The file could not be imported.");
+                return;
+            }
+
+            await Reload();
+            var r = result.Value;
+            toastService.ShowSuccess($"Imported {r.FeedsCreated} feed(s) in {r.GroupsCreated} new group(s); {r.FeedsSkipped} already followed.");
+        }
+        finally
+        {
+            importing = false;
+        }
+    }
+}

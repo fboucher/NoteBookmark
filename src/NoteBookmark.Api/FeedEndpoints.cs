@@ -34,6 +34,11 @@ public static class FeedEndpoints
         endpoints.MapDelete("/{id}", DeleteFeed)
             .WithDescription("Delete a feed");
 
+        endpoints.MapGet("/discover", Discover)
+            .WithDescription("Find the RSS/Atom feed for a feed URL or a site URL");
+        endpoints.MapPost("/import-opml", ImportOpml)
+            .WithDescription("Import an OPML subscription list (e.g. a Feedly export); folders become groups");
+
         endpoints.MapGet("/items", GetItems)
             .WithDescription("Pending items (newest first) for all feeds, one group (groupId) or one feed (feedId); refresh=true bypasses the 15 minute cache");
         endpoints.MapGet("/items/states", GetItemStates)
@@ -129,6 +134,69 @@ public static class FeedEndpoints
 
     static async Task<Results<Ok, NotFound>> DeleteFeed(string id, IDataStorageService storage) =>
         await storage.DeleteFeed(id) ? TypedResults.Ok() : TypedResults.NotFound();
+
+    // ----- Discovery and import -----
+
+    static async Task<Results<Ok<FeedDiscoveryResult>, BadRequest<string>, NotFound<string>>> Discover(
+        string? url, IFeedReader reader, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(url) || !IsHttpUrl(url.Trim()))
+        {
+            return TypedResults.BadRequest("A valid http(s) URL is required.");
+        }
+
+        var result = await reader.DiscoverAsync(url.Trim(), cancellationToken);
+        return result is null
+            ? TypedResults.NotFound("No RSS or Atom feed was found at this address.")
+            : TypedResults.Ok(result);
+    }
+
+    static async Task<Results<Ok<OpmlImportResult>, BadRequest<string>>> ImportOpml(OpmlImportRequest request, IDataStorageService storage)
+    {
+        List<OpmlParser.OpmlFeed> entries;
+        try
+        {
+            entries = OpmlParser.Parse(request?.Opml ?? string.Empty);
+        }
+        catch (FormatException ex)
+        {
+            return TypedResults.BadRequest(ex.Message);
+        }
+
+        var result = new OpmlImportResult();
+        var groups = (await storage.GetFeedGroups())
+            .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var knownFeeds = new HashSet<string>((await storage.GetFeeds()).Select(f => FeedItemState.NormalizeUrl(f.FeedUrl)));
+
+        foreach (var entry in entries)
+        {
+            if (!knownFeeds.Add(FeedItemState.NormalizeUrl(entry.FeedUrl)))
+            {
+                result.FeedsSkipped++;
+                continue;
+            }
+
+            if (!groups.TryGetValue(entry.GroupName, out var group))
+            {
+                group = new FeedGroup { Name = entry.GroupName };
+                await storage.SaveFeedGroup(group);
+                groups[group.Name] = group;
+                result.GroupsCreated++;
+            }
+
+            await storage.SaveFeed(new Feed
+            {
+                Title = entry.Title,
+                FeedUrl = entry.FeedUrl,
+                SiteUrl = entry.SiteUrl,
+                GroupId = group.RowKey
+            });
+            result.FeedsCreated++;
+        }
+
+        return TypedResults.Ok(result);
+    }
 
     // ----- Items -----
 
