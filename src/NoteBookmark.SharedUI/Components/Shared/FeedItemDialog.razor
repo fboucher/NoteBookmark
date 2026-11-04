@@ -19,7 +19,7 @@
 
     @if (ShowLeadImage)
     {
-        <img class="feed-preview-image" src="@Content.LeadImageUrl" alt="" />
+        <img class="feed-preview-image" src="@Content.LeadImageUrl" alt="" referrerpolicy="no-referrer" />
     }
 
     <div class="feed-preview-body">
@@ -78,16 +78,13 @@
         adding = true;
         try
         {
-            // Same path as Search suggestions "+" and QuickAdd: saves an unread Post.
-            var post = await dataService.ExtractPostDetailsAndSave(Content.Url);
+            var post = await new FeedItemActions(dataService, feedService).AddAsync(Content);
             if (post is null)
             {
                 toastService.ShowError("The article could not be added. Please try again.");
                 return;
             }
 
-            // The Post's URL already hides the item; the state also covers redirects to another URL.
-            await feedService.SetItemStates([Content], FeedItemState.Added);
             toastService.ShowSuccess($"\"{post.Title ?? Content.Title}\" added to your posts.");
             await Finish(FeedItemState.Added);
         }
@@ -102,7 +99,7 @@
         skipping = true;
         try
         {
-            if (!await feedService.SetItemStates([Content], FeedItemState.Skipped))
+            if (!await new FeedItemActions(dataService, feedService).SkipAsync(Content))
             {
                 toastService.ShowError("The item could not be skipped. Please try again.");
                 return;

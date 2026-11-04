@@ -13,6 +13,12 @@ public class StubFeedHandler : HttpMessageHandler
     /// <summary>URLs that never answer (to exercise the timeout).</summary>
     public ConcurrentDictionary<string, bool> Hanging { get; } = new();
 
+    /// <summary>URLs that answer after a delay.</summary>
+    public ConcurrentDictionary<string, TimeSpan> Delays { get; } = new();
+
+    /// <summary>URLs whose request fails like a DNS or connection error.</summary>
+    public ConcurrentDictionary<string, Exception> Throwing { get; } = new();
+
     public void Respond(string url, string content, string mediaType = "application/rss+xml", HttpStatusCode status = HttpStatusCode.OK) =>
         _responses[url] = () => new HttpResponseMessage(status) { Content = new StringContent(content, Encoding.UTF8, mediaType) };
 
@@ -22,6 +28,14 @@ public class StubFeedHandler : HttpMessageHandler
     {
         var url = request.RequestUri!.AbsoluteUri;
         _hits.AddOrUpdate(url, 1, (_, c) => c + 1);
+        if (Throwing.TryGetValue(url, out var error))
+        {
+            throw error;
+        }
+        if (Delays.TryGetValue(url, out var delay))
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
         if (Hanging.ContainsKey(url))
         {
             await Task.Delay(System.Threading.Timeout.Infinite, cancellationToken);

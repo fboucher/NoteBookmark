@@ -23,7 +23,12 @@ public interface IFeedService
     Task<FeedResult<FeedDiscoveryResult>> Discover(string url);
     Task<FeedResult<OpmlImportResult>> ImportOpml(string opml);
 
-    /// <summary>Pending items; both ids null means all feeds.</summary>
-    Task<FeedItemsResponse> GetItems(string? groupId = null, string? feedId = null, bool refresh = false);
+    /// <summary>
+    /// Pending items; no filter means all feeds. <paramref name="feedIds"/> loads a batch of feeds.
+    /// With <paramref name="waitMs"/>, the API answers after that long with the feeds that are ready;
+    /// the others come back with <see cref="FeedStatus.Loading"/> set and can be asked for again.
+    /// </summary>
+    Task<FeedItemsResponse> GetItems(string? groupId = null, string? feedId = null, bool refresh = false,
+        IReadOnlyCollection<string>? feedIds = null, int? waitMs = null);
     Task<bool> SetItemStates(IEnumerable<FeedItem> items, string state);
 }

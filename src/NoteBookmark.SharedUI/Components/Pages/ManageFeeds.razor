@@ -18,90 +18,157 @@
 }
 else
 {
-    <section class="manage-feeds-section">
-        <h4>Add a feed</h4>
-        @if (groups.Count == 0)
-        {
-            <p id="no-group-hint">Create a group below first, or import an OPML file.</p>
-        }
-        <FluentStack Orientation="Orientation.Horizontal" Wrap="true" VerticalAlignment="VerticalAlignment.Bottom">
-            <FluentTextField Id="new-feed-url" @bind-Value="newFeedUrl" Immediate="true" Placeholder="Feed URL or website URL" Style="min-width: 320px;" />
-            <FluentSelect Id="new-feed-group" TOption="FeedGroup" Items="@groups" OptionText="@(g => g.Name)" OptionValue="@(g => g.RowKey)"
-                          @bind-SelectedOption="newFeedGroup" Width="220px" Disabled="@(groups.Count == 0)" />
-            <FluentButton Id="add-feed" Appearance="Appearance.Accent" Loading="@addingFeed" OnClick="AddFeed"
-                          Disabled="@(string.IsNullOrWhiteSpace(newFeedUrl) || newFeedGroup is null)">Add feed</FluentButton>
-        </FluentStack>
-    </section>
+    <div class="mf-top">
+        <FluentCard Class="mf-card">
+            <h4><FluentIcon Value="@(new Icons.Regular.Size20.Rss())" Color="Color.Accent" /> Add a feed</h4>
+            <p class="mf-hint">Paste a feed address or just the website's address; the feed is found automatically.</p>
+            @if (groups.Count == 0)
+            {
+                <p id="no-group-hint" class="mf-hint">Create a group below first, or import an OPML file.</p>
+            }
+            <div class="mf-form">
+                <FluentTextField Id="new-feed-url" @bind-Value="newFeedUrl" Immediate="true" Placeholder="https://example.com" Class="mf-grow" aria-label="Feed or website URL" />
+                <select id="new-feed-group" class="mf-select" @bind="newFeedGroupId" disabled="@(groups.Count == 0)" aria-label="Group">
+                    @foreach (var group in groups)
+                    {
+                        <option value="@group.RowKey">@group.Name</option>
+                    }
+                </select>
+                <FluentButton Id="add-feed" Appearance="Appearance.Accent" Loading="@addingFeed" OnClick="AddFeed"
+                              Disabled="@(string.IsNullOrWhiteSpace(newFeedUrl) || string.IsNullOrEmpty(newFeedGroupId))">Add feed</FluentButton>
+            </div>
+        </FluentCard>
 
-    <section class="manage-feeds-section">
-        <h4>Groups</h4>
-        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Bottom">
-            <FluentTextField Id="new-group-name" @bind-Value="newGroupName" Immediate="true" Placeholder="New group name" />
+        <FluentCard Class="mf-card">
+            <h4><FluentIcon Value="@(new Icons.Regular.Size20.ArrowImport())" Color="Color.Accent" /> Import OPML</h4>
+            <p class="mf-hint">Import a subscription list, such as a Feedly export. Folders become groups; feeds you already follow are skipped.</p>
+            <div class="mf-form">
+                <label class="mf-file">
+                    <InputFile id="opml-file" OnChange="ImportOpml" accept=".opml,.xml,text/xml,text/x-opml" disabled="@importing" />
+                </label>
+                @if (importing)
+                {
+                    <FluentProgressRing Width="20px" />
+                    <span>Importing…</span>
+                }
+            </div>
+        </FluentCard>
+    </div>
+
+    <FluentCard Class="mf-card mf-list">
+        <div class="mf-list-header">
+            <h4>Your feeds <span class="mf-summary" id="mf-summary">@feeds.Count feed(s) in @groups.Count group(s)</span></h4>
+            <FluentSpacer />
+            <FluentSearch Id="feed-filter" @bind-Value="filter" Immediate="true" ImmediateDelay="200" Placeholder="Filter feeds" aria-label="Filter feeds" />
+            <FluentTextField Id="new-group-name" @bind-Value="newGroupName" Immediate="true" Placeholder="New group name" aria-label="New group name" />
             <FluentButton Id="add-group" OnClick="AddGroup" Disabled="@string.IsNullOrWhiteSpace(newGroupName)"
                           IconStart="@(new Icons.Regular.Size20.Add())">Add group</FluentButton>
-        </FluentStack>
-        <ul class="manage-feeds-list">
-            @foreach (var group in groups)
-            {
-                <li class="group-row" data-group-id="@group.RowKey">
-                    <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center">
-                        <FluentTextField Value="@renames[group.RowKey]" ValueChanged="@((string? v) => renames[group.RowKey] = v ?? string.Empty)" Immediate="true" aria-label="Group name" />
-                        <FluentButton Class="rename-group" OnClick="@(() => RenameGroup(group))"
-                                      Disabled="@(renames[group.RowKey].Trim() == group.Name || string.IsNullOrWhiteSpace(renames[group.RowKey]))">Rename</FluentButton>
-                        <FluentButton Class="delete-group" OnClick="@(() => DeleteGroup(group))" Title="Delete group"
-                                      IconStart="@(new Icons.Regular.Size20.Delete())">Delete</FluentButton>
-                        <span class="feed-count">@FeedsIn(group.RowKey).Count() feed(s)</span>
-                    </FluentStack>
-                </li>
-            }
-        </ul>
-    </section>
+        </div>
 
-    <section class="manage-feeds-section">
-        <h4>Feeds</h4>
-        @if (feeds.Count == 0)
+        @if (groups.Count == 0)
         {
-            <p>No feeds yet.</p>
+            <p class="mf-hint">No groups yet.</p>
         }
-        @foreach (var feed in feeds.OrderBy(f => GroupName(f.GroupId)).ThenBy(f => f.Title))
+        @foreach (var group in groups)
         {
-            <div class="feed-row" data-feed-id="@feed.RowKey">
-                <div class="feed-row-text">
-                    <strong>@feed.Title</strong>
-                    <div class="feed-row-url">@feed.FeedUrl</div>
+            var groupFeeds = FeedsIn(group.RowKey).ToList();
+            var shown = Filtering ? groupFeeds.Where(Matches).ToList() : groupFeeds;
+            if (Filtering && shown.Count == 0)
+            {
+                continue;
+            }
+            var expanded = Filtering || expandedGroups.Contains(group.RowKey);
+            <div class="mf-group" data-group-id="@group.RowKey">
+                <div class="mf-group-header">
+                    <button class="mf-group-toggle" type="button" @onclick="() => Toggle(group.RowKey)" aria-expanded="@expanded.ToString().ToLowerInvariant()">
+                        <FluentIcon Value="@(expanded ? (Icon)new Icons.Regular.Size16.ChevronDown() : new Icons.Regular.Size16.ChevronRight())" Color="Color.Neutral" />
+                        @if (editingGroupId != group.RowKey)
+                        {
+                            <span class="mf-group-name">@group.Name</span>
+                        }
+                    </button>
+                    @if (editingGroupId == group.RowKey)
+                    {
+                        <FluentTextField Id="@($"rename-{group.RowKey}")" @bind-Value="renameText" Immediate="true" aria-label="Group name" />
+                        <FluentButton Class="save-rename" Appearance="Appearance.Accent" OnClick="() => RenameGroup(group)"
+                                      Disabled="@(string.IsNullOrWhiteSpace(renameText) || renameText.Trim() == group.Name)">Save</FluentButton>
+                        <FluentButton Class="cancel-rename" OnClick="CancelRename">Cancel</FluentButton>
+                    }
+                    <FluentBadge Appearance="Appearance.Neutral" Class="feed-count">@groupFeeds.Count</FluentBadge>
+                    <FluentSpacer />
+                    @if (editingGroupId != group.RowKey)
+                    {
+                        <FluentButton Class="rename-group" Appearance="Appearance.Lightweight" Title="Rename group" aria-label="Rename group"
+                                      IconStart="@(new Icons.Regular.Size20.Edit())" OnClick="() => StartRename(group)" />
+                        <FluentButton Class="delete-group" Appearance="Appearance.Lightweight" Title="@(groupFeeds.Count > 0 ? "Move or delete its feeds first" : "Delete group")" aria-label="Delete group"
+                                      IconStart="@(new Icons.Regular.Size20.Delete())" OnClick="() => DeleteGroup(group)" />
+                    }
                 </div>
-                <FluentSelect TOption="FeedGroup" Items="@groups" OptionText="@(g => g.Name)" OptionValue="@(g => g.RowKey)"
-                              SelectedOption="@groups.FirstOrDefault(g => g.RowKey == feed.GroupId)"
-                              SelectedOptionChanged="@(g => MoveFeed(feed, g))" Width="200px" aria-label="Group" />
-                <FluentButton Class="delete-feed" OnClick="@(() => DeleteFeed(feed))" Title="Delete feed"
-                              IconStart="@(new Icons.Regular.Size20.Delete())" />
+
+                @if (expanded)
+                {
+                    @if (shown.Count == 0)
+                    {
+                        <p class="mf-hint mf-indent">No feeds in this group.</p>
+                    }
+                    @foreach (var feed in shown.OrderBy(f => f.Title, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <div class="feed-row" data-feed-id="@feed.RowKey">
+                            <div class="feed-row-text">
+                                @if (!string.IsNullOrEmpty(feed.SiteUrl))
+                                {
+                                    <a href="@feed.SiteUrl" target="_blank" rel="noopener noreferrer" class="feed-row-title">@feed.Title</a>
+                                }
+                                else
+                                {
+                                    <span class="feed-row-title">@feed.Title</span>
+                                }
+                                <div class="feed-row-url">@feed.FeedUrl</div>
+                            </div>
+                            <select class="mf-select mf-move" value="@feed.GroupId" @onchange="e => MoveFeed(feed, e.Value?.ToString())" aria-label="Move to group">
+                                @foreach (var target in groups)
+                                {
+                                    <option value="@target.RowKey" selected="@(target.RowKey == feed.GroupId)">@target.Name</option>
+                                }
+                            </select>
+                            <FluentButton Class="delete-feed" Appearance="Appearance.Lightweight" Title="Delete feed" aria-label="Delete feed"
+                                          IconStart="@(new Icons.Regular.Size20.Delete())" OnClick="() => DeleteFeed(feed)" />
+                        </div>
+                    }
+                }
             </div>
         }
-    </section>
-
-    <section class="manage-feeds-section">
-        <h4>Import OPML</h4>
-        <p>Import a subscription list, for example a Feedly export. Folders become groups; feeds you already follow are skipped.</p>
-        <InputFile id="opml-file" OnChange="ImportOpml" accept=".opml,.xml,text/xml,text/x-opml" disabled="@importing" />
-        @if (importing)
+        @if (Filtering && !feeds.Any(Matches))
         {
-            <FluentProgressRing Width="20px" />
+            <p class="mf-hint" id="no-match">No feed matches "@filter".</p>
         }
-    </section>
+    </FluentCard>
 }
 
 <style>
-    .manage-feeds-section { margin-bottom: 2rem; }
-    .manage-feeds-list { list-style: none; padding: 0; }
-    .manage-feeds-list li { margin: 0.4rem 0; }
-    .feed-count { color: var(--neutral-foreground-hint); }
-    .feed-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; border-bottom: 1px solid var(--neutral-stroke-divider-rest); }
+    .mf-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .mf-card { padding: 1rem 1.25rem; height: auto; }
+    .mf-card h4 { display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.4rem 0; }
+    .mf-hint { color: var(--neutral-foreground-hint); font-size: 0.9em; margin: 0.25rem 0 0.75rem 0; }
+    .mf-indent { margin-left: 2rem; }
+    .mf-form { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+    .mf-grow { flex: 1; min-width: 220px; }
+    .mf-select { height: 32px; padding: 0 0.5rem; border-radius: 4px; border: 1px solid var(--neutral-stroke-rest); background: var(--neutral-fill-input-rest); color: var(--neutral-foreground-rest); font: inherit; max-width: 220px; }
+    .mf-list-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .mf-list-header h4 { margin: 0; }
+    .mf-summary { font-weight: normal; color: var(--neutral-foreground-hint); font-size: 0.85em; margin-left: 0.5rem; }
+    .mf-group { border-top: 1px solid var(--neutral-stroke-divider-rest); }
+    .mf-group-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; }
+    .mf-group-toggle { display: inline-flex; align-items: center; gap: 0.35rem; background: none; border: none; padding: 0.25rem; cursor: pointer; color: inherit; font: inherit; font-weight: 600; }
+    .feed-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.35rem 0 0.35rem 2rem; }
+    .feed-row:hover { background: var(--neutral-fill-stealth-hover); }
     .feed-row-text { flex: 1; min-width: 0; }
-    .feed-row-url { font-size: 0.85em; color: var(--neutral-foreground-hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-row-title { font-weight: 500; }
+    .feed-row-url { font-size: 0.8em; color: var(--neutral-foreground-hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 
 @code {
-    /// <summary>OPML files larger than this are rejected (Feedly exports are a few KB).</summary>
+    /// <summary>OPML files larger than this are rejected (Feedly exports are a few dozen KB).</summary>
     private const long MaxOpmlBytes = 5 * 1024 * 1024;
 
     private bool loading = true;
@@ -109,10 +176,15 @@ else
     private bool importing;
     private List<FeedGroup> groups = [];
     private List<Feed> feeds = [];
-    private Dictionary<string, string> renames = [];
+    private readonly HashSet<string> expandedGroups = [];
     private string newFeedUrl = string.Empty;
     private string newGroupName = string.Empty;
-    private FeedGroup? newFeedGroup;
+    private string newFeedGroupId = string.Empty;
+    private string filter = string.Empty;
+    private string? editingGroupId;
+    private string renameText = string.Empty;
+
+    private bool Filtering => !string.IsNullOrWhiteSpace(filter);
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,17 +196,30 @@ else
     {
         groups = await feedService.GetGroups();
         feeds = await feedService.GetFeeds();
-        renames = groups.ToDictionary(g => g.RowKey, g => g.Name);
-        newFeedGroup = groups.FirstOrDefault(g => g.RowKey == newFeedGroup?.RowKey) ?? groups.FirstOrDefault();
+        if (!groups.Any(g => g.RowKey == newFeedGroupId))
+        {
+            newFeedGroupId = groups.FirstOrDefault()?.RowKey ?? string.Empty;
+        }
     }
 
     private IEnumerable<Feed> FeedsIn(string groupId) => feeds.Where(f => f.GroupId == groupId);
 
-    private string GroupName(string groupId) => groups.FirstOrDefault(g => g.RowKey == groupId)?.Name ?? string.Empty;
+    private bool Matches(Feed feed) =>
+        feed.Title.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase)
+        || feed.FeedUrl.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private void Toggle(string groupId)
+    {
+        if (!expandedGroups.Remove(groupId))
+        {
+            expandedGroups.Add(groupId);
+        }
+    }
 
     private async Task AddFeed()
     {
-        if (string.IsNullOrWhiteSpace(newFeedUrl) || newFeedGroup is null)
+        var group = groups.FirstOrDefault(g => g.RowKey == newFeedGroupId);
+        if (string.IsNullOrWhiteSpace(newFeedUrl) || group is null)
         {
             return;
         }
@@ -154,7 +239,7 @@ else
                 Title = discovered.Value.Title,
                 FeedUrl = discovered.Value.FeedUrl,
                 SiteUrl = discovered.Value.SiteUrl,
-                GroupId = newFeedGroup.RowKey
+                GroupId = group.RowKey
             });
             if (!saved.Success || saved.Value is null)
             {
@@ -163,8 +248,9 @@ else
             }
 
             feeds.Add(saved.Value);
+            expandedGroups.Add(group.RowKey);
             newFeedUrl = string.Empty;
-            toastService.ShowSuccess($"Added \"{saved.Value.Title}\" to {newFeedGroup.Name}.");
+            toastService.ShowSuccess($"Added \"{saved.Value.Title}\" to {group.Name}.");
         }
         finally
         {
@@ -183,24 +269,35 @@ else
 
         groups.Add(result.Value);
         groups = groups.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
-        renames[result.Value.RowKey] = result.Value.Name;
-        newFeedGroup ??= result.Value;
+        if (string.IsNullOrEmpty(newFeedGroupId))
+        {
+            newFeedGroupId = result.Value.RowKey;
+        }
         newGroupName = string.Empty;
         toastService.ShowSuccess($"Group \"{result.Value.Name}\" created.");
     }
 
+    private void StartRename(FeedGroup group)
+    {
+        editingGroupId = group.RowKey;
+        renameText = group.Name;
+    }
+
+    private void CancelRename() => editingGroupId = null;
+
     private async Task RenameGroup(FeedGroup group)
     {
-        var renamed = new FeedGroup { RowKey = group.RowKey, Name = renames[group.RowKey].Trim() };
+        var renamed = new FeedGroup { RowKey = group.RowKey, Name = renameText.Trim() };
         var result = await feedService.SaveGroup(renamed);
         if (!result.Success)
         {
             toastService.ShowError(result.Error ?? "The group could not be renamed.");
-            renames[group.RowKey] = group.Name;
             return;
         }
 
         group.Name = renamed.Name;
+        groups = groups.OrderBy(g => g.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        editingGroupId = null;
         toastService.ShowSuccess($"Group renamed to \"{group.Name}\".");
     }
 
@@ -215,16 +312,17 @@ else
         }
 
         groups.Remove(group);
-        renames.Remove(group.RowKey);
-        if (newFeedGroup?.RowKey == group.RowKey)
+        expandedGroups.Remove(group.RowKey);
+        if (newFeedGroupId == group.RowKey)
         {
-            newFeedGroup = groups.FirstOrDefault();
+            newFeedGroupId = groups.FirstOrDefault()?.RowKey ?? string.Empty;
         }
         toastService.ShowSuccess($"Group \"{group.Name}\" deleted.");
     }
 
-    private async Task MoveFeed(Feed feed, FeedGroup? group)
+    private async Task MoveFeed(Feed feed, string? groupId)
     {
+        var group = groups.FirstOrDefault(g => g.RowKey == groupId);
         if (group is null || group.RowKey == feed.GroupId)
         {
             return;
@@ -279,6 +377,7 @@ else
                 return;
             }
 
+            // Groups stay collapsed, so even a few hundred imported feeds render instantly.
             await Reload();
             var r = result.Value;
             toastService.ShowSuccess($"Imported {r.FeedsCreated} feed(s) in {r.GroupsCreated} new group(s); {r.FeedsSkipped} already followed.");

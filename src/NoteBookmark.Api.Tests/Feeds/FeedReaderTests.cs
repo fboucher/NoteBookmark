@@ -98,16 +98,61 @@ public class FeedReaderTests
     }
 
     [Fact]
-    public async Task FetchAsync_FailedFeed_IsNotCached()
+    public async Task FetchAsync_FailedFeed_IsCachedBriefly_ButRefreshRetries()
     {
         const string url = "https://flaky.example.com/rss";
         await _reader.FetchAsync(MakeFeed(url), refresh: false);
         _handler.Respond(url, FeedSamples.Rss(("https://flaky.example.com/1", "Back", DateTimeOffset.UtcNow)));
 
+        var cached = await _reader.FetchAsync(MakeFeed(url), refresh: false);
+        _handler.Hits(url).Should().Be(1);
+        var refreshed = await _reader.FetchAsync(MakeFeed(url), refresh: true);
+
+        cached.ErrorKind.Should().Be(FeedErrorKind.NotFound);
+        _handler.Hits(url).Should().Be(2);
+        refreshed.Error.Should().BeNull();
+        refreshed.Items.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.NotFound, FeedErrorKind.NotFound)]
+    [InlineData(System.Net.HttpStatusCode.Gone, FeedErrorKind.NotFound)]
+    [InlineData(System.Net.HttpStatusCode.Forbidden, FeedErrorKind.Http)]
+    [InlineData(System.Net.HttpStatusCode.InternalServerError, FeedErrorKind.Http)]
+    public async Task FetchAsync_HttpStatus_IsClassified(System.Net.HttpStatusCode status, string expectedKind)
+    {
+        var url = $"https://status-{(int)status}.example.com/rss";
+        _handler.Respond(url, "nope", "text/plain", status);
+
         var result = await _reader.FetchAsync(MakeFeed(url), refresh: false);
 
-        result.Error.Should().BeNull();
-        result.Items.Should().ContainSingle();
+        result.ErrorKind.Should().Be(expectedKind);
+        result.Error.Should().Contain(((int)status).ToString());
+    }
+
+    [Fact]
+    public async Task FetchAsync_ConnectionFailure_IsUnreachable()
+    {
+        const string url = "https://down.example.com/rss";
+        _handler.Throwing[url] = new HttpRequestException("No such host is known. (down.example.com:443)");
+
+        var result = await _reader.FetchAsync(MakeFeed(url), refresh: false);
+
+        result.ErrorKind.Should().Be(FeedErrorKind.Unreachable);
+        result.Error.Should().Contain("No such host");
+    }
+
+    [Fact]
+    public async Task FetchAsync_TimeoutAndInvalidFeed_AreClassified()
+    {
+        const string slow = "https://slow2.example.com/rss";
+        const string html = "https://html2.example.com/";
+        _handler.Hanging[slow] = true;
+        _handler.Respond(html, "<html/>", "text/html");
+        _reader.Timeout = TimeSpan.FromMilliseconds(200);
+
+        (await _reader.FetchAsync(MakeFeed(slow), refresh: false)).ErrorKind.Should().Be(FeedErrorKind.Timeout);
+        (await _reader.FetchAsync(MakeFeed(html), refresh: false)).ErrorKind.Should().Be(FeedErrorKind.InvalidFeed);
     }
 
     [Fact]

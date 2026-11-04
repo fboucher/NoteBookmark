@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Caching.Memory;
 using NoteBookmark.Domain;
 
 namespace NoteBookmark.Api;
@@ -12,8 +13,13 @@ public static class FeedEndpoints
     /// <summary>Feed items older than this are not shown.</summary>
     public static readonly TimeSpan ItemMaxAge = TimeSpan.FromDays(30);
 
-    /// <summary>How many feeds are downloaded at the same time.</summary>
-    private const int MaxParallelFetches = 8;
+
+    /// <summary>
+    /// The UI loads hundreds of feeds as several small requests; the Added/Skipped states and Post URLs
+    /// they all filter against are read once and reused for this long (and dropped when states change).
+    /// </summary>
+    public static readonly TimeSpan HiddenUrlsCacheDuration = TimeSpan.FromSeconds(30);
+    private const string HiddenUrlsCacheKey = "feeds:hidden-urls";
 
     public static void MapFeedEndpoints(this IEndpointRouteBuilder app)
     {
@@ -40,7 +46,7 @@ public static class FeedEndpoints
             .WithDescription("Import an OPML subscription list (e.g. a Feedly export); folders become groups");
 
         endpoints.MapGet("/items", GetItems)
-            .WithDescription("Pending items (newest first) for all feeds, one group (groupId) or one feed (feedId); refresh=true bypasses the 15 minute cache");
+            .WithDescription("Pending items (newest first) for all feeds, one group (groupId), one feed (feedId) or a comma-separated list (feedIds); refresh=true bypasses the cache; waitMs answers early with still-loading feeds marked Loading");
         endpoints.MapGet("/items/states", GetItemStates)
             .WithDescription("List Added/Skipped feed item states; prunes Skipped records older than 60 days");
         endpoints.MapPost("/items/state", SaveItemState)
@@ -200,40 +206,47 @@ public static class FeedEndpoints
 
     // ----- Items -----
 
-    static async Task<Ok<FeedItemsResponse>> GetItems(IDataStorageService storage, IFeedReader reader,
-        string? groupId, string? feedId, bool? refresh, CancellationToken cancellationToken)
+    static async Task<Ok<FeedItemsResponse>> GetItems(IDataStorageService storage, IFeedReader reader, IMemoryCache cache,
+        string? groupId, string? feedId, string? feedIds, bool? refresh, int? waitMs, CancellationToken cancellationToken)
     {
+        var idList = (feedIds ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
         var feeds = (await storage.GetFeeds())
             .Where(f => string.IsNullOrEmpty(groupId) || f.GroupId == groupId)
             .Where(f => string.IsNullOrEmpty(feedId) || f.RowKey == feedId)
+            .Where(f => idList.Count == 0 || idList.Contains(f.RowKey))
             .ToList();
 
-        // Start the lookups for hidden URLs while the feeds download.
-        var statesTask = storage.GetFeedItemStates();
-        var postUrlsTask = storage.GetPostUrls();
+        // Start the lookup of hidden URLs while the feeds download.
+        var hiddenTask = GetHiddenUrlKeys(storage, cache);
 
-        using var throttle = new SemaphoreSlim(MaxParallelFetches);
-        var fetches = feeds.Select(async feed =>
+        // Downloads are throttled inside the reader and keep running if we answer early.
+        var fetches = feeds.Select(feed => (Feed: feed, Task: reader.FetchAsync(feed, refresh == true, CancellationToken.None))).ToList();
+        var all = Task.WhenAll(fetches.Select(f => f.Task));
+        if (waitMs is > 0)
         {
-            await throttle.WaitAsync(cancellationToken);
-            try
-            {
-                return (Feed: feed, Result: await reader.FetchAsync(feed, refresh == true, cancellationToken));
-            }
-            finally
-            {
-                throttle.Release();
-            }
-        }).ToList();
-        var results = await Task.WhenAll(fetches);
+            // Answer with what is ready; feeds still downloading come back with Loading = true
+            // and the caller asks for them again (they are then served from the same download).
+            await Task.WhenAny(all, Task.Delay(waitMs.Value, cancellationToken));
+        }
+        else
+        {
+            await all;
+        }
 
-        var hidden = new HashSet<string>((await statesTask).Select(s => s.RowKey));
-        hidden.UnionWith((await postUrlsTask).Select(FeedItemState.KeyForUrl));
+        // Copy: the cached set is shared between requests.
+        var hidden = new HashSet<string>(await hiddenTask);
         var cutoff = DateTimeOffset.UtcNow - ItemMaxAge;
 
         var response = new FeedItemsResponse();
-        foreach (var (feed, result) in results)
+        foreach (var (feed, task) in fetches)
         {
+            if (!task.IsCompletedSuccessfully)
+            {
+                response.Feeds.Add(new FeedStatus { FeedId = feed.RowKey, Title = feed.Title, GroupId = feed.GroupId, Loading = true });
+                continue;
+            }
+
+            var result = task.Result;
             var pending = result.Items
                 .Where(i => i.Published is null || i.Published >= cutoff)
                 .Where(i => hidden.Add(FeedItemState.KeyForUrl(i.Url))) // also drops the same article listed by two feeds
@@ -245,7 +258,10 @@ public static class FeedEndpoints
                 Title = feed.Title,
                 GroupId = feed.GroupId,
                 PendingCount = pending.Count,
-                Error = result.Error
+                TotalCount = result.TotalCount,
+                LastPublished = result.Items.Max(i => i.Published),
+                Error = result.Error,
+                ErrorKind = result.ErrorKind
             });
         }
 
@@ -253,6 +269,25 @@ public static class FeedEndpoints
             .OrderByDescending(i => i.Published ?? DateTimeOffset.MinValue)
             .ToList();
         return TypedResults.Ok(response);
+    }
+
+    /// <summary>Call after a Post is saved so its URL disappears from the Feeds list right away.</summary>
+    public static void InvalidateHiddenUrls(IMemoryCache cache) => cache.Remove(HiddenUrlsCacheKey);
+
+    /// <summary>Keys (see <see cref="FeedItemState.KeyForUrl"/>) of URLs that are Added, Skipped or already a Post.</summary>
+    private static async Task<HashSet<string>> GetHiddenUrlKeys(IDataStorageService storage, IMemoryCache cache)
+    {
+        if (cache.TryGetValue(HiddenUrlsCacheKey, out HashSet<string>? cached) && cached is not null)
+        {
+            return cached;
+        }
+
+        var statesTask = storage.GetFeedItemStates();
+        var postUrlsTask = storage.GetPostUrls();
+        var keys = new HashSet<string>((await statesTask).Select(s => s.RowKey));
+        keys.UnionWith((await postUrlsTask).Select(FeedItemState.KeyForUrl));
+        cache.Set(HiddenUrlsCacheKey, keys, HiddenUrlsCacheDuration);
+        return keys;
     }
 
     // ----- Item state -----
@@ -263,10 +298,10 @@ public static class FeedEndpoints
         return TypedResults.Ok(await storage.GetFeedItemStates());
     }
 
-    static async Task<Results<Ok, BadRequest<string>>> SaveItemState(FeedItemState state, IDataStorageService storage) =>
-        await SaveItemStates([state], storage);
+    static async Task<Results<Ok, BadRequest<string>>> SaveItemState(FeedItemState state, IDataStorageService storage, IMemoryCache cache) =>
+        await SaveItemStates([state], storage, cache);
 
-    static async Task<Results<Ok, BadRequest<string>>> SaveItemStates(List<FeedItemState> states, IDataStorageService storage)
+    static async Task<Results<Ok, BadRequest<string>>> SaveItemStates(List<FeedItemState> states, IDataStorageService storage, IMemoryCache cache)
     {
         if (states is null || states.Count == 0)
         {
@@ -286,6 +321,7 @@ public static class FeedEndpoints
         }
 
         await storage.SaveFeedItemStates(states);
+        InvalidateHiddenUrls(cache);
         return TypedResults.Ok();
     }
 

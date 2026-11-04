@@ -30,12 +30,15 @@ public class FeedClient(HttpClient httpClient) : IFeedService
     public Task<FeedResult<OpmlImportResult>> ImportOpml(string opml) =>
         Send<OpmlImportResult>(httpClient.PostAsJsonAsync("api/feeds/import-opml", new OpmlImportRequest { Opml = opml }));
 
-    public async Task<FeedItemsResponse> GetItems(string? groupId = null, string? feedId = null, bool refresh = false)
+    public async Task<FeedItemsResponse> GetItems(string? groupId = null, string? feedId = null, bool refresh = false,
+        IReadOnlyCollection<string>? feedIds = null, int? waitMs = null)
     {
         var query = new List<string>();
         if (!string.IsNullOrEmpty(groupId)) query.Add("groupId=" + Uri.EscapeDataString(groupId));
         if (!string.IsNullOrEmpty(feedId)) query.Add("feedId=" + Uri.EscapeDataString(feedId));
+        if (feedIds is { Count: > 0 }) query.Add("feedIds=" + Uri.EscapeDataString(string.Join(",", feedIds)));
         if (refresh) query.Add("refresh=true");
+        if (waitMs is > 0) query.Add("waitMs=" + waitMs.Value);
         var url = "api/feeds/items" + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
         return await httpClient.GetFromJsonAsync<FeedItemsResponse>(url) ?? new FeedItemsResponse();
     }

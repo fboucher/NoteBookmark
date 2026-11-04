@@ -136,6 +136,84 @@ public class FeedItemsEndpointTests : IClassFixture<FeedsApiTestFactory>
     }
 
     [Fact]
+    public async Task GetItems_FeedIds_LoadsOnlyThatBatch_WithStatusDetails()
+    {
+        var group = await CreateGroup();
+        var host = UniqueHost();
+        var now = DateTimeOffset.UtcNow;
+        _factory.Feeds.Respond($"{host}/1", FeedSamples.Rss(($"{host}/a", "A", now.AddDays(-2)), ($"{host}/old", "Old", now.AddDays(-60))));
+        _factory.Feeds.Respond($"{host}/2", FeedSamples.Rss(($"{host}/b", "B", now)));
+        _factory.Feeds.Respond($"{host}/3", FeedSamples.Rss(($"{host}/c", "C", now)));
+        var one = await CreateFeed(group, $"{host}/1");
+        var two = await CreateFeed(group, $"{host}/2");
+        await CreateFeed(group, $"{host}/3");
+        var missing = await CreateFeed(group, $"{host}/missing");
+
+        var response = await GetItems($"?feedIds={one.RowKey},{two.RowKey},{missing.RowKey}");
+
+        response!.Items.Select(i => i.Title).Should().Equal("B", "A");
+        var first = response.Feeds.Single(f => f.FeedId == one.RowKey);
+        first.PendingCount.Should().Be(1);
+        first.TotalCount.Should().Be(2);
+        first.LastPublished.Should().BeCloseTo(now.AddDays(-2), TimeSpan.FromSeconds(1));
+        var dead = response.Feeds.Single(f => f.FeedId == missing.RowKey);
+        dead.ErrorKind.Should().Be(FeedErrorKind.NotFound);
+        response.Feeds.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task GetItems_ItemDisappears_RightAfterItIsSkipped()
+    {
+        var group = await CreateGroup();
+        var host = UniqueHost();
+        _factory.Feeds.Respond($"{host}/rss", FeedSamples.Rss(($"{host}/x", "X", DateTimeOffset.UtcNow)));
+        var feed = await CreateFeed(group, $"{host}/rss");
+        (await GetItems($"?feedId={feed.RowKey}"))!.Items.Should().ContainSingle(); // fills the hidden-URL cache
+
+        await _client.PostAsJsonAsync("/api/feeds/items/state", new FeedItemState { Url = $"{host}/x", State = FeedItemState.Skipped });
+
+        (await GetItems($"?feedId={feed.RowKey}"))!.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetItems_ItemDisappears_RightAfterItIsSavedAsPost()
+    {
+        var group = await CreateGroup();
+        var host = UniqueHost();
+        _factory.Feeds.Respond($"{host}/rss", FeedSamples.Rss(($"{host}/p", "P", DateTimeOffset.UtcNow)));
+        var feed = await CreateFeed(group, $"{host}/rss");
+        (await GetItems($"?feedId={feed.RowKey}"))!.Items.Should().ContainSingle();
+
+        var post = new Post { PartitionKey = DateTime.UtcNow.ToString("yyyy-MM"), RowKey = Guid.NewGuid().ToString(), Url = $"{host}/p", Title = "P" };
+        (await _client.PostAsJsonAsync("/api/posts/", post)).EnsureSuccessStatusCode();
+
+        (await GetItems($"?feedId={feed.RowKey}"))!.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetItems_WaitMs_AnswersEarly_AndSlowFeedFinishesInBackground()
+    {
+        var group = await CreateGroup();
+        var host = UniqueHost();
+        _factory.Feeds.Respond($"{host}/fast", FeedSamples.Rss(($"{host}/f", "Fast", DateTimeOffset.UtcNow)));
+        _factory.Feeds.Respond($"{host}/slow", FeedSamples.Rss(($"{host}/s", "Slow", DateTimeOffset.UtcNow)));
+        _factory.Feeds.Delays[$"{host}/slow"] = TimeSpan.FromSeconds(2);
+        var fast = await CreateFeed(group, $"{host}/fast");
+        var slow = await CreateFeed(group, $"{host}/slow");
+
+        var early = await GetItems($"?groupId={group.RowKey}&waitMs=300");
+
+        early!.Items.Select(i => i.Title).Should().Equal("Fast");
+        early.Feeds.Single(f => f.FeedId == fast.RowKey).Loading.Should().BeFalse();
+        early.Feeds.Single(f => f.FeedId == slow.RowKey).Loading.Should().BeTrue();
+
+        // Asking again joins the same download instead of starting another one.
+        var later = await GetItems($"?feedId={slow.RowKey}");
+        later!.Items.Select(i => i.Title).Should().Equal("Slow");
+        _factory.Feeds.Hits($"{host}/slow").Should().Be(1);
+    }
+
+    [Fact]
     public async Task GetItems_UnknownGroup_ReturnsEmpty()
     {
         var response = await _client.GetAsync($"/api/feeds/items?groupId={Guid.NewGuid()}");

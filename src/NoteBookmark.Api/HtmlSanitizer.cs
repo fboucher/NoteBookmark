@@ -70,6 +70,10 @@ public static partial class HtmlSanitizer
                     node.Remove();
                     break;
                 case HtmlNodeType.Element:
+                    if (node.Name.Equals("img", StringComparison.OrdinalIgnoreCase))
+                    {
+                        PromoteLazyImageSource(node, baseUri);
+                    }
                     CleanAttributes(node, baseUri);
                     if (node.Name.Equals("img", StringComparison.OrdinalIgnoreCase) && node.GetAttributeValue("src", null) is null)
                     {
@@ -107,12 +111,53 @@ public static partial class HtmlSanitizer
             }
         }
 
+        if (node.Name.Equals("img", StringComparison.OrdinalIgnoreCase) && node.Attributes.Contains("src"))
+        {
+            node.SetAttributeValue("loading", "lazy");
+            // Many blogs and CDNs refuse images hotlinked from another site's pages.
+            node.SetAttributeValue("referrerpolicy", "no-referrer");
+        }
+
         if (node.Name.Equals("a", StringComparison.OrdinalIgnoreCase) && node.Attributes.Contains("href"))
         {
             node.SetAttributeValue("target", "_blank");
             node.SetAttributeValue("rel", "noopener noreferrer");
         }
     }
+
+    private static readonly string[] LazySourceAttributes = ["data-src", "data-lazy-src", "data-original", "data-orig-file", "data-url"];
+    private static readonly string[] SrcSetAttributes = ["srcset", "data-srcset", "data-lazy-srcset"];
+
+    /// <summary>
+    /// Lazy-loading themes put the real image in data-src (and a 1x1 placeholder or nothing in src),
+    /// and some feeds only give a srcset. Use those when src is missing, not http(s), or a data: placeholder.
+    /// </summary>
+    private static void PromoteLazyImageSource(HtmlNode img, Uri baseUri)
+    {
+        if (FeedParser.Resolve(WebUtility.HtmlDecode(img.GetAttributeValue("src", "")), baseUri) is not null
+            && !img.GetAttributeValue("src", "").StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var candidate = LazySourceAttributes
+            .Select(a => img.GetAttributeValue(a, null))
+            .Concat(SrcSetAttributes.Select(a => FirstSrcSetUrl(img.GetAttributeValue(a, null))))
+            .Select(u => u is null ? null : FeedParser.Resolve(WebUtility.HtmlDecode(u), baseUri))
+            .FirstOrDefault(u => u is not null);
+        if (candidate is not null)
+        {
+            img.SetAttributeValue("src", candidate);
+        }
+    }
+
+    /// <summary>"a.jpg 480w, b.jpg 800w" gives "a.jpg".</summary>
+    private static string? FirstSrcSetUrl(string? srcset) =>
+        string.IsNullOrWhiteSpace(srcset)
+            ? null
+            : srcset.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(c => c.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault())
+                .FirstOrDefault(u => !string.IsNullOrEmpty(u));
 
     /// <summary>The src of the first image in already-sanitized HTML.</summary>
     public static string? FirstImage(string sanitizedHtml)

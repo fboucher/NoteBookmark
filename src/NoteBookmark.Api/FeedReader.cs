@@ -5,7 +5,11 @@ using NoteBookmark.Domain;
 
 namespace NoteBookmark.Api;
 
-public record FeedFetchResult(List<FeedItem> Items, string? Error);
+public record FeedFetchResult(List<FeedItem> Items, string? Error, string? ErrorKind = null)
+{
+    /// <summary>Items in the feed document before any filtering.</summary>
+    public int TotalCount => Items.Count;
+}
 
 public interface IFeedReader
 {
@@ -21,32 +25,76 @@ public class FeedReader(HttpClient httpClient, IMemoryCache cache, ILogger<FeedR
 {
     public static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
     public static readonly TimeSpan FetchTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Failures are cached too, for a shorter time, so a list with many dead feeds doesn't wait
+    /// for every timeout again on each page load. Refresh still retries them.
+    /// </summary>
+    public static readonly TimeSpan FailureCacheDuration = TimeSpan.FromMinutes(5);
     private const long MaxDocumentBytes = 10 * 1024 * 1024;
 
     /// <summary>Per-download timeout; settable so tests don't wait 10 seconds.</summary>
     public TimeSpan Timeout { get; set; } = FetchTimeout;
 
+    /// <summary>Downloads running at the same time across all requests.</summary>
+    public const int MaxConcurrentDownloads = 48;
+    private static readonly SemaphoreSlim DownloadSlots = new(MaxConcurrentDownloads);
+    private static readonly object InFlightLock = new();
+
     public async Task<FeedFetchResult> FetchAsync(Feed feed, bool refresh, CancellationToken cancellationToken = default)
     {
         var cacheKey = "feed:" + FeedItemState.NormalizeUrl(feed.FeedUrl);
-        if (!refresh && cache.TryGetValue(cacheKey, out List<FeedItem>? cached) && cached is not null)
+        if (!refresh && cache.TryGetValue(cacheKey, out FeedFetchResult? cached) && cached is not null)
         {
-            return new FeedFetchResult(Stamp(cached, feed), null);
+            return cached with { Items = Stamp(cached.Items, feed) };
         }
 
+        // One download per feed at a time: a second request for the same feed (another batch, or
+        // the UI asking again for a feed that was still loading) waits for the same download.
+        // The download isn't tied to the request, so it finishes and fills the cache even when the
+        // request that started it has already answered.
+        Task<FeedFetchResult> download;
+        var inFlightKey = "feed-inflight:" + cacheKey;
+        lock (InFlightLock)
+        {
+            // A completed task can linger when the download finished before it was registered; ignore it.
+            if (!cache.TryGetValue(inFlightKey, out Task<FeedFetchResult>? running) || running is null || running.IsCompleted)
+            {
+                running = DownloadAndCacheAsync(feed.FeedUrl, cacheKey, inFlightKey);
+                cache.Set(inFlightKey, running, TimeSpan.FromMinutes(2));
+            }
+            download = running;
+        }
+
+        var result = await download.WaitAsync(cancellationToken);
+        return result with { Items = Stamp(result.Items, feed) };
+    }
+
+    private async Task<FeedFetchResult> DownloadAndCacheAsync(string feedUrl, string cacheKey, string inFlightKey)
+    {
+        await Task.Yield(); // run outside the caller's lock
+        FeedFetchResult result;
+        await DownloadSlots.WaitAsync();
         try
         {
-            var content = await DownloadAsync(feed.FeedUrl, cancellationToken);
-            var parsed = FeedParser.Parse(content, new Uri(feed.FeedUrl));
-            cache.Set(cacheKey, parsed.Items, CacheDuration);
-            return new FeedFetchResult(Stamp(parsed.Items, feed), null);
+            var content = await DownloadAsync(feedUrl, CancellationToken.None);
+            var parsed = FeedParser.Parse(content, new Uri(feedUrl));
+            result = new FeedFetchResult(parsed.Items, null);
+            cache.Set(cacheKey, result, CacheDuration);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        catch (Exception ex)
         {
-            var message = Describe(ex);
-            logger.LogWarning("Feed {FeedUrl} failed: {Error}", feed.FeedUrl, message);
-            return new FeedFetchResult([], message);
+            var (kind, message) = Classify(ex);
+            logger.LogWarning("Feed {FeedUrl} failed ({Kind}): {Error}", feedUrl, kind, message);
+            result = new FeedFetchResult([], message, kind);
+            cache.Set(cacheKey, result, FailureCacheDuration);
         }
+        finally
+        {
+            DownloadSlots.Release();
+            cache.Remove(inFlightKey);
+        }
+        return result;
     }
 
     public async Task<FeedDiscoveryResult?> DiscoverAsync(string url, CancellationToken cancellationToken = default)
@@ -63,7 +111,7 @@ public class FeedReader(HttpClient httpClient, IMemoryCache cache, ILogger<FeedR
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            logger.LogInformation("Feed discovery for {Url} failed: {Error}", url, Describe(ex));
+            logger.LogInformation("Feed discovery for {Url} failed: {Error}", url, Classify(ex).Message);
             return null;
         }
 
@@ -106,7 +154,7 @@ public class FeedReader(HttpClient httpClient, IMemoryCache cache, ILogger<FeedR
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            logger.LogInformation("Discovered feed {FeedUrl} could not be read: {Error}", feedUrl, Describe(ex));
+            logger.LogInformation("Discovered feed {FeedUrl} could not be read: {Error}", feedUrl, Classify(ex).Message);
             return null;
         }
     }
@@ -126,18 +174,21 @@ public class FeedReader(HttpClient httpClient, IMemoryCache cache, ILogger<FeedR
         }
         if (response.Content.Headers.ContentLength > MaxDocumentBytes)
         {
-            throw new HttpRequestException("The feed is larger than 10 MB.");
+            throw new HttpRequestException("The feed is larger than 10 MB.", null, HttpStatusCode.RequestEntityTooLarge);
         }
 
         return await response.Content.ReadAsStringAsync(timeout.Token);
     }
 
-    private string Describe(Exception ex) => ex switch
+    /// <summary>Maps a failure to a <see cref="FeedErrorKind"/> and a short technical message.</summary>
+    private (string Kind, string Message) Classify(Exception ex) => ex switch
     {
-        OperationCanceledException => $"Timed out after {Timeout.TotalSeconds:0.#} seconds.",
-        FormatException => "Not a valid RSS or Atom feed.",
-        HttpRequestException http => http.Message,
-        _ => ex.Message
+        OperationCanceledException => (FeedErrorKind.Timeout, $"Timed out after {Timeout.TotalSeconds:0.#} seconds."),
+        FormatException => (FeedErrorKind.InvalidFeed, "Not a valid RSS or Atom feed."),
+        HttpRequestException { StatusCode: HttpStatusCode.NotFound or HttpStatusCode.Gone } http => (FeedErrorKind.NotFound, http.Message),
+        HttpRequestException { StatusCode: not null } http => (FeedErrorKind.Http, http.Message),
+        HttpRequestException http => (FeedErrorKind.Unreachable, http.InnerException?.Message ?? http.Message),
+        _ => (FeedErrorKind.Http, ex.Message)
     };
 
     /// <summary>Copies cached items and attaches the feed's current title and group (a feed can move between groups).</summary>

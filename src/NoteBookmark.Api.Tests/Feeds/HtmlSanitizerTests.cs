@@ -55,6 +55,29 @@ public class HtmlSanitizerTests
         result.Should().Contain("alt=\"A\"");
     }
 
+    [Theory]
+    [InlineData("<img data-src=\"/lazy.jpg\">")]
+    [InlineData("<img src=\"data:image/gif;base64,R0lGOD\" data-lazy-src=\"/lazy.jpg\">")]
+    [InlineData("<img srcset=\"/lazy.jpg 480w, /big.jpg 1200w\">")]
+    [InlineData("<picture><source srcset=\"/x.webp\"><img data-srcset=\"/lazy.jpg 1x\"></picture>")]
+    public void Sanitize_LazyLoadedImages_GetARealSrc(string html)
+    {
+        var result = HtmlSanitizer.Sanitize(html, Base);
+
+        result.Should().Contain("src=\"https://blog.example.com/lazy.jpg\"");
+        result.Should().NotContain("data-");
+        result.Should().NotContain("srcset");
+    }
+
+    [Fact]
+    public void Sanitize_Images_AreLazy_AndSentWithoutReferrer()
+    {
+        var result = HtmlSanitizer.Sanitize("<img src=\"https://cdn.example.com/a.png\">", Base);
+
+        result.Should().Contain("referrerpolicy=\"no-referrer\"");
+        result.Should().Contain("loading=\"lazy\"");
+    }
+
     [Fact]
     public void Sanitize_UnwrapsUnknownTags_KeepingTheirText()
     {
