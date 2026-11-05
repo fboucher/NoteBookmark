@@ -1,4 +1,5 @@
 using System.Xml.Linq;
+using NoteBookmark.Domain;
 
 namespace NoteBookmark.Api;
 
@@ -6,7 +7,7 @@ namespace NoteBookmark.Api;
 public static class OpmlParser
 {
     /// <summary>Group used for feeds that sit at the top level of the OPML, outside any folder.</summary>
-    public const string DefaultGroupName = "Imported";
+    public const string DefaultGroupName = FeedGroup.DefaultName;
 
     public record OpmlFeed(string GroupName, string Title, string FeedUrl, string? SiteUrl);
 

@@ -57,8 +57,18 @@ public static class FeedEndpoints
 
     // ----- Groups -----
 
-    static async Task<Ok<List<FeedGroup>>> GetGroups(IDataStorageService storage) =>
-        TypedResults.Ok(await storage.GetFeedGroups());
+    static async Task<Ok<List<FeedGroup>>> GetGroups(IDataStorageService storage)
+    {
+        var groups = await storage.GetFeedGroups();
+        if (groups.Count == 0)
+        {
+            // Always offer a group so the first feed can be added without creating one.
+            var defaultGroup = new FeedGroup { Name = FeedGroup.DefaultName };
+            await storage.SaveFeedGroup(defaultGroup);
+            groups.Add(defaultGroup);
+        }
+        return TypedResults.Ok(groups);
+    }
 
     static async Task<Results<Ok<FeedGroup>, BadRequest<string>, Conflict<string>>> SaveGroup(FeedGroup group, IDataStorageService storage)
     {

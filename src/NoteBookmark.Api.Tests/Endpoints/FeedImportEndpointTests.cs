@@ -36,7 +36,7 @@ public class FeedImportEndpointTests : IClassFixture<FeedsApiTestFactory>
         var firstResult = await first.Content.ReadFromJsonAsync<OpmlImportResult>();
         firstResult!.FeedsCreated.Should().Be(4);
         firstResult.FeedsSkipped.Should().Be(0);
-        firstResult.GroupsCreated.Should().BeInRange(2, 3); // "Imported" may already exist from another test
+        firstResult.GroupsCreated.Should().BeInRange(2, 3); // "My Feeds" may already exist from another test
 
         var secondResult = await second.Content.ReadFromJsonAsync<OpmlImportResult>();
         secondResult!.FeedsCreated.Should().Be(0);

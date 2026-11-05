@@ -54,6 +54,22 @@ public class FeedEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
     }
 
     [Fact]
+    public async Task GetGroups_WhenNoneExist_CreatesMyFeeds_Once()
+    {
+        // Fresh storage: run against its own factory so other tests' groups don't interfere.
+        await using var factory = new NoteBookmarkApiTestFactory();
+        await ((IAsyncLifetime)factory).InitializeAsync();
+        var client = factory.CreateClient();
+
+        var first = await client.GetFromJsonAsync<List<FeedGroup>>("/api/feeds/groups");
+        var second = await client.GetFromJsonAsync<List<FeedGroup>>("/api/feeds/groups");
+
+        first.Should().ContainSingle().Which.Name.Should().Be("My Feeds");
+        second.Should().ContainSingle().Which.RowKey.Should().Be(first![0].RowKey);
+        await ((IAsyncLifetime)factory).DisposeAsync();
+    }
+
+    [Fact]
     public async Task SaveGroup_TrimsName()
     {
         var name = Unique("trim");

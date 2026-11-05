@@ -9,6 +9,9 @@ public class FeedGroup : ITableEntity
 {
     public const string Partition = "feedgroup";
 
+    /// <summary>Group created automatically when there is none, so a feed can be added right away.</summary>
+    public const string DefaultName = "My Feeds";
+
     [DataMember(Name = "name")]
     public string Name { get; set; } = string.Empty;
 
