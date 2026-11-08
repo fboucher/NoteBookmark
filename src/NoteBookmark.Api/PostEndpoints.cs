@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using Microsoft.AspNetCore.Http.HttpResults;
 using NoteBookmark.Domain;
@@ -84,7 +85,7 @@ public static class PostEndpoints
 		return post is null ? TypedResults.NotFound() : TypedResults.Ok(post);
 	}
 
-	static Results<Ok, BadRequest> SavePost(Post post, TableServiceClient tblClient, BlobServiceClient blobClient)
+	static Results<Ok, BadRequest> SavePost(Post post, TableServiceClient tblClient, BlobServiceClient blobClient, IMemoryCache cache)
 	{
 		var dataStorageService = new DataStorageService(tblClient, blobClient);
 			
@@ -98,6 +99,7 @@ public static class PostEndpoints
 
 		if (dataStorageService.SavePost(post))
 		{
+			FeedEndpoints.InvalidateHiddenUrls(cache);
 			return TypedResults.Ok();
 		}
 		return TypedResults.BadRequest();
@@ -106,7 +108,8 @@ public static class PostEndpoints
 		ExtractPostRequest request,
 		TableServiceClient tblClient,
 		BlobServiceClient blobClient,
-		PostExtractionQueue queue)
+		PostExtractionQueue queue,
+		IMemoryCache cache)
 	{
 		var dataStorageService = new DataStorageService(tblClient, blobClient);
 
@@ -126,6 +129,7 @@ public static class PostEndpoints
 			if (post != null)
 			{
 				dataStorageService.SavePost(post);
+				FeedEndpoints.InvalidateHiddenUrls(cache);
 				
 				// Queue background HTML extraction task
 				queue.QueueBackgroundWorkItem(new ExtractionTask(post.Id ?? post.RowKey, post.Url ?? decodeUrl));

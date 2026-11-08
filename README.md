@@ -8,13 +8,18 @@
 
 I use this project mostly everyday. I build it to help me collecting my thoughts about articles, and blob posts I read during the week and then aggregate them in a #ReadingNotes blog post. You can find those post on my blog [here](https://frankysnotes.com).
 
-NoteBookmark is composed of three main sections:
+NoteBookmark is composed of four main sections:
 
 - **Post**: where you can manage a posts "to read", and add notes to them.
+- **Feeds**: where you follow your favorite RSS/Atom feeds and pick articles to add to your reading list.
 - **Generate Summary**: where you can generate a summary of the posts you read.
 - **Summaries**: where you can see all the summaries you generated.
 
-![Slide show of all NoteBookmark Screens](gh/images/NoteBookmark-Tour_hd.gif)
+![Slide show of all NoteBookmark Screens](gh/images/NoteBookmark-Tour.gif)
+
+The Android app brings your posts, notes and reader with you, even offline:
+
+![Slide show of the NoteBookmark Android app](gh/images/NoteBookmark-Android-Tour.gif)
 
 ## Run Options
 

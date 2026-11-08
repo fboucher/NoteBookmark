@@ -1,0 +1,502 @@
+@page "/feeds"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@implements IDisposable
+@inject IFeedService feedService
+@inject IDataService dataService
+@inject IToastService toastService
+@inject IDialogService dialogService
+
+<PageTitle>Feeds</PageTitle>
+
+<FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Wrap="true">
+    <h3>Feeds</h3>
+    <FluentSpacer />
+    <FluentButton Id="refresh-feeds" OnClick="Refresh" Loading="@(refreshing)" Disabled="@(loading || IsFetching)"
+                  IconStart="@(new Icons.Regular.Size20.ArrowClockwise())">Refresh</FluentButton>
+    <FluentButton Id="skip-all" OnClick="MarkAllSkipped" Disabled="@(selection.IsAll || VisibleItems.Count == 0 || loading)"
+                  Title="Mark every item shown here as skipped"
+                  IconStart="@(new Icons.Regular.Size20.CheckmarkCircle())">Mark all as skipped</FluentButton>
+    <FluentAnchor Href="feeds/manage" Appearance="Appearance.Neutral" IconStart="@(new Icons.Regular.Size20.Settings())">Manage feeds</FluentAnchor>
+</FluentStack>
+
+@if (loading)
+{
+    <FluentProgressRing />
+}
+else if (feeds.Count == 0)
+{
+    <p id="no-feeds">You don't follow any feeds yet. <a href="feeds/manage">Add a feed or import an OPML file</a>.</p>
+}
+else
+{
+    <div class="feeds-layout">
+        <nav class="feeds-nav" aria-label="Feed groups">
+            <div class="feeds-nav-row @(selection.IsAll ? "selected" : "")" id="nav-all" @onclick="() => Select(Selection.All)">
+                <span class="feeds-nav-name">All</span>
+                <span class="feeds-count">@items.Count</span>
+            </div>
+            @foreach (var group in groups)
+            {
+                var groupFeeds = feeds.Where(f => f.GroupId == group.RowKey).ToList();
+                var failed = groupFeeds.Count(f => StatusFor(f.RowKey)?.Error is not null);
+                var expanded = expandedGroups.Contains(group.RowKey);
+                <div class="feeds-nav-row group @(selection.GroupId == group.RowKey && selection.FeedId is null ? "selected" : "")"
+                     data-group-id="@group.RowKey" @onclick="() => Select(Selection.ForGroup(group.RowKey))">
+                    <span class="feeds-expand" title="@(expanded ? "Collapse" : "Show feeds")" @onclick="() => Toggle(group.RowKey)" @onclick:stopPropagation="true">
+                        <FluentIcon Value="@(expanded ? (Icon)new Icons.Regular.Size16.ChevronDown() : new Icons.Regular.Size16.ChevronRight())" Color="Color.Neutral" />
+                    </span>
+                    <span class="feeds-nav-name">@group.Name</span>
+                    @if (failed > 0 && !expanded)
+                    {
+                        <span class="feeds-warning" title="@($"{failed} feed(s) in this group could not be loaded. Expand the group to see why.")">
+                            <FluentIcon Value="@(new Icons.Regular.Size16.Warning())" Color="Color.Warning" />
+                        </span>
+                    }
+                    <span class="feeds-count">@CountFor(group.RowKey, null)</span>
+                </div>
+                @if (expanded)
+                {
+                    @foreach (var feed in groupFeeds)
+                    {
+                        var status = StatusFor(feed.RowKey);
+                        <div class="feeds-nav-row feed @(selection.FeedId == feed.RowKey ? "selected" : "")"
+                             data-feed-id="@feed.RowKey" title="@FeedTooltip(status)" @onclick="() => Select(Selection.ForFeed(feed.GroupId, feed.RowKey))">
+                            <span class="feeds-nav-name">@feed.Title</span>
+                            @if (status?.Error is not null)
+                            {
+                                var dead = FeedErrorKind.IsLikelyDead(status.ErrorKind);
+                                <span class="feeds-warning @(dead ? "dead" : "temporary")" title="@FeedTooltip(status)">
+                                    <FluentIcon Value="@(dead ? (Icon)new Icons.Regular.Size16.ErrorCircle() : new Icons.Regular.Size16.Warning())"
+                                                Color="@(dead ? Color.Error : Color.Warning)" />
+                                </span>
+                            }
+                            else if (IsInactive(status))
+                            {
+                                <span class="feeds-inactive" title="@FeedTooltip(status)">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Clock())" Color="Color.Neutral" />
+                                </span>
+                            }
+                            <span class="feeds-count">@CountFor(null, feed.RowKey)</span>
+                        </div>
+                    }
+                }
+            }
+        </nav>
+
+        <section class="feeds-items" aria-label="Feed items">
+            @if (IsFetching)
+            {
+                <div class="feeds-progress" id="feeds-progress">
+                    <span>Loading feeds… @feedsLoaded of @feedsToLoad</span>
+                    <FluentProgress Min="0" Max="@feedsToLoad" Value="@feedsLoaded" />
+                </div>
+            }
+            @if (VisibleItems.Count == 0 && !IsFetching)
+            {
+                <p class="feeds-empty">
+                    <FluentIcon Value="@(new Icons.Filled.Size20.Crown())" Color="@Color.Accent" />&nbsp; All caught up. Nothing new here.
+                </p>
+            }
+            @foreach (var item in VisibleItems.Take(shownCount))
+            {
+                var busy = busyUrls.Contains(item.Url);
+                <div class="feed-item" data-url="@item.Url">
+                    <div class="feed-item-main" role="button" tabindex="0"
+                         @onclick="() => OpenPreview(item)" @onkeydown="e => OnItemKey(e, item)">
+                        <div class="feed-item-title">@item.Title</div>
+                        <div class="feed-item-meta">@item.FeedTitle · @Age(item.Published)</div>
+                        @if (!string.IsNullOrEmpty(item.Excerpt))
+                        {
+                            <div class="feed-item-excerpt">@item.Excerpt</div>
+                        }
+                    </div>
+                    <div class="feed-item-actions">
+                        <FluentButton Class="item-add" Appearance="Appearance.Lightweight" Title="Add to my posts" aria-label="Add"
+                                      IconStart="@(new Icons.Regular.Size20.Add())" Disabled="@busy" OnClick="() => AddItem(item)" />
+                        <FluentButton Class="item-skip" Appearance="Appearance.Lightweight" Title="Skip" aria-label="Skip"
+                                      IconStart="@(new Icons.Regular.Size20.Dismiss())" Disabled="@busy" OnClick="() => SkipItem(item)" />
+                    </div>
+                </div>
+            }
+            @if (VisibleItems.Count > shownCount)
+            {
+                <div class="feeds-more">
+                    <FluentButton Id="show-more" OnClick="ShowMore">Show more (@(VisibleItems.Count - shownCount) left)</FluentButton>
+                </div>
+            }
+        </section>
+    </div>
+}
+
+<style>
+    .feeds-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+    .feeds-nav { flex: 0 0 270px; position: sticky; top: 0; max-height: calc(100vh - 120px); overflow-y: auto; }
+    .feeds-nav-row { display: flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.5rem; border-radius: 4px; cursor: pointer; }
+    .feeds-nav-row:hover { background: var(--neutral-fill-stealth-hover); }
+    .feeds-nav-row.selected { background: var(--neutral-fill-stealth-active); font-weight: 600; }
+    .feeds-nav-row.feed { padding-left: 2rem; font-size: 0.92em; }
+    .feeds-nav-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feeds-expand, .feeds-warning, .feeds-inactive { display: inline-flex; }
+    .feeds-warning, .feeds-inactive { cursor: help; }
+    .feeds-count { color: var(--neutral-foreground-hint); font-variant-numeric: tabular-nums; }
+    .feeds-items { flex: 1; min-width: 0; }
+    .feeds-progress { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; color: var(--neutral-foreground-hint); font-size: 0.9em; }
+    .feed-item { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--neutral-stroke-divider-rest); }
+    .feed-item:hover { background: var(--neutral-fill-stealth-hover); }
+    .feed-item-main { flex: 1; min-width: 0; padding: 0.6rem 0.75rem; cursor: pointer; }
+    .feed-item-main:focus { outline: 2px solid var(--accent-fill-rest); outline-offset: -2px; }
+    .feed-item-title { font-weight: 600; }
+    .feed-item-meta { font-size: 0.85em; color: var(--neutral-foreground-hint); margin: 0.1rem 0; }
+    .feed-item-excerpt { font-size: 0.92em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .feed-item-actions { display: flex; gap: 0.15rem; padding-right: 0.5rem; }
+    .feeds-more { display: flex; justify-content: center; padding: 1rem; }
+    @@media (max-width: 800px) {
+        .feeds-layout { flex-direction: column; }
+        .feeds-nav { position: static; flex-basis: auto; width: 100%; max-height: none; }
+    }
+</style>
+
+@code {
+    /// <summary>What the right pane shows: everything, one group, or one feed.</summary>
+    public record Selection(string? GroupId, string? FeedId)
+    {
+        public static readonly Selection All = new(null, null);
+        public static Selection ForGroup(string groupId) => new(groupId, null);
+        public static Selection ForFeed(string groupId, string feedId) => new(groupId, feedId);
+        public bool IsAll => GroupId is null && FeedId is null;
+    }
+
+    /// <summary>Feeds per API request. Small batches let the first items show while slow feeds are still loading.</summary>
+    public const int BatchSize = 10;
+
+    /// <summary>Batches in flight at the same time.</summary>
+    public const int ParallelBatches = 8;
+
+    /// <summary>How long the API waits for a batch before answering with the feeds that are ready.</summary>
+    public const int BatchWaitMs = 1500;
+
+    /// <summary>Times a still-loading feed is asked for again (the API gives up on a feed after 10 s anyway).</summary>
+    public const int MaxRounds = 12;
+
+    /// <summary>Items rendered at once; "Show more" adds this many.</summary>
+    public const int PageSize = 100;
+
+    /// <summary>A working feed with no post for this long is flagged as possibly inactive.</summary>
+    public static readonly TimeSpan InactiveAfter = TimeSpan.FromDays(180);
+
+    private readonly CancellationTokenSource disposed = new();
+    private bool loading = true;
+    private bool refreshing;
+    private int feedsToLoad;
+    private int feedsLoaded;
+    private int shownCount = PageSize;
+    private List<FeedGroup> groups = [];
+    private List<Feed> feeds = [];
+    private List<FeedItem> items = [];
+    private Dictionary<string, FeedStatus> statuses = [];
+    private readonly HashSet<string> expandedGroups = [];
+    private readonly HashSet<string> busyUrls = [];
+    private Selection selection = Selection.All;
+
+    private bool IsFetching => feedsLoaded < feedsToLoad;
+
+    private List<FeedItem> VisibleItems => items
+        .Where(i => selection.FeedId is null || i.FeedId == selection.FeedId)
+        .Where(i => selection.GroupId is null || i.GroupId == selection.GroupId)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            groups = await feedService.GetGroups();
+            feeds = await feedService.GetFeeds();
+        }
+        catch (HttpRequestException ex)
+        {
+            toastService.ShowError($"Feeds could not be loaded: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Show the groups right away, then fill in items batch by batch.
+        if (firstRender && feeds.Count > 0)
+        {
+            var groupOrder = groups.Select((g, i) => (g.RowKey, i)).ToDictionary(x => x.RowKey, x => x.i);
+            await LoadFeeds(feeds.OrderBy(f => groupOrder.GetValueOrDefault(f.GroupId, int.MaxValue)).ToList(), refresh: false);
+        }
+    }
+
+    /// <summary>
+    /// Loads the given feeds in parallel batches, merging each batch into the list as soon as it arrives.
+    /// The API answers each batch after <see cref="BatchWaitMs"/> with the feeds that are ready, so one slow
+    /// feed doesn't hold back the others; feeds still loading are asked for again until they finish.
+    /// </summary>
+    private async Task LoadFeeds(IReadOnlyList<Feed> targets, bool refresh)
+    {
+        feedsToLoad = targets.Count;
+        feedsLoaded = 0;
+        await InvokeAsync(StateHasChanged);
+
+        var remaining = targets.Select(f => f.RowKey).ToList();
+        var failedBatches = 0;
+        for (var round = 0; remaining.Count > 0 && round < MaxRounds && !disposed.IsCancellationRequested; round++)
+        {
+            var stillLoading = new List<string>();
+            using var throttle = new SemaphoreSlim(ParallelBatches);
+            // Refresh only on the first round; later rounds join the downloads it started.
+            var refreshThisRound = refresh && round == 0;
+            var batches = remaining.Chunk(BatchSize).Select(async batch =>
+            {
+                await throttle.WaitAsync(disposed.Token);
+                try
+                {
+                    var response = await feedService.GetItems(refresh: refreshThisRound, feedIds: batch, waitMs: BatchWaitMs);
+                    await InvokeAsync(() =>
+                    {
+                        var loading = response.Feeds.Where(f => f.Loading).Select(f => f.FeedId).ToList();
+                        stillLoading.AddRange(loading);
+                        Apply(response);
+                        feedsLoaded += batch.Length - loading.Count;
+                        StateHasChanged();
+                    });
+                }
+                catch (HttpRequestException)
+                {
+                    failedBatches++;
+                    await InvokeAsync(() =>
+                    {
+                        feedsLoaded += batch.Length;
+                        StateHasChanged();
+                    });
+                }
+                finally
+                {
+                    throttle.Release();
+                }
+            }).ToList();
+
+            try
+            {
+                await Task.WhenAll(batches);
+            }
+            catch (OperationCanceledException)
+            {
+                return; // page closed
+            }
+            remaining = stillLoading;
+        }
+
+        if (remaining.Count > 0 || failedBatches > 0)
+        {
+            feedsLoaded = feedsToLoad;
+            await InvokeAsync(StateHasChanged);
+            toastService.ShowError("Some feeds could not be loaded because the server didn't answer. Try Refresh.");
+        }
+    }
+
+    /// <summary>Merges a response: items and statuses of the returned (finished) feeds replace what we had for them.</summary>
+    private void Apply(FeedItemsResponse response)
+    {
+        var finished = response.Feeds.Where(f => !f.Loading).ToList();
+        var feedIds = finished.Select(f => f.FeedId).ToHashSet();
+        items.RemoveAll(i => feedIds.Contains(i.FeedId));
+        var known = items.Select(i => FeedItemState.NormalizeUrl(i.Url)).ToHashSet();
+        items.AddRange(response.Items.Where(i => known.Add(FeedItemState.NormalizeUrl(i.Url))));
+        items = items.OrderByDescending(i => i.Published ?? DateTimeOffset.MinValue).ToList();
+        foreach (var status in finished)
+        {
+            statuses[status.FeedId] = status;
+        }
+    }
+
+    private async Task Refresh()
+    {
+        refreshing = true;
+        try
+        {
+            var targets = feeds
+                .Where(f => selection.GroupId is null || f.GroupId == selection.GroupId)
+                .Where(f => selection.FeedId is null || f.RowKey == selection.FeedId)
+                .ToList();
+            await LoadFeeds(targets, refresh: true);
+            var failed = targets.Count(f => StatusFor(f.RowKey)?.Error is not null);
+            if (failed > 0)
+            {
+                toastService.ShowWarning($"{failed} feed(s) could not be loaded. Expand their group and hover the icon for the reason.");
+            }
+        }
+        finally
+        {
+            refreshing = false;
+        }
+    }
+
+    private async Task MarkAllSkipped()
+    {
+        var toSkip = VisibleItems;
+        if (toSkip.Count == 0)
+        {
+            return;
+        }
+
+        if (await feedService.SetItemStates(toSkip, FeedItemState.Skipped))
+        {
+            var urls = toSkip.Select(i => i.Url).ToHashSet();
+            items.RemoveAll(i => urls.Contains(i.Url));
+            toastService.ShowSuccess($"Skipped {toSkip.Count} item(s).");
+        }
+        else
+        {
+            toastService.ShowError("The items could not be marked as skipped. Please try again.");
+        }
+    }
+
+    private async Task AddItem(FeedItem item)
+    {
+        if (!busyUrls.Add(item.Url))
+        {
+            return;
+        }
+        try
+        {
+            var post = await new FeedItemActions(dataService, feedService).AddAsync(item);
+            if (post is null)
+            {
+                toastService.ShowError("The article could not be added. Please try again.");
+                return;
+            }
+            RemoveItem(item);
+            toastService.ShowSuccess($"\"{post.Title ?? item.Title}\" added to your posts.");
+        }
+        finally
+        {
+            busyUrls.Remove(item.Url);
+        }
+    }
+
+    private async Task SkipItem(FeedItem item)
+    {
+        if (!busyUrls.Add(item.Url))
+        {
+            return;
+        }
+        try
+        {
+            if (await new FeedItemActions(dataService, feedService).SkipAsync(item))
+            {
+                RemoveItem(item);
+            }
+            else
+            {
+                toastService.ShowError("The item could not be skipped. Please try again.");
+            }
+        }
+        finally
+        {
+            busyUrls.Remove(item.Url);
+        }
+    }
+
+    private void Select(Selection next)
+    {
+        selection = next;
+        shownCount = PageSize;
+    }
+
+    private void ShowMore() => shownCount += PageSize;
+
+    private void Toggle(string groupId)
+    {
+        if (!expandedGroups.Remove(groupId))
+        {
+            expandedGroups.Add(groupId);
+        }
+    }
+
+    private int CountFor(string? groupId, string? feedId) =>
+        items.Count(i => (groupId is null || i.GroupId == groupId) && (feedId is null || i.FeedId == feedId));
+
+    private FeedStatus? StatusFor(string feedId) => statuses.GetValueOrDefault(feedId);
+
+    private static bool IsInactive(FeedStatus? status) =>
+        status is { Error: null } && (status.TotalCount == 0 || status.LastPublished < DateTimeOffset.UtcNow - InactiveAfter);
+
+    /// <summary>Explains a feed's state in words: failed (and why), empty, inactive, or fine.</summary>
+    public static string? FeedTooltip(FeedStatus? status)
+    {
+        if (status is null)
+        {
+            return null;
+        }
+        if (status.Error is not null)
+        {
+            return $"{FeedErrorKind.Describe(status.ErrorKind)} (Details: {status.Error})";
+        }
+        if (status.TotalCount == 0)
+        {
+            return "The feed loaded but has no items.";
+        }
+        var last = status.LastPublished is { } date ? $"Last post: {date.ToLocalTime():MMM d, yyyy}." : "Posts have no dates.";
+        if (status.LastPublished < DateTimeOffset.UtcNow - InactiveAfter)
+        {
+            return $"{last} This feed may no longer be updated.";
+        }
+        return status.PendingCount == 0 ? $"{last} Nothing new." : last;
+    }
+
+    /// <summary>Removes an item from the list after it was added or skipped.</summary>
+    private void RemoveItem(FeedItem item) => items.RemoveAll(i => i.Url == item.Url);
+
+    private async Task OpenPreview(FeedItem item)
+    {
+        var dialog = await dialogService.ShowDialogAsync<FeedItemDialog>(item, new DialogParameters
+        {
+            Title = item.Title,
+            Width = "min(860px, 95vw)",
+            PreventScroll = true,
+            TrapFocus = true
+        });
+
+        var result = await dialog.Result;
+        if (!result.Cancelled && result.Data is string)
+        {
+            // Added or Skipped: the item leaves the list (inbox model).
+            RemoveItem(item);
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnItemKey(KeyboardEventArgs e, FeedItem item)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            await OpenPreview(item);
+        }
+    }
+
+    public static string Age(DateTimeOffset? published, DateTimeOffset? now = null)
+    {
+        if (published is null)
+        {
+            return "undated";
+        }
+        var span = (now ?? DateTimeOffset.UtcNow) - published.Value;
+        return span.TotalMinutes < 1 ? "just now"
+            : span.TotalHours < 1 ? $"{(int)span.TotalMinutes}m"
+            : span.TotalDays < 1 ? $"{(int)span.TotalHours}h"
+            : $"{(int)span.TotalDays}d";
+    }
+
+    public void Dispose()
+    {
+        // Not disposed: batches still awaiting the throttle observe the cancellation.
+        disposed.Cancel();
+    }
+}
