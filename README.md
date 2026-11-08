@@ -17,6 +17,10 @@ NoteBookmark is composed of four main sections:
 
 ![Slide show of all NoteBookmark Screens](gh/images/NoteBookmark-Tour.gif)
 
+The Android app brings your posts, notes and reader with you, even offline:
+
+![Slide show of the NoteBookmark Android app](gh/images/NoteBookmark-Android-Tour.gif)
+
 ## Run Options
 
 - Development: running the Aspire project is the easiest path and everything is wired automatically.
