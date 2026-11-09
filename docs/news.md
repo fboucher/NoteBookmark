@@ -3,14 +3,14 @@
 
 ---
 
+November, 2026
+- **New Feeds Tab**: Follow your favorite blogs and sites right inside NoteBookmark! Organize RSS/Atom feeds into groups (or import your OPML from Feedly), preview new posts, and add them to your reading list or skip them with one click. Available on the web app for now.
+
 October, 2026
 - **News & Updates on the Home Page**: You can now read the latest NoteBookmark news right from your Home screen, even when you're offline... which you probably already figured out since you're reading this right now! 👋
 
 September, 2026
-- **One-Click Browser Bookmarklet**: Save articles from your browser faster than ever! Grab the new "Quick Add" bookmarklet from the Settings page to save any webpage in a compact popup window with a single click.
-- **Much Faster Mobile Sync**: Syncing on the mobile app is now significantly faster and smoother, downloading only what has changed since your last sync and working in the background without slowing down the app.
-- **Offline Storage Manager**: Added a new **Storage** tab in the mobile app so you can easily see how much space your offline articles are using and clean up downloaded content whenever you want.
-- **Easier Text Size Controls**: Added `+` and `-` buttons next to the text size slider in the article reader to make adjusting the font size easier.
+- **Faster saving & syncing**: A new one-click "Quick Add" bookmarklet (in Settings) saves any webpage from your browser, and mobile sync is much faster, downloading only what changed. The mobile app also gained a **Storage** tab to manage offline articles, plus `+`/`-` buttons for text size in the reader.
 
 ---
 
