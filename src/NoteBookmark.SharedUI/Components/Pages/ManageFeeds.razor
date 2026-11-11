@@ -114,25 +114,40 @@ else
                     @foreach (var feed in shown.OrderBy(f => f.Title, StringComparer.OrdinalIgnoreCase))
                     {
                         <div class="feed-row" data-feed-id="@feed.RowKey">
-                            <div class="feed-row-text">
-                                @if (!string.IsNullOrEmpty(feed.SiteUrl))
-                                {
-                                    <a href="@feed.SiteUrl" target="_blank" rel="noopener noreferrer" class="feed-row-title">@feed.Title</a>
-                                }
-                                else
-                                {
-                                    <span class="feed-row-title">@feed.Title</span>
-                                }
-                                <div class="feed-row-url">@feed.FeedUrl</div>
-                            </div>
-                            <select class="mf-select mf-move" value="@feed.GroupId" @onchange="e => MoveFeed(feed, e.Value?.ToString())" aria-label="Move to group">
-                                @foreach (var target in groups)
-                                {
-                                    <option value="@target.RowKey" selected="@(target.RowKey == feed.GroupId)">@target.Name</option>
-                                }
-                            </select>
-                            <FluentButton Class="delete-feed" Appearance="Appearance.Lightweight" Title="Delete feed" aria-label="Delete feed"
-                                          IconStart="@(new Icons.Regular.Size20.Delete())" OnClick="() => DeleteFeed(feed)" />
+                            @if (editingFeedId == feed.RowKey)
+                            {
+                                <div class="feed-row-edit">
+                                    <FluentTextField Id="@($"edit-title-{feed.RowKey}")" @bind-Value="editTitle" Immediate="true" Placeholder="Title" Class="mf-grow" aria-label="Feed title" />
+                                    <FluentTextField Id="@($"edit-url-{feed.RowKey}")" @bind-Value="editUrl" Immediate="true" Placeholder="https://example.com/rss" Class="mf-grow" aria-label="Feed URL" />
+                                </div>
+                                <FluentButton Class="save-feed" Appearance="Appearance.Accent" Loading="@savingFeed" OnClick="() => SaveFeedEdit(feed)"
+                                              Disabled="@(savingFeed || !FeedEditChanged(feed))">Save</FluentButton>
+                                <FluentButton Class="cancel-feed" Disabled="@savingFeed" OnClick="CancelFeedEdit">Cancel</FluentButton>
+                            }
+                            else
+                            {
+                                <div class="feed-row-text">
+                                    @if (!string.IsNullOrEmpty(feed.SiteUrl))
+                                    {
+                                        <a href="@feed.SiteUrl" target="_blank" rel="noopener noreferrer" class="feed-row-title">@feed.Title</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="feed-row-title">@feed.Title</span>
+                                    }
+                                    <div class="feed-row-url">@feed.FeedUrl</div>
+                                </div>
+                                <select class="mf-select mf-move" value="@feed.GroupId" @onchange="e => MoveFeed(feed, e.Value?.ToString())" aria-label="Move to group">
+                                    @foreach (var target in groups)
+                                    {
+                                        <option value="@target.RowKey" selected="@(target.RowKey == feed.GroupId)">@target.Name</option>
+                                    }
+                                </select>
+                                <FluentButton Class="edit-feed" Appearance="Appearance.Lightweight" Title="Edit feed" aria-label="Edit feed"
+                                              IconStart="@(new Icons.Regular.Size20.Edit())" OnClick="() => StartFeedEdit(feed)" />
+                                <FluentButton Class="delete-feed" Appearance="Appearance.Lightweight" Title="Delete feed" aria-label="Delete feed"
+                                              IconStart="@(new Icons.Regular.Size20.Delete())" OnClick="() => DeleteFeed(feed)" />
+                            }
                         </div>
                     }
                 }
@@ -164,6 +179,7 @@ else
     .feed-row:hover { background: var(--neutral-fill-stealth-hover); }
     .feed-row-text { flex: 1; min-width: 0; }
     .feed-row-title { font-weight: 500; }
+    .feed-row-edit { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .feed-row-url { font-size: 0.8em; color: var(--neutral-foreground-hint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 
@@ -183,6 +199,10 @@ else
     private string filter = string.Empty;
     private string? editingGroupId;
     private string renameText = string.Empty;
+    private string? editingFeedId;
+    private string editTitle = string.Empty;
+    private string editUrl = string.Empty;
+    private bool savingFeed;
 
     private bool Filtering => !string.IsNullOrWhiteSpace(filter);
 
@@ -279,6 +299,8 @@ else
 
     private void StartRename(FeedGroup group)
     {
+        // Only one row (group or feed) is edited at a time.
+        editingFeedId = null;
         editingGroupId = group.RowKey;
         renameText = group.Name;
     }
@@ -338,6 +360,80 @@ else
             return;
         }
         toastService.ShowSuccess($"Moved \"{feed.Title}\" to {group.Name}.");
+    }
+
+    private void StartFeedEdit(Feed feed)
+    {
+        // Only one row (group or feed) is edited at a time.
+        editingGroupId = null;
+        editingFeedId = feed.RowKey;
+        editTitle = feed.Title;
+        editUrl = feed.FeedUrl;
+    }
+
+    private void CancelFeedEdit() => editingFeedId = null;
+
+    private bool FeedUrlChanged(Feed feed) => editUrl.Trim() != feed.FeedUrl;
+
+    private bool FeedEditChanged(Feed feed) =>
+        !string.IsNullOrWhiteSpace(editUrl) && (editTitle.Trim() != feed.Title || FeedUrlChanged(feed));
+
+    private async Task SaveFeedEdit(Feed feed)
+    {
+        if (!FeedEditChanged(feed))
+        {
+            return;
+        }
+
+        savingFeed = true;
+        try
+        {
+            // Work on a copy so the row keeps its values when anything fails.
+            var updated = new Feed
+            {
+                RowKey = feed.RowKey,
+                GroupId = feed.GroupId,
+                Title = editTitle.Trim(),
+                FeedUrl = feed.FeedUrl,
+                SiteUrl = feed.SiteUrl,
+                ETag = feed.ETag
+            };
+
+            if (FeedUrlChanged(feed))
+            {
+                var discovered = await feedService.Discover(editUrl.Trim());
+                if (!discovered.Success || discovered.Value is null)
+                {
+                    toastService.ShowError(discovered.Error ?? "No feed found at this address.");
+                    return;
+                }
+
+                // The discovered feed URL may differ from what was typed (e.g. a site URL); the typed title is kept.
+                updated.FeedUrl = discovered.Value.FeedUrl;
+                if (string.IsNullOrWhiteSpace(updated.SiteUrl))
+                {
+                    updated.SiteUrl = discovered.Value.SiteUrl;
+                }
+            }
+
+            var result = await feedService.SaveFeed(updated);
+            if (!result.Success || result.Value is null)
+            {
+                toastService.ShowError(result.Error ?? "The feed could not be saved.");
+                return;
+            }
+
+            feed.Title = result.Value.Title;
+            feed.FeedUrl = result.Value.FeedUrl;
+            feed.SiteUrl = result.Value.SiteUrl;
+            feed.ETag = result.Value.ETag;
+            editingFeedId = null;
+            toastService.ShowSuccess($"Updated \"{feed.Title}\".");
+        }
+        finally
+        {
+            savingFeed = false;
+        }
     }
 
     private async Task DeleteFeed(Feed feed)

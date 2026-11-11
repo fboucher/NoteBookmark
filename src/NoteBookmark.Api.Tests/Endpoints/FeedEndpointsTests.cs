@@ -185,6 +185,38 @@ public class FeedEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
         feeds!.Where(f => f.RowKey == feed.RowKey).Should().ContainSingle().Which.GroupId.Should().Be(second.RowKey);
     }
 
+    [Fact]
+    public async Task SaveFeed_WithExistingId_UpdatesTitleAndUrl_WithoutDuplicating()
+    {
+        var group = await CreateGroup();
+        var feed = await CreateFeed(group.RowKey);
+        var newUrl = $"https://example.com/{Guid.NewGuid():N}/atom";
+        feed.Title = "  Renamed feed  ";
+        feed.FeedUrl = newUrl;
+
+        var response = await _client.PostAsJsonAsync("/api/feeds/", feed);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var feeds = await _client.GetFromJsonAsync<List<Feed>>("/api/feeds/");
+        var saved = feeds!.Where(f => f.RowKey == feed.RowKey).Should().ContainSingle().Which;
+        saved.Title.Should().Be("Renamed feed");
+        saved.FeedUrl.Should().Be(newUrl);
+        saved.GroupId.Should().Be(group.RowKey);
+    }
+
+    [Fact]
+    public async Task SaveFeed_WithExistingId_ToAnotherFeedsUrl_ReturnsConflict()
+    {
+        var group = await CreateGroup();
+        var first = await CreateFeed(group.RowKey);
+        var second = await CreateFeed(group.RowKey);
+        second.FeedUrl = first.FeedUrl;
+
+        var response = await _client.PostAsJsonAsync("/api/feeds/", second);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("not a url")]
