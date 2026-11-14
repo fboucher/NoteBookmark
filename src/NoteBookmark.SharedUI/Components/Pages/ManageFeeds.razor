@@ -3,6 +3,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject IFeedService feedService
 @inject IToastService toastService
+@inject IDialogService dialogService
 
 <PageTitle>Manage feeds</PageTitle>
 
@@ -41,7 +42,7 @@ else
 
         <FluentCard Class="mf-card">
             <h4><FluentIcon Value="@(new Icons.Regular.Size20.ArrowImport())" Color="Color.Accent" /> Import OPML</h4>
-            <p class="mf-hint">Import a subscription list, such as a Feedly export. Folders become groups; feeds you already follow are skipped.</p>
+            <p class="mf-hint">Import a subscription list, such as a Feedly export. Folders become groups; feeds you already follow are skipped. Each new feed is checked, and broken addresses are fixed when possible.</p>
             <div class="mf-form">
                 <label class="mf-file">
                     <InputFile id="opml-file" OnChange="ImportOpml" accept=".opml,.xml,text/xml,text/x-opml" disabled="@importing" />
@@ -49,7 +50,7 @@ else
                 @if (importing)
                 {
                     <FluentProgressRing Width="20px" />
-                    <span>Importing…</span>
+                    <span id="importing">Importing and checking feeds…</span>
                 }
             </div>
         </FluentCard>
@@ -476,11 +477,34 @@ else
             // Groups stay collapsed, so even a few hundred imported feeds render instantly.
             await Reload();
             var r = result.Value;
-            toastService.ShowSuccess($"Imported {r.FeedsCreated} feed(s) in {r.GroupsCreated} new group(s); {r.FeedsSkipped} already followed.");
+            var fixedText = r.FeedsFixed > 0 ? $" {r.FeedsFixed} address(es) fixed automatically." : string.Empty;
+            toastService.ShowSuccess($"Imported {r.FeedsCreated} feed(s) in {r.GroupsCreated} new group(s); {r.FeedsSkipped} already followed.{fixedText}");
+
+            if (r.FailedFeeds.Count > 0)
+            {
+                importing = false;
+                await ShowImportReport(r);
+            }
         }
         finally
         {
             importing = false;
         }
+    }
+
+    /// <summary>Lists the imported feeds that still fail, to edit or delete them now or keep them for later.</summary>
+    private async Task ShowImportReport(OpmlImportResult result)
+    {
+        var dialog = await dialogService.ShowDialogAsync<OpmlImportReportDialog>(
+            new OpmlImportReport { FailedFeeds = result.FailedFeeds, Feeds = feeds },
+            new DialogParameters
+            {
+                Title = $"{result.FailedFeeds.Count} feed(s) need attention",
+                Width = "min(760px, 95vw)",
+                PreventScroll = true,
+                TrapFocus = true
+            });
+        await dialog.Result;
+        await Reload(); // the dialog may have edited or deleted feeds
     }
 }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using NoteBookmark.BlazorApp.Tests.Helpers;
 using NoteBookmark.SharedUI.Components.Pages;
+using NoteBookmark.SharedUI.Components.Shared;
 
 namespace NoteBookmark.BlazorApp.Tests.Tests;
 
@@ -372,5 +373,45 @@ public sealed class ManageFeedsTests : BunitContext
         cut.FindAll(".mf-group").Should().HaveCount(35);
         cut.FindAll(".feed-row").Should().BeEmpty();
         cut.Find("#mf-summary").TextContent.Should().Be("309 feed(s) in 35 group(s)");
+    }
+    [Fact]
+    public async Task ImportOpml_WithoutFailures_ShowsToastOnly()
+    {
+        var dialogs = new Mock<IDialogService>();
+        Services.AddSingleton(dialogs.Object);
+        _feeds.Setup(f => f.ImportOpml(It.IsAny<string>()))
+            .ReturnsAsync(new FeedResult<OpmlImportResult>(new OpmlImportResult { FeedsCreated = 3, GroupsCreated = 1, FeedsFixed = 2 }, null));
+        var cut = Render<ManageFeeds>();
+
+        var input = cut.FindComponent<Microsoft.AspNetCore.Components.Forms.InputFile>();
+        await cut.InvokeAsync(() => input.UploadFiles(InputFileContent.CreateFromText("<opml/>", "feedly.opml")));
+
+        _toasts.Verify(t => t.ShowSuccess(It.Is<string>(m => m.Contains("Imported 3 feed(s)") && m.Contains("2 address(es) fixed")),
+            It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+        dialogs.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ImportOpml_WithFailures_OpensReport_ThenReloads()
+    {
+        var failed = new OpmlFailedFeed { FeedId = "f-1", Title = "Some blog", FeedUrl = _blog.FeedUrl, GroupName = "Dev", ErrorKind = FeedErrorKind.NotFound };
+        var dialogs = new Mock<IDialogService>();
+        var reference = new Mock<IDialogReference>();
+        reference.Setup(r => r.Result).ReturnsAsync(DialogResult.Ok<object?>(null));
+        dialogs.Setup(d => d.ShowDialogAsync<OpmlImportReportDialog>(It.IsAny<object>(), It.IsAny<DialogParameters>()))
+            .ReturnsAsync(reference.Object);
+        Services.AddSingleton(dialogs.Object);
+        _feeds.Setup(f => f.ImportOpml(It.IsAny<string>()))
+            .ReturnsAsync(new FeedResult<OpmlImportResult>(new OpmlImportResult { FeedsCreated = 1, FailedFeeds = [failed] }, null));
+        var cut = Render<ManageFeeds>();
+
+        var input = cut.FindComponent<Microsoft.AspNetCore.Components.Forms.InputFile>();
+        await cut.InvokeAsync(() => input.UploadFiles(InputFileContent.CreateFromText("<opml/>", "feedly.opml")));
+
+        dialogs.Verify(d => d.ShowDialogAsync<OpmlImportReportDialog>(
+            It.Is<object>(o => ((OpmlImportReport)o).FailedFeeds.Single().FeedId == "f-1" && ((OpmlImportReport)o).Feeds.Any(f => f.RowKey == "f-1")),
+            It.Is<DialogParameters>(p => p.Title == "1 feed(s) need attention")), Times.Once);
+        _feeds.Verify(f => f.GetGroups(), Times.Exactly(3)); // initial load, after import, after the report closes
+        cut.FindAll("#importing").Should().BeEmpty();
     }
 }

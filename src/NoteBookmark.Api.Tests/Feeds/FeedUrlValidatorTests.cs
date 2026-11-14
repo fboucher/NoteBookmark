@@ -114,6 +114,18 @@ public class FeedUrlValidatorTests
         _handler.Hits($"https://{_host}/rss/feed").Should().Be(0);
     }
 
+    [Fact]
+    public async Task HostThatTimesOut_IsNotTriedAgainWithFeedSuffix()
+    {
+        var url = $"https://{_host}/slow";
+        _handler.Hanging[url] = true;
+
+        var result = await _validator.ValidateAsync(url, null);
+
+        result.ErrorKind.Should().Be(FeedErrorKind.Timeout);
+        _handler.Hits($"https://{_host}/slow/feed").Should().Be(0);
+    }
+
     [Theory]
     [InlineData("https://a.example.com/dotnet/", "https://a.example.com/dotnet/feed")]
     [InlineData("https://a.example.com/blog?x=1", "https://a.example.com/blog/feed")]

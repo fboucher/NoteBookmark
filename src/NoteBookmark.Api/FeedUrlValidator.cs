@@ -24,9 +24,10 @@ public class FeedUrlValidator(IFeedReader reader)
             return new FeedValidationResult(feedUrl, siteUrl, null, Fixed: false, null, null);
         }
 
-        // Hosts that couldn't be reached at all (DNS or connection error): another path on them won't work either.
+        // Hosts that couldn't be reached (DNS or connection error) or didn't answer in time: another path on them
+        // won't do better, and skipping them keeps a file full of dead feeds from taking minutes to import.
         var unreachable = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (original.ErrorKind == FeedErrorKind.Unreachable)
+        if (IsHostDown(original.ErrorKind))
         {
             unreachable.Add(Authority(feedUrl));
         }
@@ -75,12 +76,14 @@ public class FeedUrlValidator(IFeedReader reader)
             return false;
         }
         var result = await reader.FetchAsync(new Feed { FeedUrl = url }, refresh: false, cancellationToken);
-        if (result.ErrorKind == FeedErrorKind.Unreachable)
+        if (IsHostDown(result.ErrorKind))
         {
             unreachable.Add(Authority(url));
         }
         return result.Error is null;
     }
+
+    private static bool IsHostDown(string? kind) => kind is FeedErrorKind.Unreachable or FeedErrorKind.Timeout;
 
     /// <summary><c>https://example.com/blog/</c> → <c>https://example.com/blog/feed</c>; an http URL also gets its https form.</summary>
     public static List<string> FeedSuffixCandidates(Uri uri)
