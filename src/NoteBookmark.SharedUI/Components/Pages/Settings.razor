@@ -102,6 +102,26 @@
                     <FluentTextField Label="Model Name" @bind-Value="settings!.AiModelName" Style="width:80%" Placeholder="mistralai/mistral-small-3.2-24b-instruct" />
                 </FluentStack>
 
+                <FluentDivider Style="margin: 20px 0;" />
+
+                <FluentLabel Typo="Typography.H5">Feeds</FluentLabel>
+
+                <FluentStack Orientation="Orientation.Horizontal" Width="100%" VerticalAlignment="VerticalAlignment.Center">
+                    <FluentSwitch Id="feed-refresh-enabled"
+                                  Label="Background Feed Refresh"
+                                  @bind-Value="settings!.FeedRefreshEnabled" />
+                </FluentStack>
+
+                <FluentStack Orientation="Orientation.Horizontal" Width="100%" VerticalAlignment="VerticalAlignment.Center">
+                    <FluentSelect Id="feed-refresh-interval"
+                                  Label="Refresh Interval"
+                                  Width="150px"
+                                  Items="@feedRefreshIntervalOptions"
+                                  OptionText="@(i => i.Text)"
+                                  OptionValue="@(i => i.Value)"
+                                  @bind-Value="FeedRefreshIntervalValue" />
+                </FluentStack>
+
                 <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>
         
             </FluentStack>
@@ -139,6 +159,7 @@
     private Domain.Settings? settings;
 
     private record FontSizeOption(string Text, string Value);
+    private record FeedRefreshIntervalOption(string Text, string Value);
 
     private static readonly List<FontSizeOption> fontSizeOptions = new()
     {
@@ -147,12 +168,43 @@
         new("Large", "large")
     };
 
+    private static readonly List<FeedRefreshIntervalOption> feedRefreshIntervalOptions = new()
+    {
+        new("30 min", "30"),
+        new("1 h", "60"),
+        new("3 h", "180"),
+        new("6 h", "360"),
+        new("12 h", "720"),
+        new("24 h", "1440")
+    };
+
+    private string FeedRefreshIntervalValue
+    {
+        get => (settings?.FeedRefreshIntervalMinutes is > 0
+            ? settings.FeedRefreshIntervalMinutes
+            : Domain.Settings.DefaultFeedRefreshIntervalMinutes).ToString();
+        set
+        {
+            if (settings != null && int.TryParse(value, out var minutes))
+            {
+                settings.FeedRefreshIntervalMinutes = minutes;
+            }
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         settings = await client.GetSettings();
-        if (settings != null && string.IsNullOrWhiteSpace(settings.FontSize))
+        if (settings != null)
         {
-            settings.FontSize = FontSizeHelper.DefaultFontSize;
+            if (string.IsNullOrWhiteSpace(settings.FontSize))
+            {
+                settings.FontSize = FontSizeHelper.DefaultFontSize;
+            }
+            if (settings.FeedRefreshIntervalMinutes <= 0)
+            {
+                settings.FeedRefreshIntervalMinutes = Domain.Settings.DefaultFeedRefreshIntervalMinutes;
+            }
         }
     }
 

@@ -226,6 +226,37 @@ public class SettingEndpointsTests : IClassFixture<NoteBookmarkApiTestFactory>
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task SaveSettings_PersistsFeedRefreshSettings()
+    {
+        var settings = CreateTestSettings();
+        settings.FeedRefreshEnabled = true;
+        settings.FeedRefreshIntervalMinutes = 180;
+
+        var saveResponse = await _client.PostAsJsonAsync("/api/settings/SaveSettings", settings);
+        saveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var saved = await _client.GetFromJsonAsync<Settings>("/api/settings/");
+        saved!.FeedRefreshEnabled.Should().BeTrue();
+        saved.FeedRefreshIntervalMinutes.Should().Be(180);
+
+        // Reset so other tests using the shared fixture observe the default disabled state.
+        settings.FeedRefreshEnabled = false;
+        settings.FeedRefreshIntervalMinutes = 60;
+        (await _client.PostAsJsonAsync("/api/settings/SaveSettings", settings)).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task SaveSettings_WithInvalidFeedRefreshInterval_ReturnsBadRequest()
+    {
+        var settings = CreateTestSettings();
+        settings.FeedRefreshIntervalMinutes = 15;
+
+        var response = await _client.PostAsJsonAsync("/api/settings/SaveSettings", settings);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     // Helper methods
     private static Settings CreateTestSettings()
     {

@@ -63,4 +63,10 @@ public interface IDataStorageService
     public Task SaveFeedItemStates(IEnumerable<FeedItemState> states);
 
     public Task<int> PruneSkippedFeedItemStates(DateTime olderThan);
+
+    public Task<FeedSnapshot?> GetFeedSnapshot(string feedId);
+
+    public Task SaveFeedSnapshot(FeedSnapshot snapshot);
+
+    public Task<bool> DeleteFeedSnapshot(string feedId);
 }

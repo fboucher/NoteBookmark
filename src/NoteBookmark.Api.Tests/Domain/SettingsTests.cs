@@ -226,4 +226,18 @@ public class SettingsTests
 
         settings.FontSize.Should().Be(fontSize);
     }
+
+    [Fact]
+    public void FeedRefreshSettings_HaveExpectedDefaultsAndPresets()
+    {
+        var settings = new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting"
+        };
+
+        settings.FeedRefreshEnabled.Should().BeFalse();
+        settings.FeedRefreshIntervalMinutes.Should().Be(60);
+        Settings.AllowedFeedRefreshIntervals.Should().Equal(30, 60, 180, 360, 720, 1440);
+    }
 }

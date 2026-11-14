@@ -18,7 +18,7 @@ public class FeedUrlValidator(IFeedReader reader)
     public async Task<FeedValidationResult> ValidateAsync(string feedUrl, string? siteUrl, CancellationToken cancellationToken = default)
     {
         // (a) The URL as given. Successes also fill the reader's cache, so the Feeds tab loads instantly afterwards.
-        var original = await reader.FetchAsync(new Feed { FeedUrl = feedUrl }, refresh: false, cancellationToken);
+        var original = await reader.FetchAsync(new Feed { RowKey = string.Empty, FeedUrl = feedUrl }, refresh: false, cancellationToken);
         if (original.Error is null)
         {
             return new FeedValidationResult(feedUrl, siteUrl, null, Fixed: false, null, null);
@@ -75,7 +75,7 @@ public class FeedUrlValidator(IFeedReader reader)
         {
             return false;
         }
-        var result = await reader.FetchAsync(new Feed { FeedUrl = url }, refresh: false, cancellationToken);
+        var result = await reader.FetchAsync(new Feed { RowKey = string.Empty, FeedUrl = url }, refresh: false, cancellationToken);
         if (IsHostDown(result.ErrorKind))
         {
             unreachable.Add(Authority(url));

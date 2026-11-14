@@ -393,6 +393,75 @@ public class DataStorageServiceTests : IClassFixture<AzureStorageTestFixture>
         updatedPost2!.is_read.Should().BeFalse(); // No note, should remain unread
     }
 
+    [Fact]
+    public async Task SaveAndGetFeedSnapshot_RoundTripsJsonInFeedCacheContainer()
+    {
+        var feedId = Guid.NewGuid().ToString("N");
+        var now = DateTimeOffset.UtcNow;
+        var snapshot = new FeedSnapshot
+        {
+            FeedId = feedId,
+            FeedUrl = "https://example.com/feed.xml",
+            FetchedAt = now,
+            TotalCount = 5,
+            LastPublished = now.AddHours(-2),
+            Items =
+            [
+                new FeedItem
+                {
+                    Url = "https://example.com/1",
+                    Title = "Article 1",
+                    Published = now.AddHours(-2),
+                    Author = "Alice",
+                    Excerpt = "Short excerpt",
+                    Body = "<p>Hello</p>"
+                }
+            ]
+        };
+
+        await _dataStorageService.SaveFeedSnapshot(snapshot);
+        var loaded = await _dataStorageService.GetFeedSnapshot(feedId);
+
+        loaded.Should().NotBeNull();
+        loaded!.FeedId.Should().Be(feedId);
+        loaded.FeedUrl.Should().Be("https://example.com/feed.xml");
+        loaded.FetchedAt.Should().BeCloseTo(now, TimeSpan.FromMilliseconds(10));
+        loaded.TotalCount.Should().Be(5);
+        loaded.LastPublished.Should().BeCloseTo(now.AddHours(-2), TimeSpan.FromMilliseconds(10));
+        loaded.Items.Should().ContainSingle().Which.Title.Should().Be("Article 1");
+
+        var blob = _fixture.BlobServiceClient!
+            .GetBlobContainerClient(DataStorageService.FeedCacheContainerName)
+            .GetBlobClient($"{feedId}.json");
+        (await blob.ExistsAsync()).Value.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task DeleteFeed_DeletesFeedCacheSnapshotBlob()
+    {
+        var group = new FeedGroup { Name = "Group-" + Guid.NewGuid().ToString("N") };
+        await _dataStorageService.SaveFeedGroup(group);
+        var feed = new Feed
+        {
+            Title = "Feed to delete",
+            FeedUrl = $"https://example.com/{Guid.NewGuid():N}/rss",
+            GroupId = group.RowKey
+        };
+        await _dataStorageService.SaveFeed(feed);
+        await _dataStorageService.SaveFeedSnapshot(new FeedSnapshot
+        {
+            FeedId = feed.RowKey,
+            FeedUrl = feed.FeedUrl,
+            FetchedAt = DateTimeOffset.UtcNow,
+            TotalCount = 1
+        });
+
+        var deleted = await _dataStorageService.DeleteFeed(feed.RowKey);
+
+        deleted.Should().BeTrue();
+        (await _dataStorageService.GetFeedSnapshot(feed.RowKey)).Should().BeNull();
+    }
+
     // Helper methods for creating test data
     private static Post CreateTestPost()
     {

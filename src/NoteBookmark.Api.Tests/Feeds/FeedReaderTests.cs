@@ -1,12 +1,22 @@
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using NoteBookmark.Api;
 using NoteBookmark.Api.Tests.Fixtures;
 using NoteBookmark.Domain;
 using Xunit;
 
 namespace NoteBookmark.Api.Tests.Feeds;
+
+public sealed class AdjustableTimeProvider(DateTimeOffset? start = null) : TimeProvider
+{
+    private DateTimeOffset _now = start ?? DateTimeOffset.UtcNow;
+
+    public override DateTimeOffset GetUtcNow() => _now;
+
+    public void Advance(TimeSpan delta) => _now = _now.Add(delta);
+}
 
 public class FeedReaderTests
 {
@@ -204,5 +214,149 @@ public class FeedReaderTests
     public async Task DiscoverAsync_BadOrUnreachableUrl_ReturnsNull(string url)
     {
         (await _reader.DiscoverAsync(url)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task FetchAsync_PersistsSnapshotToStorage_OnlyWithRecentItems_AndPreservesTotalAndLastPublished()
+    {
+        const string url = "https://persist.example.com/rss";
+        var now = DateTimeOffset.UtcNow;
+        _handler.Respond(url, FeedSamples.Rss(
+            ("https://persist.example.com/recent", "Recent", now.AddDays(-2)),
+            ("https://persist.example.com/old", "Old", now.AddDays(-45))));
+        var storage = new Mock<IDataStorageService>();
+        FeedSnapshot? savedSnapshot = null;
+        storage.Setup(s => s.SaveFeedSnapshot(It.IsAny<FeedSnapshot>()))
+            .Callback<FeedSnapshot>(s => savedSnapshot = s)
+            .Returns(Task.CompletedTask);
+        storage.Setup(s => s.GetSettings()).ReturnsAsync(new Settings { PartitionKey = "setting", RowKey = "setting" });
+
+        var clock = new AdjustableTimeProvider(now);
+        var reader = new FeedReader(new HttpClient(_handler), new MemoryCache(new MemoryCacheOptions()), NullLogger<FeedReader>.Instance, storage.Object, clock);
+        var feed = MakeFeed(url);
+
+        var result = await reader.FetchAsync(feed, refresh: false);
+
+        result.Items.Select(i => i.Title).Should().Equal("Recent");
+        result.TotalCount.Should().Be(2);
+        result.NewestPublished.Should().BeCloseTo(now.AddDays(-2), TimeSpan.FromSeconds(1));
+        result.FetchedAt.Should().Be(now);
+
+        savedSnapshot.Should().NotBeNull();
+        savedSnapshot!.FeedId.Should().Be(feed.RowKey);
+        savedSnapshot.TotalCount.Should().Be(2);
+        savedSnapshot.LastPublished.Should().BeCloseTo(now.AddDays(-2), TimeSpan.FromSeconds(1));
+        savedSnapshot.Items.Select(i => i.Title).Should().Equal("Recent");
+    }
+
+    [Fact]
+    public async Task FetchAsync_TransientFailureDuringRefresh_PreservesPreviouslyStoredItems_WhileRecordingError()
+    {
+        const string url = "https://transient.example.com/rss";
+        var now = DateTimeOffset.UtcNow;
+        _handler.Respond(url, FeedSamples.Rss(("https://transient.example.com/1", "Keep me", now.AddHours(-1))));
+
+        var snapshots = new Dictionary<string, FeedSnapshot>();
+        var storage = new Mock<IDataStorageService>();
+        storage.Setup(s => s.SaveFeedSnapshot(It.IsAny<FeedSnapshot>()))
+            .Callback<FeedSnapshot>(s => snapshots[s.FeedId] = s)
+            .Returns(Task.CompletedTask);
+        storage.Setup(s => s.GetFeedSnapshot(It.IsAny<string>()))
+            .ReturnsAsync((string id) => snapshots.GetValueOrDefault(id));
+        storage.Setup(s => s.GetSettings()).ReturnsAsync(new Settings { PartitionKey = "setting", RowKey = "setting" });
+
+        var clock = new AdjustableTimeProvider(now);
+        var reader = new FeedReader(new HttpClient(_handler), new MemoryCache(new MemoryCacheOptions()), NullLogger<FeedReader>.Instance, storage.Object, clock);
+        var feed = MakeFeed(url);
+
+        var initial = await reader.FetchAsync(feed, refresh: false);
+        initial.Error.Should().BeNull();
+        initial.Items.Should().ContainSingle().Which.Title.Should().Be("Keep me");
+
+        // Next refresh fails with HTTP 500 (even with a fresh memory cache simulating a restart).
+        _handler.Respond(url, "boom", "text/plain", System.Net.HttpStatusCode.InternalServerError);
+        clock.Advance(TimeSpan.FromMinutes(30));
+        var readerAfterRestart = new FeedReader(new HttpClient(_handler), new MemoryCache(new MemoryCacheOptions()), NullLogger<FeedReader>.Instance, storage.Object, clock);
+
+        var afterFailure = await readerAfterRestart.FetchAsync(feed, refresh: true);
+
+        afterFailure.ErrorKind.Should().Be(FeedErrorKind.Http);
+        afterFailure.Error.Should().Contain("500");
+        afterFailure.Items.Should().ContainSingle().Which.Title.Should().Be("Keep me");
+        afterFailure.TotalCount.Should().Be(1);
+        afterFailure.FetchedAt.Should().Be(clock.GetUtcNow());
+        snapshots[feed.RowKey].Items.Should().ContainSingle().Which.Title.Should().Be("Keep me");
+        snapshots[feed.RowKey].ErrorKind.Should().Be(FeedErrorKind.Http);
+    }
+
+    [Fact]
+    public async Task FetchAsync_BackgroundRefreshEnabled_ServesSnapshotFromBlobRegardlessOfAge()
+    {
+        const string url = "https://warm.example.com/rss";
+        var now = DateTimeOffset.UtcNow;
+        var feed = MakeFeed(url);
+        var storedSnapshot = new FeedSnapshot
+        {
+            FeedId = feed.RowKey,
+            FeedUrl = url,
+            FetchedAt = now.AddHours(-3),
+            TotalCount = 1,
+            LastPublished = now.AddHours(-4),
+            Items = [new FeedItem { Url = "https://warm.example.com/1", Title = "Cached in blob", Published = now.AddHours(-4) }]
+        };
+
+        var storage = new Mock<IDataStorageService>();
+        storage.Setup(s => s.GetFeedSnapshot(feed.RowKey)).ReturnsAsync(storedSnapshot);
+        storage.Setup(s => s.GetSettings()).ReturnsAsync(new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            FeedRefreshEnabled = true,
+            FeedRefreshIntervalMinutes = 360
+        });
+
+        var clock = new AdjustableTimeProvider(now);
+        var reader = new FeedReader(new HttpClient(_handler), new MemoryCache(new MemoryCacheOptions()), NullLogger<FeedReader>.Instance, storage.Object, clock);
+
+        var result = await reader.FetchAsync(feed, refresh: false);
+
+        _handler.Hits(url).Should().Be(0);
+        result.Items.Should().ContainSingle().Which.Title.Should().Be("Cached in blob");
+        result.FetchedAt.Should().Be(now.AddHours(-3));
+    }
+
+    [Fact]
+    public async Task FetchAsync_BackgroundRefreshDisabled_RefreshesSnapshotOlderThan15Minutes()
+    {
+        const string url = "https://stale.example.com/rss";
+        var now = DateTimeOffset.UtcNow;
+        _handler.Respond(url, FeedSamples.Rss(("https://stale.example.com/2", "Fresh download", now)));
+        var feed = MakeFeed(url);
+        var storedSnapshot = new FeedSnapshot
+        {
+            FeedId = feed.RowKey,
+            FeedUrl = url,
+            FetchedAt = now.AddMinutes(-16),
+            TotalCount = 1,
+            LastPublished = now.AddHours(-1),
+            Items = [new FeedItem { Url = "https://stale.example.com/1", Title = "Stale snapshot", Published = now.AddHours(-1) }]
+        };
+
+        var storage = new Mock<IDataStorageService>();
+        storage.Setup(s => s.GetFeedSnapshot(feed.RowKey)).ReturnsAsync(storedSnapshot);
+        storage.Setup(s => s.GetSettings()).ReturnsAsync(new Settings
+        {
+            PartitionKey = "setting",
+            RowKey = "setting",
+            FeedRefreshEnabled = false
+        });
+
+        var clock = new AdjustableTimeProvider(now);
+        var reader = new FeedReader(new HttpClient(_handler), new MemoryCache(new MemoryCacheOptions()), NullLogger<FeedReader>.Instance, storage.Object, clock);
+
+        var result = await reader.FetchAsync(feed, refresh: false);
+
+        _handler.Hits(url).Should().Be(1);
+        result.Items.Should().ContainSingle().Which.Title.Should().Be("Fresh download");
     }
 }

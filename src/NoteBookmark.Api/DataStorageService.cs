@@ -231,6 +231,10 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
         if (result.HasValue)
         {
             settings = result.Value!;
+            if (settings.FeedRefreshIntervalMinutes <= 0)
+            {
+                settings.FeedRefreshIntervalMinutes = Settings.DefaultFeedRefreshIntervalMinutes;
+            }
         }
         else
         {
@@ -238,7 +242,9 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
                 PartitionKey = "setting",
                 RowKey = "setting",
                 LastBookmarkDate = "2023-04-06T07:31:44",
-                ReadingNotesCounter = "623"
+                ReadingNotesCounter = "623",
+                FeedRefreshEnabled = false,
+                FeedRefreshIntervalMinutes = Settings.DefaultFeedRefreshIntervalMinutes
             };
 
             await tblSettings.AddEntityAsync<Settings>(settings);
@@ -449,11 +455,79 @@ public class DataStorageService(TableServiceClient tblClient, BlobServiceClient 
         await table.UpsertEntityAsync(feed, TableUpdateMode.Replace);
     }
 
+    public const string FeedCacheContainerName = "feed-cache";
+
+    private static readonly JsonSerializerOptions FeedSnapshotJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
+
     public async Task<bool> DeleteFeed(string id)
     {
         var table = await GetFeedTable();
         var response = await table.DeleteEntityAsync(Feed.Partition, id);
+        await DeleteFeedSnapshot(id);
         return response.Status != 404;
+    }
+
+    public async Task<FeedSnapshot?> GetFeedSnapshot(string feedId)
+    {
+        if (string.IsNullOrWhiteSpace(feedId))
+        {
+            return null;
+        }
+
+        try
+        {
+            var container = blobClient.GetBlobContainerClient(FeedCacheContainerName);
+            var blob = container.GetBlobClient($"{feedId}.json");
+            if (!await blob.ExistsAsync())
+            {
+                return null;
+            }
+
+            var response = await blob.DownloadContentAsync();
+            return response.Value.Content.ToObjectFromJson<FeedSnapshot>(FeedSnapshotJsonOptions);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return null;
+        }
+    }
+
+    public async Task SaveFeedSnapshot(FeedSnapshot snapshot)
+    {
+        if (string.IsNullOrWhiteSpace(snapshot.FeedId))
+        {
+            return;
+        }
+
+        var container = blobClient.GetBlobContainerClient(FeedCacheContainerName);
+        await container.CreateIfNotExistsAsync();
+        var blob = container.GetBlobClient($"{snapshot.FeedId}.json");
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(snapshot, FeedSnapshotJsonOptions);
+        using var stream = new MemoryStream(bytes);
+        await blob.UploadAsync(stream, overwrite: true);
+    }
+
+    public async Task<bool> DeleteFeedSnapshot(string feedId)
+    {
+        if (string.IsNullOrWhiteSpace(feedId))
+        {
+            return false;
+        }
+
+        try
+        {
+            var container = blobClient.GetBlobContainerClient(FeedCacheContainerName);
+            var response = await container.DeleteBlobIfExistsAsync($"{feedId}.json");
+            return response.Value;
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            return false;
+        }
     }
 
     public async Task<List<FeedItemState>> GetFeedItemStates() =>
