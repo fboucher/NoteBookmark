@@ -23,9 +23,11 @@ builder.Services.AddHostedService<PostExtractionBackgroundWorker>();
 // Register AI settings provider
 builder.Services.AddScoped<IAISettingsProvider, AISettingsProvider>();
 
-// Feeds tab: on-demand RSS/Atom fetching with an in-memory cache
+// Feeds tab: RSS/Atom fetching with in-memory + blob snapshot cache and optional background refresh worker
 builder.Services.AddMemoryCache();
 builder.Services.AddFeedReader();
+builder.Services.AddSingleton<FeedRefreshNotifier>();
+builder.Services.AddHostedService<FeedRefreshBackgroundWorker>();
 
 var app = builder.Build();
 

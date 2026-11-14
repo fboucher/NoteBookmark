@@ -5,23 +5,37 @@ using NoteBookmark.Domain;
 
 namespace NoteBookmark.Api;
 
-public record FeedFetchResult(List<FeedItem> Items, string? Error, string? ErrorKind = null)
+public record FeedFetchResult(
+    List<FeedItem> Items,
+    string? Error,
+    string? ErrorKind = null,
+    int? TotalItemCount = null,
+    DateTimeOffset? LastPublished = null,
+    DateTimeOffset? FetchedAt = null)
 {
     /// <summary>Items in the feed document before any filtering.</summary>
-    public int TotalCount => Items.Count;
+    public int TotalCount => TotalItemCount ?? Items.Count;
+
+    /// <summary>Date of the newest item in the feed document before any filtering.</summary>
+    public DateTimeOffset? NewestPublished => LastPublished ?? (Items.Count > 0 ? Items.Max(i => i.Published) : null);
 }
 
 public interface IFeedReader
 {
-    /// <summary>Items of one feed, from a ~15 minute cache unless <paramref name="refresh"/> is set. Never throws for feed errors.</summary>
+    /// <summary>Items of one feed, from cache/storage unless <paramref name="refresh"/> is set. Never throws for feed errors.</summary>
     Task<FeedFetchResult> FetchAsync(Feed feed, bool refresh, CancellationToken cancellationToken = default);
 
     /// <summary>Finds the feed for a feed URL or a site URL (via &lt;link rel="alternate"&gt;). Null when there is none.</summary>
     Task<FeedDiscoveryResult?> DiscoverAsync(string url, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Downloads and parses feeds on demand. There is no background polling.</summary>
-public class FeedReader(HttpClient httpClient, IMemoryCache cache, ILogger<FeedReader> logger) : IFeedReader
+/// <summary>Downloads, parses, and caches feeds in memory and Azure Blob Storage (<c>feed-cache</c>).</summary>
+public class FeedReader(
+    HttpClient httpClient,
+    IMemoryCache cache,
+    ILogger<FeedReader> logger,
+    IDataStorageService? storage = null,
+    TimeProvider? timeProvider = null) : IFeedReader
 {
     public static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(15);
     public static readonly TimeSpan FetchTimeout = TimeSpan.FromSeconds(10);
@@ -31,6 +45,7 @@ public class FeedReader(HttpClient httpClient, IMemoryCache cache, ILogger<FeedR
     /// for every timeout again on each page load. Refresh still retries them.
     /// </summary>
     public static readonly TimeSpan FailureCacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan MemoryCacheEntryLifetime = TimeSpan.FromHours(25);
     private const long MaxDocumentBytes = 10 * 1024 * 1024;
 
     /// <summary>Per-download timeout; settable so tests don't wait 10 seconds.</summary>
@@ -41,61 +56,242 @@ public class FeedReader(HttpClient httpClient, IMemoryCache cache, ILogger<FeedR
     private static readonly SemaphoreSlim DownloadSlots = new(MaxConcurrentDownloads);
     private static readonly object InFlightLock = new();
 
+    private DateTimeOffset GetUtcNow() => (timeProvider ?? TimeProvider.System).GetUtcNow();
+
+    private static string SnapshotCacheKey(string feedId) => "feed-snapshot:" + feedId;
+    private static string UrlCacheKey(string normalizedUrl) => "feed:" + normalizedUrl;
+
+    public static void EvictCache(IMemoryCache cache, string feedId, string? feedUrl = null)
+    {
+        if (!string.IsNullOrWhiteSpace(feedId))
+        {
+            if (cache.TryGetValue(SnapshotCacheKey(feedId), out FeedSnapshot? existing) && existing is not null)
+            {
+                cache.Remove(UrlCacheKey(FeedItemState.NormalizeUrl(existing.FeedUrl)));
+            }
+            cache.Remove(SnapshotCacheKey(feedId));
+        }
+
+        if (!string.IsNullOrWhiteSpace(feedUrl))
+        {
+            cache.Remove(UrlCacheKey(FeedItemState.NormalizeUrl(feedUrl)));
+        }
+    }
+
     public async Task<FeedFetchResult> FetchAsync(Feed feed, bool refresh, CancellationToken cancellationToken = default)
     {
-        var cacheKey = "feed:" + FeedItemState.NormalizeUrl(feed.FeedUrl);
-        if (!refresh && cache.TryGetValue(cacheKey, out FeedFetchResult? cached) && cached is not null)
+        var normalizedUrl = FeedItemState.NormalizeUrl(feed.FeedUrl);
+        if (!refresh)
         {
-            return cached with { Items = Stamp(cached.Items, feed) };
+            var existing = await GetExistingSnapshotAsync(feed, normalizedUrl);
+            if (existing is not null)
+            {
+                var backgroundRefreshEnabled = await IsBackgroundRefreshEnabledAsync();
+                if (IsSnapshotFresh(existing, backgroundRefreshEnabled))
+                {
+                    return ToFetchResult(existing, feed);
+                }
+            }
         }
 
         // One download per feed at a time: a second request for the same feed (another batch, or
         // the UI asking again for a feed that was still loading) waits for the same download.
         // The download isn't tied to the request, so it finishes and fills the cache even when the
         // request that started it has already answered.
-        Task<FeedFetchResult> download;
-        var inFlightKey = "feed-inflight:" + cacheKey;
+        Task<FeedSnapshot> download;
+        var inFlightKey = "feed-inflight:" + normalizedUrl;
         lock (InFlightLock)
         {
             // A completed task can linger when the download finished before it was registered; ignore it.
-            if (!cache.TryGetValue(inFlightKey, out Task<FeedFetchResult>? running) || running is null || running.IsCompleted)
+            if (!cache.TryGetValue(inFlightKey, out Task<FeedSnapshot>? running) || running is null || running.IsCompleted)
             {
-                running = DownloadAndCacheAsync(feed.FeedUrl, cacheKey, inFlightKey);
+                running = DownloadAndCacheAsync(feed, normalizedUrl, inFlightKey);
                 cache.Set(inFlightKey, running, TimeSpan.FromMinutes(2));
             }
             download = running;
         }
 
-        var result = await download.WaitAsync(cancellationToken);
-        return result with { Items = Stamp(result.Items, feed) };
+        var snapshot = await download.WaitAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(feed.RowKey) && snapshot.FeedId != feed.RowKey)
+        {
+            var boundSnapshot = new FeedSnapshot
+            {
+                FeedId = feed.RowKey,
+                FeedUrl = snapshot.FeedUrl,
+                FetchedAt = snapshot.FetchedAt,
+                TotalCount = snapshot.TotalCount,
+                LastPublished = snapshot.LastPublished,
+                Error = snapshot.Error,
+                ErrorKind = snapshot.ErrorKind,
+                Items = snapshot.Items
+            };
+            CacheInMemory(feed.RowKey, normalizedUrl, boundSnapshot);
+            if (storage is not null)
+            {
+                await storage.SaveFeedSnapshot(boundSnapshot);
+            }
+            snapshot = boundSnapshot;
+        }
+
+        return ToFetchResult(snapshot, feed);
     }
 
-    private async Task<FeedFetchResult> DownloadAndCacheAsync(string feedUrl, string cacheKey, string inFlightKey)
+    private async Task<FeedSnapshot> DownloadAndCacheAsync(Feed feed, string normalizedUrl, string inFlightKey)
     {
         await Task.Yield(); // run outside the caller's lock
-        FeedFetchResult result;
+        var previous = await GetExistingSnapshotAsync(feed, normalizedUrl);
+        FeedSnapshot snapshot;
         await DownloadSlots.WaitAsync();
         try
         {
-            var content = await DownloadAsync(feedUrl, CancellationToken.None);
-            var parsed = FeedParser.Parse(content, new Uri(feedUrl));
-            result = new FeedFetchResult(parsed.Items, null);
-            cache.Set(cacheKey, result, CacheDuration);
+            var content = await DownloadAsync(feed.FeedUrl, CancellationToken.None);
+            var parsed = FeedParser.Parse(content, new Uri(feed.FeedUrl));
+            var now = GetUtcNow();
+            var cutoff = now - FeedEndpoints.ItemMaxAge;
+            var totalCount = parsed.Items.Count;
+            var lastPublished = parsed.Items.Count > 0 ? parsed.Items.Max(i => i.Published) : null;
+            var recentItems = parsed.Items
+                .Where(i => i.Published is null || i.Published >= cutoff)
+                .ToList();
+
+            snapshot = new FeedSnapshot
+            {
+                FeedId = feed.RowKey,
+                FeedUrl = normalizedUrl,
+                FetchedAt = now,
+                TotalCount = totalCount,
+                LastPublished = lastPublished,
+                Error = null,
+                ErrorKind = null,
+                Items = recentItems
+            };
         }
         catch (Exception ex)
         {
             var (kind, message) = Classify(ex);
-            logger.LogWarning("Feed {FeedUrl} failed ({Kind}): {Error}", feedUrl, kind, message);
-            result = new FeedFetchResult([], message, kind);
-            cache.Set(cacheKey, result, FailureCacheDuration);
+            logger.LogWarning("Feed {FeedUrl} failed ({Kind}): {Error}", feed.FeedUrl, kind, message);
+            var now = GetUtcNow();
+            if (previous is not null && FeedItemState.NormalizeUrl(previous.FeedUrl) == normalizedUrl)
+            {
+                var cutoff = now - FeedEndpoints.ItemMaxAge;
+                var preservedItems = previous.Items
+                    .Where(i => i.Published is null || i.Published >= cutoff)
+                    .ToList();
+                snapshot = new FeedSnapshot
+                {
+                    FeedId = feed.RowKey,
+                    FeedUrl = normalizedUrl,
+                    FetchedAt = now,
+                    TotalCount = previous.TotalCount,
+                    LastPublished = previous.LastPublished,
+                    Error = message,
+                    ErrorKind = kind,
+                    Items = preservedItems
+                };
+            }
+            else
+            {
+                snapshot = new FeedSnapshot
+                {
+                    FeedId = feed.RowKey,
+                    FeedUrl = normalizedUrl,
+                    FetchedAt = now,
+                    TotalCount = 0,
+                    LastPublished = null,
+                    Error = message,
+                    ErrorKind = kind,
+                    Items = []
+                };
+            }
         }
         finally
         {
             DownloadSlots.Release();
             cache.Remove(inFlightKey);
         }
-        return result;
+
+        CacheInMemory(feed.RowKey, normalizedUrl, snapshot);
+        if (storage is not null && !string.IsNullOrWhiteSpace(feed.RowKey))
+        {
+            await storage.SaveFeedSnapshot(snapshot);
+        }
+
+        return snapshot;
     }
+
+    private async Task<FeedSnapshot?> GetExistingSnapshotAsync(Feed feed, string normalizedUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(feed.RowKey) &&
+            cache.TryGetValue(SnapshotCacheKey(feed.RowKey), out FeedSnapshot? byId) &&
+            byId is not null &&
+            FeedItemState.NormalizeUrl(byId.FeedUrl) == normalizedUrl)
+        {
+            return byId;
+        }
+
+        if (storage is not null && !string.IsNullOrWhiteSpace(feed.RowKey))
+        {
+            var stored = await storage.GetFeedSnapshot(feed.RowKey);
+            if (stored is not null && FeedItemState.NormalizeUrl(stored.FeedUrl) == normalizedUrl)
+            {
+                CacheInMemory(feed.RowKey, normalizedUrl, stored);
+                return stored;
+            }
+        }
+
+        if (cache.TryGetValue(UrlCacheKey(normalizedUrl), out FeedSnapshot? byUrl) &&
+            byUrl is not null &&
+            FeedItemState.NormalizeUrl(byUrl.FeedUrl) == normalizedUrl &&
+            (storage is null || string.IsNullOrWhiteSpace(feed.RowKey) || string.IsNullOrWhiteSpace(byUrl.FeedId) || byUrl.FeedId == feed.RowKey))
+        {
+            return byUrl;
+        }
+
+        return null;
+    }
+
+    private void CacheInMemory(string feedId, string normalizedUrl, FeedSnapshot snapshot)
+    {
+        if (!string.IsNullOrWhiteSpace(feedId))
+        {
+            cache.Set(SnapshotCacheKey(feedId), snapshot, MemoryCacheEntryLifetime);
+        }
+        cache.Set(UrlCacheKey(normalizedUrl), snapshot, MemoryCacheEntryLifetime);
+    }
+
+    private async Task<bool> IsBackgroundRefreshEnabledAsync()
+    {
+        if (storage is null)
+        {
+            return false;
+        }
+
+        var settings = await storage.GetSettings();
+        return settings?.FeedRefreshEnabled == true;
+    }
+
+    private bool IsSnapshotFresh(FeedSnapshot snapshot, bool backgroundRefreshEnabled)
+    {
+        if (backgroundRefreshEnabled)
+        {
+            return true;
+        }
+
+        var age = GetUtcNow() - snapshot.FetchedAt;
+        var ttl = snapshot.Error is not null && snapshot.Items.Count == 0
+            ? FailureCacheDuration
+            : CacheDuration;
+        return age < ttl;
+    }
+
+    private static FeedFetchResult ToFetchResult(FeedSnapshot snapshot, Feed feed) =>
+        new(
+            Stamp(snapshot.Items, feed),
+            snapshot.Error,
+            snapshot.ErrorKind,
+            snapshot.TotalCount,
+            snapshot.LastPublished,
+            snapshot.FetchedAt);
 
     public async Task<FeedDiscoveryResult?> DiscoverAsync(string url, CancellationToken cancellationToken = default)
     {

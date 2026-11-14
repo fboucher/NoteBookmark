@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Runtime.Serialization;
 using Azure;
@@ -8,6 +9,10 @@ namespace NoteBookmark.Domain;
 
 public class Settings: ITableEntity
 {
+    public const int DefaultFeedRefreshIntervalMinutes = 60;
+
+    public static readonly IReadOnlyList<int> AllowedFeedRefreshIntervals = [30, 60, 180, 360, 720, 1440];
+
     [DataMember(Name="last_bookmark_date")]
     public string? LastBookmarkDate { get; set; }
     
@@ -47,6 +52,12 @@ public class Settings: ITableEntity
 
     [DataMember(Name="font_size")]
     public string? FontSize { get; set; }
+
+    [DataMember(Name="feed_refresh_enabled")]
+    public bool FeedRefreshEnabled { get; set; }
+
+    [DataMember(Name="feed_refresh_interval_minutes")]
+    public int FeedRefreshIntervalMinutes { get; set; } = DefaultFeedRefreshIntervalMinutes;
     
     public required string PartitionKey { get ; set; }
     public required string RowKey { get ; set; }

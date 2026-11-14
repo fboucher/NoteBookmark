@@ -43,6 +43,9 @@ public class FeedStatus
     /// <summary>Date of the newest item in the feed, to spot feeds that stopped publishing.</summary>
     public DateTimeOffset? LastPublished { get; set; }
 
+    /// <summary>When this feed snapshot was last fetched (UTC).</summary>
+    public DateTimeOffset? FetchedAt { get; set; }
+
     /// <summary>True when the feed was still downloading when the API answered; ask for it again.</summary>
     public bool Loading { get; set; }
 
@@ -51,6 +54,26 @@ public class FeedStatus
 
     /// <summary>One of <see cref="FeedErrorKind"/>; null when the feed loaded fine.</summary>
     public string? ErrorKind { get; set; }
+}
+
+/// <summary>Persisted snapshot of one feed stored in the <c>feed-cache</c> blob container.</summary>
+public class FeedSnapshot
+{
+    public string FeedId { get; set; } = string.Empty;
+
+    public string FeedUrl { get; set; } = string.Empty;
+
+    public DateTimeOffset FetchedAt { get; set; }
+
+    public int TotalCount { get; set; }
+
+    public DateTimeOffset? LastPublished { get; set; }
+
+    public string? Error { get; set; }
+
+    public string? ErrorKind { get; set; }
+
+    public List<FeedItem> Items { get; set; } = [];
 }
 
 /// <summary>Why a feed failed to load, so the UI can tell a dead feed from a slow one.</summary>
@@ -94,6 +117,9 @@ public class FeedItemsResponse
 
     /// <summary>One entry per requested feed, including failed ones.</summary>
     public List<FeedStatus> Feeds { get; set; } = [];
+
+    /// <summary>Most recent fetch time across the returned feeds.</summary>
+    public DateTimeOffset? LastRefreshed { get; set; }
 }
 
 /// <summary>Response of <c>GET api/feeds/discover</c>.</summary>

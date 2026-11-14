@@ -338,4 +338,42 @@ public sealed class FeedsPageTests : BunitContext
     {
         Feeds.Age(null).Should().Be("undated");
     }
+
+    [Theory]
+    [InlineData(0.2, "Updated just now")]
+    [InlineData(12, "Updated 12m ago")]
+    [InlineData(3 * 60, "Updated 3h ago")]
+    [InlineData(2 * 24 * 60, "Updated 2d ago")]
+    public void FormatLastUpdated_FormatsRelativeTime(double minutesAgo, string expected)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        Feeds.FormatLastUpdated(now.AddMinutes(-minutesAgo), now).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task LastUpdatedIndicator_DisplaysNextToRefreshButton_AndUpdatesAfterRefresh()
+    {
+        var initialFetchTime = DateTimeOffset.UtcNow.AddMinutes(-12);
+        _server["f-a"] = ([Item("f-a", "g-dev", "Dev newest", 1)],
+            new FeedStatus { FeedId = "f-a", GroupId = "g-dev", PendingCount = 1, TotalCount = 1, FetchedAt = initialFetchTime });
+        _server["f-n"] = ([Item("f-n", "g-news", "News item", 2)],
+            new FeedStatus { FeedId = "f-n", GroupId = "g-news", PendingCount = 1, TotalCount = 1, FetchedAt = initialFetchTime });
+
+        var cut = RenderLoaded();
+
+        var indicator = cut.Find("#feeds-last-updated");
+        indicator.TextContent.Trim().Should().Be("Updated 12m ago");
+        indicator.GetAttribute("title").Should().StartWith("Last updated:");
+
+        var refreshedTime = DateTimeOffset.UtcNow;
+        _server["f-a"] = ([Item("f-a", "g-dev", "Dev newest", 1)],
+            new FeedStatus { FeedId = "f-a", GroupId = "g-dev", PendingCount = 1, TotalCount = 1, FetchedAt = refreshedTime });
+        _server["f-n"] = ([Item("f-n", "g-news", "News item", 2)],
+            new FeedStatus { FeedId = "f-n", GroupId = "g-news", PendingCount = 1, TotalCount = 1, FetchedAt = refreshedTime });
+
+        await cut.InvokeAsync(() => cut.Find("fluent-button#refresh-feeds").Click());
+
+        cut.WaitForAssertion(() => cut.Find("#feeds-last-updated").TextContent.Trim().Should().Be("Updated just now"));
+    }
 }

@@ -33,7 +33,11 @@ public static class SettingEndpoints
         return counter;
 	}
 
-    static async Task<Results<Ok, BadRequest>> SaveSettings(Settings settings, TableServiceClient tblClient, BlobServiceClient blobClient)
+    static async Task<Results<Ok, BadRequest>> SaveSettings(
+        Settings settings,
+        TableServiceClient tblClient,
+        BlobServiceClient blobClient,
+        FeedRefreshNotifier? feedRefreshNotifier = null)
     {
         try
         {
@@ -41,6 +45,15 @@ public static class SettingEndpoints
                 string.IsNullOrWhiteSpace(settings.RowKey) ||
                 string.IsNullOrWhiteSpace(settings.LastBookmarkDate) ||
                 string.IsNullOrWhiteSpace(settings.ReadingNotesCounter))
+            {
+                return TypedResults.BadRequest();
+            }
+
+            if (settings.FeedRefreshIntervalMinutes == 0)
+            {
+                settings.FeedRefreshIntervalMinutes = Settings.DefaultFeedRefreshIntervalMinutes;
+            }
+            else if (!Settings.AllowedFeedRefreshIntervals.Contains(settings.FeedRefreshIntervalMinutes))
             {
                 return TypedResults.BadRequest();
             }
@@ -55,7 +68,13 @@ public static class SettingEndpoints
             }
             
             var result = await dataStorageService.SaveSettings(settings);
-            return result ? TypedResults.Ok() : TypedResults.BadRequest();
+            if (!result)
+            {
+                return TypedResults.BadRequest();
+            }
+
+            feedRefreshNotifier?.NotifySettingsChanged();
+            return TypedResults.Ok();
         }
         catch (Exception ex)
         {
@@ -77,6 +96,11 @@ public static class SettingEndpoints
         if(settings.SummaryPrompt == null)
         {
             settings.SummaryPrompt = "write a short introduction paragraph, without using '—', for the blog post: {content}";
+        }
+
+        if (settings.FeedRefreshIntervalMinutes <= 0)
+        {
+            settings.FeedRefreshIntervalMinutes = Settings.DefaultFeedRefreshIntervalMinutes;
         }
 
         // Security: Do not expose the API key to clients - return masked value

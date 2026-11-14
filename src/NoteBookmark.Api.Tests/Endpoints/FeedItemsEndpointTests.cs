@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using NoteBookmark.Api.Tests.Feeds;
 using NoteBookmark.Api.Tests.Fixtures;
 using NoteBookmark.Domain;
@@ -222,5 +223,30 @@ public class FeedItemsEndpointTests : IClassFixture<FeedsApiTestFactory>
         var body = await response.Content.ReadFromJsonAsync<FeedItemsResponse>();
         body!.Items.Should().BeEmpty();
         body.Feeds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetItems_PersistsSnapshotInBlob_AndReturnsLastRefreshedTimestamp()
+    {
+        var group = await CreateGroup();
+        var host = UniqueHost();
+        var now = DateTimeOffset.UtcNow;
+        _factory.Feeds.Respond($"{host}/rss", FeedSamples.Rss(($"{host}/1", "Persisted item", now)));
+        var feed = await CreateFeed(group, $"{host}/rss");
+
+        var response = await GetItems($"?feedId={feed.RowKey}");
+
+        response!.LastRefreshed.Should().NotBeNull();
+        response.Feeds.Single().FetchedAt.Should().NotBeNull();
+
+        using var scope = _factory.Services.CreateScope();
+        var storage = scope.ServiceProvider.GetRequiredService<IDataStorageService>();
+        var snapshot = await storage.GetFeedSnapshot(feed.RowKey);
+        snapshot.Should().NotBeNull();
+        snapshot!.Items.Should().ContainSingle().Which.Title.Should().Be("Persisted item");
+
+        // Deleting the feed removes the snapshot blob.
+        (await _client.DeleteAsync($"/api/feeds/{feed.RowKey}")).EnsureSuccessStatusCode();
+        (await storage.GetFeedSnapshot(feed.RowKey)).Should().BeNull();
     }
 }

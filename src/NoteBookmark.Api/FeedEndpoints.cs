@@ -148,8 +148,16 @@ public static class FeedEndpoints
         return TypedResults.Ok(feed);
     }
 
-    static async Task<Results<Ok, NotFound>> DeleteFeed(string id, IDataStorageService storage) =>
-        await storage.DeleteFeed(id) ? TypedResults.Ok() : TypedResults.NotFound();
+    static async Task<Results<Ok, NotFound>> DeleteFeed(string id, IDataStorageService storage, IMemoryCache cache)
+    {
+        var existing = await storage.GetFeed(id);
+        if (!await storage.DeleteFeed(id))
+        {
+            return TypedResults.NotFound();
+        }
+        FeedReader.EvictCache(cache, id, existing?.FeedUrl);
+        return TypedResults.Ok();
+    }
 
     // ----- Discovery and import -----
 
@@ -319,12 +327,17 @@ public static class FeedEndpoints
                 GroupId = feed.GroupId,
                 PendingCount = pending.Count,
                 TotalCount = result.TotalCount,
-                LastPublished = result.Items.Max(i => i.Published),
+                LastPublished = result.NewestPublished,
+                FetchedAt = result.FetchedAt,
                 Error = result.Error,
                 ErrorKind = result.ErrorKind
             });
         }
 
+        response.LastRefreshed = response.Feeds
+            .Where(f => !f.Loading && f.FetchedAt is not null)
+            .Select(f => f.FetchedAt)
+            .Max();
         response.Items = response.Items
             .OrderByDescending(i => i.Published ?? DateTimeOffset.MinValue)
             .ToList();
