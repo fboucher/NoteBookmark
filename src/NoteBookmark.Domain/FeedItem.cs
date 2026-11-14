@@ -121,4 +121,31 @@ public class OpmlImportResult
 
     /// <summary>Feeds already in the list (same URL), left untouched.</summary>
     public int FeedsSkipped { get; set; }
+
+    /// <summary>Imported feeds whose OPML URL didn't work and was replaced by a working one.</summary>
+    public int FeedsFixed { get; set; }
+
+    /// <summary>Imported feeds that still don't work after every recovery attempt. They are saved with their OPML URL.</summary>
+    public List<OpmlFailedFeed> FailedFeeds { get; set; } = [];
+}
+
+/// <summary>A feed imported from OPML that could not be loaded, even after trying to fix its URL.</summary>
+public class OpmlFailedFeed
+{
+    /// <summary>RowKey of the saved <see cref="Feed"/>.</summary>
+    public string FeedId { get; set; } = string.Empty;
+
+    public string Title { get; set; } = string.Empty;
+
+    public string FeedUrl { get; set; } = string.Empty;
+
+    public string? SiteUrl { get; set; }
+
+    public string GroupName { get; set; } = string.Empty;
+
+    /// <summary>Technical error message of the OPML URL.</summary>
+    public string? Error { get; set; }
+
+    /// <summary>One of <see cref="FeedErrorKind"/>.</summary>
+    public string? ErrorKind { get; set; }
 }
