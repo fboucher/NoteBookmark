@@ -43,7 +43,7 @@ public static class FeedEndpoints
         endpoints.MapGet("/discover", Discover)
             .WithDescription("Find the RSS/Atom feed for a feed URL or a site URL");
         endpoints.MapPost("/import-opml", ImportOpml)
-            .WithDescription("Import an OPML subscription list (e.g. a Feedly export); folders become groups");
+            .WithDescription("Import an OPML subscription list (e.g. a Feedly export); folders become groups. Each new feed is checked, broken URLs are fixed when possible (https, site discovery, /feed), and feeds that still fail are imported and listed in FailedFeeds");
 
         endpoints.MapGet("/items", GetItems)
             .WithDescription("Pending items (newest first) for all feeds, one group (groupId), one feed (feedId) or a comma-separated list (feedIds); refresh=true bypasses the cache; waitMs answers early with still-loading feeds marked Loading");
@@ -167,7 +167,8 @@ public static class FeedEndpoints
             : TypedResults.Ok(result);
     }
 
-    static async Task<Results<Ok<OpmlImportResult>, BadRequest<string>>> ImportOpml(OpmlImportRequest request, IDataStorageService storage)
+    static async Task<Results<Ok<OpmlImportResult>, BadRequest<string>>> ImportOpml(OpmlImportRequest request, IDataStorageService storage,
+        FeedUrlValidator validator, CancellationToken cancellationToken)
     {
         List<OpmlParser.OpmlFeed> entries;
         try
@@ -183,11 +184,38 @@ public static class FeedEndpoints
         var groups = (await storage.GetFeedGroups())
             .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-        var knownFeeds = new HashSet<string>((await storage.GetFeeds()).Select(f => FeedItemState.NormalizeUrl(f.FeedUrl)));
+        var existing = (await storage.GetFeeds()).Select(f => FeedItemState.NormalizeUrl(f.FeedUrl)).ToList();
 
+        // Feeds already followed (or listed twice in the file) are skipped without being checked.
+        var seen = new HashSet<string>(existing);
+        var candidates = new List<OpmlParser.OpmlFeed>();
         foreach (var entry in entries)
         {
-            if (!knownFeeds.Add(FeedItemState.NormalizeUrl(entry.FeedUrl)))
+            if (seen.Add(FeedItemState.NormalizeUrl(entry.FeedUrl)))
+            {
+                candidates.Add(entry);
+            }
+            else
+            {
+                result.FeedsSkipped++;
+            }
+        }
+
+        // Check every new feed, and try to fix the broken ones, before saving anything. The reader limits
+        // concurrent downloads and times each one out, so a few hundred feeds take well under a minute.
+        var validations = new FeedValidationResult[candidates.Count];
+        await Parallel.ForEachAsync(Enumerable.Range(0, candidates.Count),
+            new ParallelOptions { MaxDegreeOfParallelism = FeedReader.MaxConcurrentDownloads, CancellationToken = cancellationToken },
+            async (i, ct) => validations[i] = await validator.ValidateAsync(candidates[i].FeedUrl, candidates[i].SiteUrl, ct));
+
+        // A fixed URL can point to a feed that is already followed, or to another entry of the same file.
+        var saved = new HashSet<string>(existing);
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var entry = candidates[i];
+            var validation = validations[i];
+            var feedUrl = validation.Success ? validation.FeedUrl : entry.FeedUrl;
+            if (!saved.Add(FeedItemState.NormalizeUrl(feedUrl)))
             {
                 result.FeedsSkipped++;
                 continue;
@@ -201,14 +229,36 @@ public static class FeedEndpoints
                 result.GroupsCreated++;
             }
 
-            await storage.SaveFeed(new Feed
+            // The OPML parser uses the URL as the title when the outline has none; a discovered title is better.
+            var title = entry.Title == entry.FeedUrl && !string.IsNullOrWhiteSpace(validation.Title) ? validation.Title : entry.Title;
+            var feed = new Feed
             {
-                Title = entry.Title,
-                FeedUrl = entry.FeedUrl,
-                SiteUrl = entry.SiteUrl,
+                Title = title,
+                FeedUrl = feedUrl,
+                SiteUrl = entry.SiteUrl ?? validation.SiteUrl,
                 GroupId = group.RowKey
-            });
+            };
+            await storage.SaveFeed(feed);
             result.FeedsCreated++;
+
+            if (validation.Fixed)
+            {
+                result.FeedsFixed++;
+            }
+            else if (!validation.Success)
+            {
+                // Imported anyway so the subscription isn't lost; the user can edit or delete it from the report.
+                result.FailedFeeds.Add(new OpmlFailedFeed
+                {
+                    FeedId = feed.RowKey,
+                    Title = feed.Title,
+                    FeedUrl = feed.FeedUrl,
+                    SiteUrl = feed.SiteUrl,
+                    GroupName = group.Name,
+                    Error = validation.Error,
+                    ErrorKind = validation.ErrorKind
+                });
+            }
         }
 
         return TypedResults.Ok(result);

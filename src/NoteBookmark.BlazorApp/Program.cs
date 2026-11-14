@@ -22,6 +22,8 @@ builder.Services.AddTransient<IDataService>(sp => sp.GetRequiredService<PostNote
 builder.Services.AddHttpClient<IFeedService, FeedClient>(client =>
             {
                 client.BaseAddress = new Uri("https+http://api");
+                // OPML import checks every new feed before answering; a few hundred feeds can take a few minutes.
+                client.Timeout = TimeSpan.FromMinutes(10);
             });
 builder.Services.AddScoped<IUrlLauncher, JsUrlLauncher>();
 builder.Services.AddHttpClient(nameof(NewsFeedService));

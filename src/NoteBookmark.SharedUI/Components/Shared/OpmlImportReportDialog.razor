@@ -1,0 +1,165 @@
+@implements IDialogContentComponent<OpmlImportReport>
+@inject IFeedService feedService
+@inject IToastService toastService
+
+<div class="oir">
+    @if (remaining.Count == 0)
+    {
+        <p id="oir-done">All failed feeds have been handled.</p>
+    }
+    else
+    {
+        <p class="oir-intro" id="oir-intro">
+            @remaining.Count feed(s) could not be loaded, even after trying https, the site's own feed link, and adding <code>/feed</code>.
+            They were imported anyway. Edit the address, delete the feed, or keep it to deal with later.
+        </p>
+        @foreach (var failed in remaining)
+        {
+            <div class="oir-row" data-feed-id="@failed.FeedId">
+                <div class="oir-text">
+                    <div class="oir-title">@failed.Title <span class="oir-group">· @failed.GroupName</span></div>
+                    @if (editingId == failed.FeedId)
+                    {
+                        <div class="oir-edit">
+                            <FluentTextField Id="@($"oir-url-{failed.FeedId}")" @bind-Value="editUrl" Immediate="true" Placeholder="https://example.com/rss"
+                                             Class="oir-grow" aria-label="Feed URL" />
+                            <FluentButton Class="oir-save" Appearance="Appearance.Accent" Loading="@saving" OnClick="() => SaveEdit(failed)"
+                                          Disabled="@(saving || string.IsNullOrWhiteSpace(editUrl))">Save</FluentButton>
+                            <FluentButton Class="oir-cancel" Disabled="@saving" OnClick="CancelEdit">Cancel</FluentButton>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="oir-url">@failed.FeedUrl</div>
+                    }
+                    <div class="oir-error">@FeedErrorKind.Describe(failed.ErrorKind) @if (!string.IsNullOrEmpty(failed.Error)) { <span class="oir-detail">(@failed.Error)</span> }</div>
+                </div>
+                @if (editingId != failed.FeedId)
+                {
+                    <FluentButton Class="oir-edit-button" Appearance="Appearance.Lightweight" Title="Edit address" aria-label="Edit address"
+                                  IconStart="@(new Icons.Regular.Size20.Edit())" Disabled="@busy" OnClick="() => StartEdit(failed)" />
+                    <FluentButton Class="oir-delete" Appearance="Appearance.Lightweight" Title="Delete feed" aria-label="Delete feed"
+                                  IconStart="@(new Icons.Regular.Size20.Delete())" Disabled="@busy" OnClick="() => Delete(failed)" />
+                }
+            </div>
+        }
+    }
+</div>
+
+<FluentDialogFooter>
+    <FluentSpacer />
+    <FluentButton Id="oir-close" Appearance="Appearance.Accent" Disabled="@saving" OnClick="Close">@(remaining.Count == 0 ? "Close" : "Keep the rest and close")</FluentButton>
+</FluentDialogFooter>
+
+<style>
+    .oir { max-height: 65vh; overflow-y: auto; }
+    .oir-intro { margin-top: 0; }
+    .oir-row { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0; border-top: 1px solid var(--neutral-stroke-divider-rest); }
+    .oir-text { flex: 1; min-width: 0; }
+    .oir-title { font-weight: 600; }
+    .oir-group { font-weight: normal; color: var(--neutral-foreground-hint); }
+    .oir-url { font-size: 0.85em; color: var(--neutral-foreground-hint); overflow-wrap: anywhere; }
+    .oir-error { font-size: 0.85em; margin-top: 0.15rem; }
+    .oir-detail { color: var(--neutral-foreground-hint); }
+    .oir-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin: 0.25rem 0; }
+    .oir-grow { flex: 1; min-width: 220px; }
+</style>
+
+@code {
+    [Parameter]
+    public OpmlImportReport Content { get; set; } = default!;
+
+    [CascadingParameter]
+    public FluentDialog? Dialog { get; set; }
+
+    private List<OpmlFailedFeed> remaining = [];
+    private string? editingId;
+    private string editUrl = string.Empty;
+    private bool saving;
+    private bool deleting;
+    private bool busy => saving || deleting;
+
+    protected override void OnInitialized() => remaining = Content.FailedFeeds.ToList();
+
+    private void StartEdit(OpmlFailedFeed failed)
+    {
+        editingId = failed.FeedId;
+        editUrl = failed.FeedUrl;
+    }
+
+    private void CancelEdit() => editingId = null;
+
+    private async Task SaveEdit(OpmlFailedFeed failed)
+    {
+        var feed = Content.Feeds.FirstOrDefault(f => f.RowKey == failed.FeedId);
+        if (feed is null)
+        {
+            toastService.ShowError("This feed is no longer in your list.");
+            remaining.Remove(failed);
+            editingId = null;
+            return;
+        }
+
+        saving = true;
+        try
+        {
+            // Same rules as editing a feed in Manage feeds: the address must lead to a working feed.
+            var discovered = await feedService.Discover(editUrl.Trim());
+            if (!discovered.Success || discovered.Value is null)
+            {
+                toastService.ShowError(discovered.Error ?? "No feed found at this address.");
+                return;
+            }
+
+            var updated = new Feed
+            {
+                RowKey = feed.RowKey,
+                GroupId = feed.GroupId,
+                Title = feed.Title,
+                FeedUrl = discovered.Value.FeedUrl,
+                SiteUrl = string.IsNullOrWhiteSpace(feed.SiteUrl) ? discovered.Value.SiteUrl : feed.SiteUrl,
+                ETag = feed.ETag
+            };
+            var result = await feedService.SaveFeed(updated);
+            if (!result.Success || result.Value is null)
+            {
+                toastService.ShowError(result.Error ?? "The feed could not be saved.");
+                return;
+            }
+
+            feed.FeedUrl = result.Value.FeedUrl;
+            feed.SiteUrl = result.Value.SiteUrl;
+            feed.ETag = result.Value.ETag;
+            remaining.Remove(failed);
+            editingId = null;
+            toastService.ShowSuccess($"Updated \"{feed.Title}\".");
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task Delete(OpmlFailedFeed failed)
+    {
+        deleting = true;
+        try
+        {
+            var result = await feedService.DeleteFeed(failed.FeedId);
+            if (!result.Success)
+            {
+                toastService.ShowError(result.Error ?? "The feed could not be deleted.");
+                return;
+            }
+
+            remaining.Remove(failed);
+            toastService.ShowSuccess($"Removed \"{failed.Title}\".");
+        }
+        finally
+        {
+            deleting = false;
+        }
+    }
+
+    private Task Close() => Dialog?.CloseAsync() ?? Task.CompletedTask;
+}
