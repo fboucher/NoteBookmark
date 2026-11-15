@@ -191,6 +191,7 @@ public sealed class FeedsPageTests : BunitContext
         cut.FindAll(".feeds-nav-row.feed").Should().BeEmpty();
         cut.Find("[data-group-id='g-dev'] .feeds-warning").GetAttribute("title").Should().Contain("1 feed(s)");
 
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         cut.FindAll(".feeds-nav-row.feed").Should().HaveCount(2);
@@ -206,6 +207,7 @@ public sealed class FeedsPageTests : BunitContext
         _server["f-b"] = ([], new FeedStatus { FeedId = "f-b", GroupId = "g-dev", Error = "Timed out after 10 seconds.", ErrorKind = FeedErrorKind.Timeout });
         var cut = RenderLoaded();
 
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         var warning = cut.Find("[data-feed-id='f-b'] .feeds-warning");
@@ -219,6 +221,7 @@ public sealed class FeedsPageTests : BunitContext
         _server["f-b"] = ([], new FeedStatus { FeedId = "f-b", GroupId = "g-dev", TotalCount = 5, LastPublished = Now.AddYears(-2) });
         var cut = RenderLoaded();
 
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         cut.Find("[data-feed-id='f-b'] .feeds-inactive").GetAttribute("title").Should().Contain("may no longer be updated");
@@ -229,12 +232,63 @@ public sealed class FeedsPageTests : BunitContext
     public void SelectingFeed_FiltersItems()
     {
         var cut = RenderLoaded();
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         cut.Find("[data-feed-id='f-b']").Click();
 
         cut.FindAll(".feed-item").Should().BeEmpty();
         cut.Markup.Should().Contain("All caught up");
+    }
+
+    [Fact]
+    public void ExpandingGroup_HidesZeroPostFeedsByDefault_AndTogglesToShowThem()
+    {
+        var cut = RenderLoaded();
+        var toggle = cut.Find("#nav-all #toggle-empty-feeds");
+        toggle.GetAttribute("title").Should().Be("Show feeds with no posts");
+        toggle.GetAttribute("aria-label").Should().Be("Show feeds with no posts");
+        toggle.GetAttribute("aria-pressed").Should().Be("true");
+
+        cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
+
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        toggle = cut.Find("#nav-all #toggle-empty-feeds");
+        toggle.GetAttribute("title").Should().Be("Hide feeds with no posts");
+        toggle.GetAttribute("aria-label").Should().Be("Hide feeds with no posts");
+        toggle.GetAttribute("aria-pressed").Should().Be("false");
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a", "f-b");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a");
+    }
+
+    [Fact]
+    public void ToggleEmptyFeeds_PreservesSelection_AndKeepsSelectedZeroPostFeedVisible()
+    {
+        var cut = RenderLoaded();
+        cut.Find("[data-group-id='g-news']").Click();
+        cut.Find("[data-group-id='g-news']").ClassList.Should().Contain("selected");
+        Titles(cut).Should().Equal("News item");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        cut.Find("#nav-all").ClassList.Should().NotContain("selected");
+        cut.Find("[data-group-id='g-news']").ClassList.Should().Contain("selected");
+        Titles(cut).Should().Equal("News item");
+
+        cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
+        cut.Find("[data-feed-id='f-b']").Click();
+        cut.Find("[data-feed-id='f-b']").ClassList.Should().Contain("selected");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        cut.Find("[data-feed-id='f-b']").ClassList.Should().Contain("selected");
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a", "f-b");
     }
 
     [Fact]
