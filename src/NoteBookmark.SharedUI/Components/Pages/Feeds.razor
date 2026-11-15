@@ -40,6 +40,13 @@ else
         <nav class="feeds-nav" aria-label="Feed groups">
             <div class="feeds-nav-row @(selection.IsAll ? "selected" : "")" id="nav-all" @onclick="() => Select(Selection.All)">
                 <span class="feeds-nav-name">All</span>
+                <button type="button" id="toggle-empty-feeds" class="feeds-toggle-empty"
+                        title="@(hideEmptyFeeds ? "Show feeds with no posts" : "Hide feeds with no posts")"
+                        aria-label="@(hideEmptyFeeds ? "Show feeds with no posts" : "Hide feeds with no posts")"
+                        aria-pressed="@(hideEmptyFeeds ? "true" : "false")"
+                        @onclick="ToggleEmptyFeeds" @onclick:stopPropagation="true">
+                    <FluentIcon Value="@(hideEmptyFeeds ? (Icon)new Icons.Regular.Size16.EyeOff() : new Icons.Regular.Size16.Eye())" Color="Color.Neutral" />
+                </button>
                 <span class="feeds-count">@items.Count</span>
             </div>
             @foreach (var group in groups)
@@ -63,7 +70,7 @@ else
                 </div>
                 @if (expanded)
                 {
-                    @foreach (var feed in groupFeeds)
+                    @foreach (var feed in groupFeeds.Where(f => !hideEmptyFeeds || CountFor(null, f.RowKey) > 0 || selection.FeedId == f.RowKey))
                     {
                         var status = StatusFor(feed.RowKey);
                         <div class="feeds-nav-row feed @(selection.FeedId == feed.RowKey ? "selected" : "")"
@@ -144,6 +151,8 @@ else
     .feeds-nav-row.feed { padding-left: 2rem; font-size: 0.92em; }
     .feeds-nav-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .feeds-expand, .feeds-warning, .feeds-inactive { display: inline-flex; }
+    .feeds-toggle-empty { display: inline-flex; align-items: center; justify-content: center; background: none; border: none; padding: 0.15rem; border-radius: 4px; cursor: pointer; color: inherit; }
+    .feeds-toggle-empty:hover { background: var(--neutral-fill-stealth-hover); }
     .feeds-warning, .feeds-inactive { cursor: help; }
     .feeds-count { color: var(--neutral-foreground-hint); font-variant-numeric: tabular-nums; }
     .feeds-last-updated { color: var(--neutral-foreground-hint); font-size: 0.85em; cursor: help; }
@@ -206,6 +215,7 @@ else
     private readonly HashSet<string> expandedGroups = [];
     private readonly HashSet<string> busyUrls = [];
     private Selection selection = Selection.All;
+    private bool hideEmptyFeeds = true;
 
     private bool IsFetching => feedsLoaded < feedsToLoad;
 
@@ -450,6 +460,8 @@ else
             expandedGroups.Add(groupId);
         }
     }
+
+    private void ToggleEmptyFeeds() => hideEmptyFeeds = !hideEmptyFeeds;
 
     private int CountFor(string? groupId, string? feedId) =>
         items.Count(i => (groupId is null || i.GroupId == groupId) && (feedId is null || i.FeedId == feedId));

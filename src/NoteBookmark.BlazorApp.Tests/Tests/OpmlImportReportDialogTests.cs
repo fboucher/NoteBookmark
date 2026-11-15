@@ -114,6 +114,7 @@ public sealed class OpmlImportReportDialogTests : BunitContext
         await Click(cut, ".oir-row[data-feed-id='f-dead'] fluent-button.oir-delete");
 
         cut.Find("#oir-done").Should().NotBeNull();
+        cut.FindAll("fluent-button#oir-discard-all").Should().BeEmpty();
         cut.Find("fluent-button#oir-close").TextContent.Should().Be("Close");
     }
 
@@ -122,10 +123,84 @@ public sealed class OpmlImportReportDialogTests : BunitContext
     {
         var cut = RenderDialog();
 
+        cut.Find("fluent-button#oir-discard-all").TextContent.Should().Be("Discard all and close");
         cut.Find("fluent-button#oir-close").TextContent.Should().Be("Keep the rest and close");
         await Click(cut, "fluent-button#oir-close");
 
         _feeds.Verify(f => f.DeleteFeed(It.IsAny<string>()), Times.Never);
         _feeds.Verify(f => f.SaveFeed(It.IsAny<Feed>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DiscardAllAndClose_DeletesAllRemainingFeeds_AndShowsSummaryToast()
+    {
+        _feeds.Setup(f => f.DeleteFeed(It.IsAny<string>())).ReturnsAsync(new FeedResult<bool>(true, null));
+        var cut = RenderDialog();
+
+        await Click(cut, "fluent-button#oir-discard-all");
+
+        _feeds.Verify(f => f.DeleteFeed("f-dead"), Times.Once);
+        _feeds.Verify(f => f.DeleteFeed("f-gone"), Times.Once);
+        cut.Find("#oir-done").Should().NotBeNull();
+        cut.FindAll("fluent-button#oir-discard-all").Should().BeEmpty();
+        _toasts.Verify(t => t.ShowSuccess("Removed 2 feed(s).", It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DiscardAllAndClose_AfterEditingOneFeed_OnlyDeletesRemainingFeeds()
+    {
+        _feeds.Setup(f => f.Discover("https://new.example.com/"))
+            .ReturnsAsync(new FeedResult<FeedDiscoveryResult>(new FeedDiscoveryResult { FeedUrl = "https://new.example.com/feed", Title = "New", SiteUrl = "https://new.example.com/" }, null));
+        _feeds.Setup(f => f.SaveFeed(It.IsAny<Feed>())).ReturnsAsync((Feed f) => new FeedResult<Feed>(f, null));
+        _feeds.Setup(f => f.DeleteFeed("f-gone")).ReturnsAsync(new FeedResult<bool>(true, null));
+        var cut = RenderDialog();
+
+        await Click(cut, ".oir-row[data-feed-id='f-dead'] fluent-button.oir-edit-button");
+        await cut.InvokeAsync(() => cut.FindComponents<FluentTextField>().Single(t => t.Instance.Id == "oir-url-f-dead").Instance.ValueChanged.InvokeAsync("https://new.example.com/"));
+        await Click(cut, ".oir-row[data-feed-id='f-dead'] fluent-button.oir-save");
+
+        await Click(cut, "fluent-button#oir-discard-all");
+
+        _feeds.Verify(f => f.DeleteFeed("f-dead"), Times.Never);
+        _feeds.Verify(f => f.DeleteFeed("f-gone"), Times.Once);
+        _toasts.Verify(t => t.ShowSuccess("Removed 1 feed(s).", It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DiscardAllAndClose_WhenSomeDeletionsFail_RemovesSucceededAndKeepsFailed()
+    {
+        _feeds.Setup(f => f.DeleteFeed("f-dead")).ReturnsAsync(new FeedResult<bool>(true, null));
+        _feeds.Setup(f => f.DeleteFeed("f-gone")).ReturnsAsync(new FeedResult<bool>(false, "Could not delete Gone blog"));
+        var cut = RenderDialog();
+
+        await Click(cut, "fluent-button#oir-discard-all");
+
+        cut.FindAll(".oir-row").Select(r => r.GetAttribute("data-feed-id")).Should().Equal("f-gone");
+        cut.FindAll("fluent-button#oir-discard-all").Should().ContainSingle();
+        _toasts.Verify(t => t.ShowError("Could not delete Gone blog", It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+        _toasts.Verify(t => t.ShowSuccess(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DiscardAllAndClose_DisablesActionButtonsWhileInProgress()
+    {
+        var tcs = new TaskCompletionSource<FeedResult<bool>>();
+        _feeds.Setup(f => f.DeleteFeed("f-dead")).Returns(tcs.Task);
+        _feeds.Setup(f => f.DeleteFeed("f-gone")).ReturnsAsync(new FeedResult<bool>(true, null));
+        var cut = RenderDialog();
+
+        var clickTask = Click(cut, "fluent-button#oir-discard-all");
+
+        var discardBtn = cut.FindComponents<FluentButton>().Single(b => b.Instance.Id == "oir-discard-all").Instance;
+        var closeBtn = cut.FindComponents<FluentButton>().Single(b => b.Instance.Id == "oir-close").Instance;
+        discardBtn.Disabled.Should().BeTrue();
+        discardBtn.Loading.Should().BeTrue();
+        closeBtn.Disabled.Should().BeTrue();
+        cut.FindComponents<FluentButton>()
+            .Where(b => b.Instance.Class is "oir-edit-button" or "oir-delete")
+            .Should().OnlyContain(b => b.Instance.Disabled);
+
+        tcs.SetResult(new FeedResult<bool>(true, null));
+        await clickTask;
     }
 }

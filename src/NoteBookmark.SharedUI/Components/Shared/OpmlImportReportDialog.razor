@@ -48,7 +48,11 @@
 
 <FluentDialogFooter>
     <FluentSpacer />
-    <FluentButton Id="oir-close" Appearance="Appearance.Accent" Disabled="@saving" OnClick="Close">@(remaining.Count == 0 ? "Close" : "Keep the rest and close")</FluentButton>
+    @if (remaining.Count > 0)
+    {
+        <FluentButton Id="oir-discard-all" Appearance="Appearance.Neutral" Loading="@discardingAll" Disabled="@busy" OnClick="DiscardAllAndClose">Discard all and close</FluentButton>
+    }
+    <FluentButton Id="oir-close" Appearance="Appearance.Accent" Disabled="@busy" OnClick="Close">@(remaining.Count == 0 ? "Close" : "Keep the rest and close")</FluentButton>
 </FluentDialogFooter>
 
 <style>
@@ -77,7 +81,8 @@
     private string editUrl = string.Empty;
     private bool saving;
     private bool deleting;
-    private bool busy => saving || deleting;
+    private bool discardingAll;
+    private bool busy => saving || deleting || discardingAll;
 
     protected override void OnInitialized() => remaining = Content.FailedFeeds.ToList();
 
@@ -158,6 +163,50 @@
         finally
         {
             deleting = false;
+        }
+    }
+
+    private async Task DiscardAllAndClose()
+    {
+        if (remaining.Count == 0)
+        {
+            return;
+        }
+
+        discardingAll = true;
+        try
+        {
+            var targets = remaining.ToList();
+            var removedCount = 0;
+            string? firstError = null;
+
+            foreach (var failed in targets)
+            {
+                var result = await feedService.DeleteFeed(failed.FeedId);
+                if (result.Success)
+                {
+                    remaining.Remove(failed);
+                    removedCount++;
+                }
+                else
+                {
+                    firstError ??= result.Error ?? "Some feeds could not be deleted.";
+                }
+            }
+
+            if (remaining.Count == 0)
+            {
+                toastService.ShowSuccess($"Removed {removedCount} feed(s).");
+                await Close();
+            }
+            else
+            {
+                toastService.ShowError(firstError ?? "Some feeds could not be deleted.");
+            }
+        }
+        finally
+        {
+            discardingAll = false;
         }
     }
 

@@ -25,7 +25,7 @@ java -version
 
 ## Step 2 — Install .NET MAUI Android workload
 
-.NET 9 or 10 must already be installed. Then:
+.NET 10 must already be installed. Then:
 
 ```bash
 dotnet workload install maui-android
