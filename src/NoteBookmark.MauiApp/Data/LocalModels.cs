@@ -180,6 +180,8 @@ public class LocalSettings
     public string? AiBaseUrl { get; set; }
     public string? AiModelName { get; set; }
     public string? FontSize { get; set; }
+    public bool FeedRefreshEnabled { get; set; }
+    public int FeedRefreshIntervalMinutes { get; set; } = Settings.DefaultFeedRefreshIntervalMinutes;
     public bool IsPendingSync { get; set; }
 
     public Settings ToDomain() => new Settings
@@ -195,7 +197,9 @@ public class LocalSettings
         AiApiKey = AiApiKey,
         AiBaseUrl = AiBaseUrl,
         AiModelName = AiModelName,
-        FontSize = FontSize
+        FontSize = FontSize,
+        FeedRefreshEnabled = FeedRefreshEnabled,
+        FeedRefreshIntervalMinutes = FeedRefreshIntervalMinutes > 0 ? FeedRefreshIntervalMinutes : Settings.DefaultFeedRefreshIntervalMinutes
     };
 
     public static LocalSettings FromDomain(Settings s, bool isPendingSync = false) => new LocalSettings
@@ -212,6 +216,8 @@ public class LocalSettings
         AiBaseUrl = s.AiBaseUrl,
         AiModelName = s.AiModelName,
         FontSize = s.FontSize,
+        FeedRefreshEnabled = s.FeedRefreshEnabled,
+        FeedRefreshIntervalMinutes = s.FeedRefreshIntervalMinutes > 0 ? s.FeedRefreshIntervalMinutes : Settings.DefaultFeedRefreshIntervalMinutes,
         IsPendingSync = isPendingSync
     };
 }

@@ -12,6 +12,12 @@
 <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Wrap="true">
     <h3>Feeds</h3>
     <FluentSpacer />
+    @if (LastRefreshed is { } refreshedAt)
+    {
+        <span id="feeds-last-updated" class="feeds-last-updated" title="@FormatLastUpdatedTooltip(refreshedAt)">
+            @FormatLastUpdated(refreshedAt)
+        </span>
+    }
     <FluentButton Id="refresh-feeds" OnClick="Refresh" Loading="@(refreshing)" Disabled="@(loading || IsFetching)"
                   IconStart="@(new Icons.Regular.Size20.ArrowClockwise())">Refresh</FluentButton>
     <FluentButton Id="skip-all" OnClick="MarkAllSkipped" Disabled="@(selection.IsAll || VisibleItems.Count == 0 || loading)"
@@ -140,6 +146,7 @@ else
     .feeds-expand, .feeds-warning, .feeds-inactive { display: inline-flex; }
     .feeds-warning, .feeds-inactive { cursor: help; }
     .feeds-count { color: var(--neutral-foreground-hint); font-variant-numeric: tabular-nums; }
+    .feeds-last-updated { color: var(--neutral-foreground-hint); font-size: 0.85em; cursor: help; }
     .feeds-items { flex: 1; min-width: 0; }
     .feeds-progress { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.75rem; color: var(--neutral-foreground-hint); font-size: 0.9em; }
     .feed-item { display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--neutral-stroke-divider-rest); }
@@ -195,11 +202,30 @@ else
     private List<Feed> feeds = [];
     private List<FeedItem> items = [];
     private Dictionary<string, FeedStatus> statuses = [];
+    private DateTimeOffset? lastResponseRefreshed;
     private readonly HashSet<string> expandedGroups = [];
     private readonly HashSet<string> busyUrls = [];
     private Selection selection = Selection.All;
 
     private bool IsFetching => feedsLoaded < feedsToLoad;
+
+    private DateTimeOffset? LastRefreshed
+    {
+        get
+        {
+            var statusTimes = statuses.Values
+                .Where(s => selection.FeedId is null || s.FeedId == selection.FeedId)
+                .Where(s => selection.GroupId is null || s.GroupId == selection.GroupId)
+                .Where(s => s.FetchedAt is not null)
+                .Select(s => s.FetchedAt!.Value)
+                .ToList();
+            if (statusTimes.Count > 0)
+            {
+                return statusTimes.Max();
+            }
+            return lastResponseRefreshed;
+        }
+    }
 
     private List<FeedItem> VisibleItems => items
         .Where(i => selection.FeedId is null || i.FeedId == selection.FeedId)
@@ -313,6 +339,11 @@ else
         foreach (var status in finished)
         {
             statuses[status.FeedId] = status;
+        }
+        if (response.LastRefreshed is { } responseRefreshed &&
+            (lastResponseRefreshed is null || responseRefreshed > lastResponseRefreshed))
+        {
+            lastResponseRefreshed = responseRefreshed;
         }
     }
 
@@ -493,6 +524,15 @@ else
             : span.TotalDays < 1 ? $"{(int)span.TotalHours}h"
             : $"{(int)span.TotalDays}d";
     }
+
+    public static string FormatLastUpdated(DateTimeOffset refreshedAt, DateTimeOffset? now = null)
+    {
+        var age = Age(refreshedAt, now);
+        return age == "just now" ? "Updated just now" : $"Updated {age} ago";
+    }
+
+    public static string FormatLastUpdatedTooltip(DateTimeOffset refreshedAt) =>
+        $"Last updated: {refreshedAt.ToLocalTime():f}";
 
     public void Dispose()
     {
