@@ -191,6 +191,7 @@ public sealed class FeedsPageTests : BunitContext
         cut.FindAll(".feeds-nav-row.feed").Should().BeEmpty();
         cut.Find("[data-group-id='g-dev'] .feeds-warning").GetAttribute("title").Should().Contain("1 feed(s)");
 
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         cut.FindAll(".feeds-nav-row.feed").Should().HaveCount(2);
@@ -206,6 +207,7 @@ public sealed class FeedsPageTests : BunitContext
         _server["f-b"] = ([], new FeedStatus { FeedId = "f-b", GroupId = "g-dev", Error = "Timed out after 10 seconds.", ErrorKind = FeedErrorKind.Timeout });
         var cut = RenderLoaded();
 
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         var warning = cut.Find("[data-feed-id='f-b'] .feeds-warning");
@@ -219,6 +221,7 @@ public sealed class FeedsPageTests : BunitContext
         _server["f-b"] = ([], new FeedStatus { FeedId = "f-b", GroupId = "g-dev", TotalCount = 5, LastPublished = Now.AddYears(-2) });
         var cut = RenderLoaded();
 
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         cut.Find("[data-feed-id='f-b'] .feeds-inactive").GetAttribute("title").Should().Contain("may no longer be updated");
@@ -229,12 +232,63 @@ public sealed class FeedsPageTests : BunitContext
     public void SelectingFeed_FiltersItems()
     {
         var cut = RenderLoaded();
+        cut.Find("#toggle-empty-feeds").Click();
         cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
 
         cut.Find("[data-feed-id='f-b']").Click();
 
         cut.FindAll(".feed-item").Should().BeEmpty();
         cut.Markup.Should().Contain("All caught up");
+    }
+
+    [Fact]
+    public void ExpandingGroup_HidesZeroPostFeedsByDefault_AndTogglesToShowThem()
+    {
+        var cut = RenderLoaded();
+        var toggle = cut.Find("#nav-all #toggle-empty-feeds");
+        toggle.GetAttribute("title").Should().Be("Show feeds with no posts");
+        toggle.GetAttribute("aria-label").Should().Be("Show feeds with no posts");
+        toggle.GetAttribute("aria-pressed").Should().Be("true");
+
+        cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
+
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        toggle = cut.Find("#nav-all #toggle-empty-feeds");
+        toggle.GetAttribute("title").Should().Be("Hide feeds with no posts");
+        toggle.GetAttribute("aria-label").Should().Be("Hide feeds with no posts");
+        toggle.GetAttribute("aria-pressed").Should().Be("false");
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a", "f-b");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a");
+    }
+
+    [Fact]
+    public void ToggleEmptyFeeds_PreservesSelection_AndKeepsSelectedZeroPostFeedVisible()
+    {
+        var cut = RenderLoaded();
+        cut.Find("[data-group-id='g-news']").Click();
+        cut.Find("[data-group-id='g-news']").ClassList.Should().Contain("selected");
+        Titles(cut).Should().Equal("News item");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        cut.Find("#nav-all").ClassList.Should().NotContain("selected");
+        cut.Find("[data-group-id='g-news']").ClassList.Should().Contain("selected");
+        Titles(cut).Should().Equal("News item");
+
+        cut.Find("[data-group-id='g-dev'] .feeds-expand").Click();
+        cut.Find("[data-feed-id='f-b']").Click();
+        cut.Find("[data-feed-id='f-b']").ClassList.Should().Contain("selected");
+
+        cut.Find("#toggle-empty-feeds").Click();
+
+        cut.Find("[data-feed-id='f-b']").ClassList.Should().Contain("selected");
+        cut.FindAll(".feeds-nav-row.feed").Select(e => e.GetAttribute("data-feed-id")).Should().Equal("f-a", "f-b");
     }
 
     [Fact]
@@ -337,5 +391,43 @@ public sealed class FeedsPageTests : BunitContext
     public void Age_Undated()
     {
         Feeds.Age(null).Should().Be("undated");
+    }
+
+    [Theory]
+    [InlineData(0.2, "Updated just now")]
+    [InlineData(12, "Updated 12m ago")]
+    [InlineData(3 * 60, "Updated 3h ago")]
+    [InlineData(2 * 24 * 60, "Updated 2d ago")]
+    public void FormatLastUpdated_FormatsRelativeTime(double minutesAgo, string expected)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        Feeds.FormatLastUpdated(now.AddMinutes(-minutesAgo), now).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task LastUpdatedIndicator_DisplaysNextToRefreshButton_AndUpdatesAfterRefresh()
+    {
+        var initialFetchTime = DateTimeOffset.UtcNow.AddMinutes(-12);
+        _server["f-a"] = ([Item("f-a", "g-dev", "Dev newest", 1)],
+            new FeedStatus { FeedId = "f-a", GroupId = "g-dev", PendingCount = 1, TotalCount = 1, FetchedAt = initialFetchTime });
+        _server["f-n"] = ([Item("f-n", "g-news", "News item", 2)],
+            new FeedStatus { FeedId = "f-n", GroupId = "g-news", PendingCount = 1, TotalCount = 1, FetchedAt = initialFetchTime });
+
+        var cut = RenderLoaded();
+
+        var indicator = cut.Find("#feeds-last-updated");
+        indicator.TextContent.Trim().Should().Be("Updated 12m ago");
+        indicator.GetAttribute("title").Should().StartWith("Last updated:");
+
+        var refreshedTime = DateTimeOffset.UtcNow;
+        _server["f-a"] = ([Item("f-a", "g-dev", "Dev newest", 1)],
+            new FeedStatus { FeedId = "f-a", GroupId = "g-dev", PendingCount = 1, TotalCount = 1, FetchedAt = refreshedTime });
+        _server["f-n"] = ([Item("f-n", "g-news", "News item", 2)],
+            new FeedStatus { FeedId = "f-n", GroupId = "g-news", PendingCount = 1, TotalCount = 1, FetchedAt = refreshedTime });
+
+        await cut.InvokeAsync(() => cut.Find("fluent-button#refresh-feeds").Click());
+
+        cut.WaitForAssertion(() => cut.Find("#feeds-last-updated").TextContent.Trim().Should().Be("Updated just now"));
     }
 }

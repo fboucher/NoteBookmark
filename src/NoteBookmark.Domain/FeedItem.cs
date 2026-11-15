@@ -43,6 +43,9 @@ public class FeedStatus
     /// <summary>Date of the newest item in the feed, to spot feeds that stopped publishing.</summary>
     public DateTimeOffset? LastPublished { get; set; }
 
+    /// <summary>When this feed snapshot was last fetched (UTC).</summary>
+    public DateTimeOffset? FetchedAt { get; set; }
+
     /// <summary>True when the feed was still downloading when the API answered; ask for it again.</summary>
     public bool Loading { get; set; }
 
@@ -51,6 +54,26 @@ public class FeedStatus
 
     /// <summary>One of <see cref="FeedErrorKind"/>; null when the feed loaded fine.</summary>
     public string? ErrorKind { get; set; }
+}
+
+/// <summary>Persisted snapshot of one feed stored in the <c>feed-cache</c> blob container.</summary>
+public class FeedSnapshot
+{
+    public string FeedId { get; set; } = string.Empty;
+
+    public string FeedUrl { get; set; } = string.Empty;
+
+    public DateTimeOffset FetchedAt { get; set; }
+
+    public int TotalCount { get; set; }
+
+    public DateTimeOffset? LastPublished { get; set; }
+
+    public string? Error { get; set; }
+
+    public string? ErrorKind { get; set; }
+
+    public List<FeedItem> Items { get; set; } = [];
 }
 
 /// <summary>Why a feed failed to load, so the UI can tell a dead feed from a slow one.</summary>
@@ -94,6 +117,9 @@ public class FeedItemsResponse
 
     /// <summary>One entry per requested feed, including failed ones.</summary>
     public List<FeedStatus> Feeds { get; set; } = [];
+
+    /// <summary>Most recent fetch time across the returned feeds.</summary>
+    public DateTimeOffset? LastRefreshed { get; set; }
 }
 
 /// <summary>Response of <c>GET api/feeds/discover</c>.</summary>
@@ -121,4 +147,31 @@ public class OpmlImportResult
 
     /// <summary>Feeds already in the list (same URL), left untouched.</summary>
     public int FeedsSkipped { get; set; }
+
+    /// <summary>Imported feeds whose OPML URL didn't work and was replaced by a working one.</summary>
+    public int FeedsFixed { get; set; }
+
+    /// <summary>Imported feeds that still don't work after every recovery attempt. They are saved with their OPML URL.</summary>
+    public List<OpmlFailedFeed> FailedFeeds { get; set; } = [];
+}
+
+/// <summary>A feed imported from OPML that could not be loaded, even after trying to fix its URL.</summary>
+public class OpmlFailedFeed
+{
+    /// <summary>RowKey of the saved <see cref="Feed"/>.</summary>
+    public string FeedId { get; set; } = string.Empty;
+
+    public string Title { get; set; } = string.Empty;
+
+    public string FeedUrl { get; set; } = string.Empty;
+
+    public string? SiteUrl { get; set; }
+
+    public string GroupName { get; set; } = string.Empty;
+
+    /// <summary>Technical error message of the OPML URL.</summary>
+    public string? Error { get; set; }
+
+    /// <summary>One of <see cref="FeedErrorKind"/>.</summary>
+    public string? ErrorKind { get; set; }
 }

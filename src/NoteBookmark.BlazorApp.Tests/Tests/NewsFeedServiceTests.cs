@@ -138,6 +138,20 @@ public sealed class NewsFeedServiceTests : BunitContext
         cut.Find(".news-content").TextContent.Should().Contain("Welcome to NoteBookmark! Check back here for product updates.");
     }
 
+    [Fact]
+    public void Home_RendersDotNet10Badge()
+    {
+        this.AddFluentUI();
+        var newsFeedMock = new Mock<INewsFeedService>();
+        newsFeedMock.Setup(s => s.GetHtmlAsync()).ReturnsAsync("<p>News</p>");
+        Services.AddSingleton(newsFeedMock.Object);
+
+        var cut = Render<Home>();
+
+        cut.Markup.Should().Contain(".NET 10");
+        cut.Markup.Should().NotContain(".NET 9");
+    }
+
     private static NewsFeedService CreateService(HttpMessageHandler handler)
     {
         var logger = new Mock<ILogger<NewsFeedService>>();

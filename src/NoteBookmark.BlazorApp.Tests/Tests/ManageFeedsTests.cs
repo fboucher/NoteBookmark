@@ -1,8 +1,10 @@
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using NoteBookmark.BlazorApp.Tests.Helpers;
 using NoteBookmark.SharedUI.Components.Pages;
+using NoteBookmark.SharedUI.Components.Shared;
 
 namespace NoteBookmark.BlazorApp.Tests.Tests;
 
@@ -195,6 +197,136 @@ public sealed class ManageFeedsTests : BunitContext
         cut.Find(".mf-group[data-group-id='g-news'] .feed-count").TextContent.Should().Be("2");
     }
 
+    private async Task<IRenderedComponent<ManageFeeds>> StartEditingBlog()
+    {
+        var cut = Render<ManageFeeds>();
+        Expand(cut, "g-dev");
+        await Click(cut, "[data-feed-id='f-1'] fluent-button.edit-feed");
+        return cut;
+    }
+
+    [Fact]
+    public async Task EditFeed_ShowsFieldsWithCurrentValues_AndSaveDisabledUntilChanged()
+    {
+        var cut = await StartEditingBlog();
+
+        var fields = cut.FindComponents<FluentTextField>();
+        fields.Single(t => t.Instance.Id == "edit-title-f-1").Instance.Value.Should().Be("Some blog");
+        fields.Single(t => t.Instance.Id == "edit-url-f-1").Instance.Value.Should().Be("https://blog.example.com/rss");
+        cut.FindComponents<FluentButton>().Single(b => b.Instance.Class == "save-feed").Instance.Disabled.Should().BeTrue();
+        cut.FindAll("[data-feed-id='f-1'] fluent-button.delete-feed").Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task EditFeed_TitleOnly_SavesWithoutDiscovery()
+    {
+        _feeds.Setup(f => f.SaveFeed(It.IsAny<Feed>())).ReturnsAsync((Feed f) => new FeedResult<Feed>(f, null));
+        var cut = await StartEditingBlog();
+
+        await SetText(cut, "edit-title-f-1", "  A better name  ");
+        await Click(cut, "[data-feed-id='f-1'] fluent-button.save-feed");
+
+        _feeds.Verify(f => f.Discover(It.IsAny<string>()), Times.Never);
+        _feeds.Verify(f => f.SaveFeed(It.Is<Feed>(x => x.RowKey == "f-1" && x.GroupId == "g-dev"
+            && x.Title == "A better name" && x.FeedUrl == "https://blog.example.com/rss")), Times.Once);
+        cut.Find("[data-feed-id='f-1'] .feed-row-title").TextContent.Should().Be("A better name");
+        cut.FindAll("[data-feed-id='f-1'] fluent-button.save-feed").Should().BeEmpty();
+        _toasts.Verify(t => t.ShowSuccess(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task EditFeed_UrlChanged_SavesDiscoveredUrl_AndKeepsTypedTitle()
+    {
+        var feedWithoutSite = new Feed { RowKey = "f-3", Title = "Old", FeedUrl = "https://old.example.com/rss", GroupId = "g-dev" };
+        _feeds.Setup(f => f.GetFeeds()).ReturnsAsync(() => [_blog, _other, feedWithoutSite]);
+        _feeds.Setup(f => f.Discover("https://new.example.com"))
+            .ReturnsAsync(new FeedResult<FeedDiscoveryResult>(new FeedDiscoveryResult { FeedUrl = "https://new.example.com/feed.xml", Title = "Discovered title", SiteUrl = "https://new.example.com/" }, null));
+        _feeds.Setup(f => f.SaveFeed(It.IsAny<Feed>())).ReturnsAsync((Feed f) => new FeedResult<Feed>(f, null));
+        var cut = Render<ManageFeeds>();
+        Expand(cut, "g-dev");
+        await Click(cut, "[data-feed-id='f-3'] fluent-button.edit-feed");
+
+        await SetText(cut, "edit-title-f-3", "My title");
+        await SetText(cut, "edit-url-f-3", " https://new.example.com ");
+        await Click(cut, "[data-feed-id='f-3'] fluent-button.save-feed");
+
+        _feeds.Verify(f => f.SaveFeed(It.Is<Feed>(x => x.RowKey == "f-3" && x.GroupId == "g-dev" && x.Title == "My title"
+            && x.FeedUrl == "https://new.example.com/feed.xml" && x.SiteUrl == "https://new.example.com/")), Times.Once);
+        var row = cut.Find("[data-feed-id='f-3']");
+        row.QuerySelector(".feed-row-title")!.TextContent.Should().Be("My title");
+        row.QuerySelector(".feed-row-url")!.TextContent.Should().Be("https://new.example.com/feed.xml");
+    }
+
+    [Fact]
+    public async Task EditFeed_UrlChanged_KeepsExistingSiteUrl()
+    {
+        _feeds.Setup(f => f.Discover(It.IsAny<string>()))
+            .ReturnsAsync(new FeedResult<FeedDiscoveryResult>(new FeedDiscoveryResult { FeedUrl = "https://blog.example.com/atom", Title = "Blog", SiteUrl = "https://elsewhere.example.com/" }, null));
+        _feeds.Setup(f => f.SaveFeed(It.IsAny<Feed>())).ReturnsAsync((Feed f) => new FeedResult<Feed>(f, null));
+        var cut = await StartEditingBlog();
+
+        await SetText(cut, "edit-url-f-1", "https://blog.example.com/atom");
+        await Click(cut, "[data-feed-id='f-1'] fluent-button.save-feed");
+
+        _feeds.Verify(f => f.SaveFeed(It.Is<Feed>(x => x.SiteUrl == "https://blog.example.com/" && x.Title == "Some blog")), Times.Once);
+    }
+
+    [Fact]
+    public async Task EditFeed_UrlNotDiscovered_ShowsError_StaysInEditMode()
+    {
+        _feeds.Setup(f => f.Discover(It.IsAny<string>()))
+            .ReturnsAsync(new FeedResult<FeedDiscoveryResult>(null, "No RSS or Atom feed was found at this address."));
+        var cut = await StartEditingBlog();
+
+        await SetText(cut, "edit-url-f-1", "https://nofeed.example.com");
+        await Click(cut, "[data-feed-id='f-1'] fluent-button.save-feed");
+
+        _feeds.Verify(f => f.SaveFeed(It.IsAny<Feed>()), Times.Never);
+        _toasts.Verify(t => t.ShowError("No RSS or Atom feed was found at this address.", It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+        cut.FindComponents<FluentTextField>().Single(t => t.Instance.Id == "edit-url-f-1").Instance.Value.Should().Be("https://nofeed.example.com");
+        _blog.FeedUrl.Should().Be("https://blog.example.com/rss");
+    }
+
+    [Fact]
+    public async Task EditFeed_Conflict_ShowsError_KeepsOriginalValues()
+    {
+        _feeds.Setup(f => f.Discover(It.IsAny<string>()))
+            .ReturnsAsync(new FeedResult<FeedDiscoveryResult>(new FeedDiscoveryResult { FeedUrl = "https://kayak.example.com/rss", Title = "Kayak" }, null));
+        _feeds.Setup(f => f.SaveFeed(It.IsAny<Feed>())).ReturnsAsync(new FeedResult<Feed>(null, "This feed is already in your list."));
+        var cut = await StartEditingBlog();
+
+        await SetText(cut, "edit-url-f-1", "https://kayak.example.com/rss");
+        await Click(cut, "[data-feed-id='f-1'] fluent-button.save-feed");
+
+        _toasts.Verify(t => t.ShowError("This feed is already in your list.", It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+        cut.FindAll("[data-feed-id='f-1'] fluent-button.save-feed").Should().ContainSingle();
+        _blog.FeedUrl.Should().Be("https://blog.example.com/rss");
+    }
+
+    [Fact]
+    public async Task EditFeed_Cancel_RestoresValues_WithoutCallingApi()
+    {
+        var cut = await StartEditingBlog();
+
+        await SetText(cut, "edit-title-f-1", "Changed");
+        await Click(cut, "[data-feed-id='f-1'] fluent-button.cancel-feed");
+
+        _feeds.Verify(f => f.SaveFeed(It.IsAny<Feed>()), Times.Never);
+        _feeds.Verify(f => f.Discover(It.IsAny<string>()), Times.Never);
+        cut.Find("[data-feed-id='f-1'] .feed-row-title").TextContent.Should().Be("Some blog");
+    }
+
+    [Fact]
+    public async Task EditFeed_And_RenameGroup_AreExclusive()
+    {
+        var cut = await StartEditingBlog();
+
+        await Click(cut, ".mf-group[data-group-id='g-dev'] fluent-button.rename-group");
+
+        cut.FindAll("[data-feed-id='f-1'] fluent-button.save-feed").Should().BeEmpty();
+        cut.FindAll(".mf-group[data-group-id='g-dev'] fluent-button.save-rename").Should().ContainSingle();
+    }
+
     [Fact]
     public async Task DeleteFeed_RemovesRow()
     {
@@ -241,5 +373,45 @@ public sealed class ManageFeedsTests : BunitContext
         cut.FindAll(".mf-group").Should().HaveCount(35);
         cut.FindAll(".feed-row").Should().BeEmpty();
         cut.Find("#mf-summary").TextContent.Should().Be("309 feed(s) in 35 group(s)");
+    }
+    [Fact]
+    public async Task ImportOpml_WithoutFailures_ShowsToastOnly()
+    {
+        var dialogs = new Mock<IDialogService>();
+        Services.AddSingleton(dialogs.Object);
+        _feeds.Setup(f => f.ImportOpml(It.IsAny<string>()))
+            .ReturnsAsync(new FeedResult<OpmlImportResult>(new OpmlImportResult { FeedsCreated = 3, GroupsCreated = 1, FeedsFixed = 2 }, null));
+        var cut = Render<ManageFeeds>();
+
+        var input = cut.FindComponent<Microsoft.AspNetCore.Components.Forms.InputFile>();
+        await cut.InvokeAsync(() => input.UploadFiles(InputFileContent.CreateFromText("<opml/>", "feedly.opml")));
+
+        _toasts.Verify(t => t.ShowSuccess(It.Is<string>(m => m.Contains("Imported 3 feed(s)") && m.Contains("2 address(es) fixed")),
+            It.IsAny<int?>(), It.IsAny<string?>(), It.IsAny<EventCallback<ToastResult>?>()), Times.Once);
+        dialogs.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ImportOpml_WithFailures_OpensReport_ThenReloads()
+    {
+        var failed = new OpmlFailedFeed { FeedId = "f-1", Title = "Some blog", FeedUrl = _blog.FeedUrl, GroupName = "Dev", ErrorKind = FeedErrorKind.NotFound };
+        var dialogs = new Mock<IDialogService>();
+        var reference = new Mock<IDialogReference>();
+        reference.Setup(r => r.Result).ReturnsAsync(DialogResult.Ok<object?>(null));
+        dialogs.Setup(d => d.ShowDialogAsync<OpmlImportReportDialog>(It.IsAny<object>(), It.IsAny<DialogParameters>()))
+            .ReturnsAsync(reference.Object);
+        Services.AddSingleton(dialogs.Object);
+        _feeds.Setup(f => f.ImportOpml(It.IsAny<string>()))
+            .ReturnsAsync(new FeedResult<OpmlImportResult>(new OpmlImportResult { FeedsCreated = 1, FailedFeeds = [failed] }, null));
+        var cut = Render<ManageFeeds>();
+
+        var input = cut.FindComponent<Microsoft.AspNetCore.Components.Forms.InputFile>();
+        await cut.InvokeAsync(() => input.UploadFiles(InputFileContent.CreateFromText("<opml/>", "feedly.opml")));
+
+        dialogs.Verify(d => d.ShowDialogAsync<OpmlImportReportDialog>(
+            It.Is<object>(o => ((OpmlImportReport)o).FailedFeeds.Single().FeedId == "f-1" && ((OpmlImportReport)o).Feeds.Any(f => f.RowKey == "f-1")),
+            It.Is<DialogParameters>(p => p.Title == "1 feed(s) need attention")), Times.Once);
+        _feeds.Verify(f => f.GetGroups(), Times.Exactly(3)); // initial load, after import, after the report closes
+        cut.FindAll("#importing").Should().BeEmpty();
     }
 }

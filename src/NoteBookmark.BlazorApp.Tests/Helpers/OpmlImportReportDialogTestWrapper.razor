@@ -1,0 +1,12 @@
+@using NoteBookmark.SharedUI
+@using NoteBookmark.SharedUI.Components.Shared
+@using Microsoft.FluentUI.AspNetCore.Components
+
+<FluentDialog>
+    <OpmlImportReportDialog Content="@Content" />
+</FluentDialog>
+
+@code {
+    [Parameter]
+    public OpmlImportReport Content { get; set; } = default!;
+}
