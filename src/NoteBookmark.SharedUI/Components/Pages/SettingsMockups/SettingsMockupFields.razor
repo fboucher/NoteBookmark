@@ -1,0 +1,130 @@
+@* TEMPORARY (issue #258): the fields of one settings group, shared by every mockup layout so each option shows the same settings. *@
+@using Microsoft.FluentUI.AspNetCore.Components.Extensions
+@inject NavigationManager Navigation
+
+<div class="nbm-fields">
+    @switch (Group)
+    {
+        case SettingsMockupGroup.Appearance:
+            <div class="nbm-row">
+                <div class="nbm-field">
+                    <FluentSelect Label="Theme" Width="100%"
+                                  Items="@(Enum.GetValues<DesignThemeModes>())"
+                                  @bind-SelectedOption="@State.Theme" />
+                </div>
+                <div class="nbm-field">
+                    <FluentSelect Label="Accent color" Width="100%" Height="200px"
+                                  Items="@(Enum.GetValues<OfficeColor>().Select(i => (OfficeColor?)i))"
+                                  @bind-SelectedOption="@State.Color">
+                        <OptionTemplate>
+                            <FluentStack>
+                                <FluentIcon Value="@(new Icons.Filled.Size20.RectangleLandscape())" Color="Microsoft.FluentUI.AspNetCore.Components.Color.Custom"
+                                            CustomColor="@(context.ToAttributeValue() != "default" ? context.ToAttributeValue() : "#036ac4")" />
+                                <FluentLabel>@context</FluentLabel>
+                            </FluentStack>
+                        </OptionTemplate>
+                    </FluentSelect>
+                </div>
+                <div class="nbm-field">
+                    <FluentSelect Label="Font size" Width="100%"
+                                  Items="@SettingsMockupState.FontSizes"
+                                  OptionText="@(i => i.Text)"
+                                  OptionValue="@(i => i.Value)"
+                                  @bind-Value="@State.FontSize" />
+                </div>
+            </div>
+            <p class="nbm-hint">Theme and color apply right away on this device. Font size is saved with the other settings.</p>
+            break;
+
+        case SettingsMockupGroup.ReadingNotes:
+            <div class="nbm-row">
+                <div class="nbm-field">
+                    <FluentTextField Label="Last bookmark date" @bind-Value="@State.LastBookmarkDate" Style="width:100%" />
+                </div>
+                <div class="nbm-inline">
+                    <div class="nbm-field">
+                        <FluentTextField Label="Reading notes counter" @bind-Value="@State.ReadingNotesCounter" Style="width:100%" />
+                    </div>
+                    <FluentButton Appearance="Appearance.Outline" Title="Increment counter" aria-label="Increment counter"
+                                  IconStart="@(new Icons.Regular.Size16.Add())" OnClick="@State.IncrementCounter" />
+                </div>
+            </div>
+            <p class="nbm-hint">The next summary will be #@State.ReadingNotesCounter and include posts read after the last bookmark date.</p>
+            break;
+
+        case SettingsMockupGroup.ContentFilters:
+            <div class="nbm-field">
+                <FluentTextField Label="Favorite domains" @bind-Value="@State.FavoriteDomains" Style="width:100%" />
+            </div>
+            <p class="nbm-hint">Comma separated. Search results from these domains are preferred.</p>
+            <div class="nbm-field">
+                <FluentTextField Label="Blocked domains" @bind-Value="@State.BlockedDomains" Style="width:100%" />
+            </div>
+            <p class="nbm-hint">Comma separated. Search never suggests these domains.</p>
+            break;
+
+        case SettingsMockupGroup.Ai:
+            <h4 class="nbm-subhead">Provider</h4>
+            <p class="nbm-hint">
+                Any OpenAI-compatible provider works. The Base URL must end at <code>/v1</code>.
+                See the <a href="https://github.com/fboucher/NoteBookmark/blob/main/docs/ai-provider-setup.md" target="_blank" rel="noopener">AI provider setup guide</a>.
+            </p>
+            <div class="nbm-field">
+                <FluentTextField Label="API key" @bind-Value="@State.AiApiKey" TextFieldType="TextFieldType.Password" Style="width:100%" />
+            </div>
+            <div class="nbm-row nbm-row-2">
+                <div class="nbm-field">
+                    <FluentTextField Label="Base URL" @bind-Value="@State.AiBaseUrl" Placeholder="https://openrouter.ai/api/v1" Style="width:100%" />
+                </div>
+                <div class="nbm-field">
+                    <FluentTextField Label="Model name" @bind-Value="@State.AiModelName" Placeholder="mistralai/mistral-small-3.2-24b-instruct" Style="width:100%" />
+                </div>
+            </div>
+            <h4 class="nbm-subhead">Prompts</h4>
+            <div class="nbm-field">
+                <FluentTextArea Label="Summary prompt" @bind-Value="@State.SummaryPrompt" Rows="3" Resize="TextAreaResize.Vertical" Style="width:100%" />
+            </div>
+            <p class="nbm-hint">Must contain <code>{content}</code>, replaced by the article text.</p>
+            <div class="nbm-field">
+                <FluentTextArea Label="Search prompt" @bind-Value="@State.SearchPrompt" Rows="3" Resize="TextAreaResize.Vertical" Style="width:100%" />
+            </div>
+            <p class="nbm-hint">Must contain <code>{topic}</code>, replaced at search time.</p>
+            break;
+
+        case SettingsMockupGroup.Feeds:
+            <div class="nbm-field">
+                <FluentSwitch Label="Background feed refresh" @bind-Value="@State.FeedRefreshEnabled" />
+            </div>
+            <div class="nbm-row">
+                <div class="nbm-field">
+                    <FluentSelect Label="Refresh interval" Width="100%"
+                                  Disabled="@(!State.FeedRefreshEnabled)"
+                                  Items="@SettingsMockupState.FeedRefreshIntervals"
+                                  OptionText="@(i => i.Text)"
+                                  OptionValue="@(i => i.Value)"
+                                  @bind-Value="@State.FeedRefreshInterval" />
+                </div>
+            </div>
+            <p class="nbm-hint">When on, feeds are checked for new posts in the background at this interval.</p>
+            break;
+
+        case SettingsMockupGroup.Bookmarklet:
+            <p class="nbm-hint nbm-hint-top">Drag the button to your browser's bookmarks bar to save the page you're reading straight into NoteBookmark.</p>
+            <div>
+                <a href="@SettingsMockupState.BookmarkletCode(Navigation.BaseUri)" class="nbm-bookmarklet" title="Drag to bookmarks bar" onclick="return false;">
+                    <FluentIcon Value="@(new Icons.Regular.Size16.Bookmark())" Color="Microsoft.FluentUI.AspNetCore.Components.Color.Fill" />
+                    Add to NoteBookmark
+                </a>
+            </div>
+            <p class="nbm-hint">If dragging isn't supported, copy the code below and paste it as the URL of a new bookmark.</p>
+            <div class="nbm-field">
+                <FluentTextArea ReadOnly="true" Value="@SettingsMockupState.BookmarkletCode(Navigation.BaseUri)" Label="Bookmarklet code" Rows="3" Style="width:100%" />
+            </div>
+            break;
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public SettingsMockupGroup Group { get; set; }
+    [Parameter, EditorRequired] public SettingsMockupState State { get; set; } = default!;
+}

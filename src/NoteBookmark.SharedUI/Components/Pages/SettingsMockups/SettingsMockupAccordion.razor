@@ -1,0 +1,57 @@
+@page "/settings-mockup/c"
+@* TEMPORARY (issue #258): Option C, collapsible sections whose headers summarise the current values. *@
+
+<PageTitle>Settings mockup C · Accordion</PageTitle>
+
+<div class="nbm-page">
+    <SettingsMockupHeader Option="C" Name="Accordion" />
+
+    <style>
+        .nbm-accordion fluent-accordion-item::part(heading) { min-height: 56px; }
+        .nbm-accordion .nbm-group-head { padding: 6px 0; min-width: 0; }
+        .nbm-accordion .nbm-group-head > div { min-width: 0; }
+        .nbm-accordion .nbm-group-head p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .nbm-accordion .nbm-fields { padding: 4px 0 12px 30px; }
+        @@media (max-width: 600px) { .nbm-accordion .nbm-fields { padding-left: 0; } }
+    </style>
+
+    <FluentAccordion Class="nbm-accordion" ExpandMode="AccordionExpandMode.Multi">
+        @foreach (var group in SettingsMockupState.Groups)
+        {
+            <FluentAccordionItem Expanded="@(expanded.Contains(group.Group))">
+                <HeadingTemplate>
+                    <div class="nbm-group-head">
+                        <FluentIcon Value="@group.Icon" Color="Color.Accent" />
+                        <div>
+                            <h4>@group.Title</h4>
+                            <p>@state.Summary(group.Group)</p>
+                        </div>
+                    </div>
+                </HeadingTemplate>
+                <ChildContent>
+                    <SettingsMockupFields Group="@group.Group" State="@state" />
+                </ChildContent>
+            </FluentAccordionItem>
+        }
+    </FluentAccordion>
+
+    <SettingsMockupSaveBar Note="Collapsed sections keep their changes. Save applies them all." />
+</div>
+
+@code {
+    private readonly SettingsMockupState state = new();
+
+    // The most edited groups start open; everything else shows a one-line summary.
+    private readonly HashSet<SettingsMockupGroup> expanded = [SettingsMockupGroup.ReadingNotes];
+
+    [SupplyParameterFromQuery(Name = "open")]
+    public string? Open { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Open == "all")
+        {
+            expanded.UnionWith(SettingsMockupState.Groups.Select(g => g.Group));
+        }
+    }
+}

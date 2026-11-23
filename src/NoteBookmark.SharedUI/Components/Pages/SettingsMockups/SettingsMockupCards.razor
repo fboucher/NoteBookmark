@@ -1,0 +1,53 @@
+@page "/settings-mockup/b"
+@* TEMPORARY (issue #258): Option B, every group in a bordered card on one scrolling page. *@
+
+<PageTitle>Settings mockup B · Cards</PageTitle>
+
+<div class="nbm-page">
+    <SettingsMockupHeader Option="B" Name="Cards" />
+
+    <style>
+        .nbm-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
+        .nbm-cards .nbm-wide { grid-column: 1 / -1; }
+        .nbm-cards fluent-card { padding: 16px 20px 20px; }
+        .nbm-cards .nbm-group-head { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--neutral-stroke-divider-rest); }
+        .nbm-quicknav { display: flex; flex-wrap: wrap; gap: 6px; margin: -8px 0 16px; }
+        .nbm-quicknav a { font-size: 0.8rem; padding: 2px 10px; border-radius: 12px; text-decoration: none;
+                          border: 1px solid var(--neutral-stroke-rest); color: var(--neutral-foreground-rest); }
+    </style>
+
+    <nav class="nbm-quicknav" aria-label="Jump to section">
+        @foreach (var group in SettingsMockupState.Groups)
+        {
+            <a href="settings-mockup/b#@group.Id">@group.Title</a>
+        }
+    </nav>
+
+    <div class="nbm-cards">
+        @foreach (var group in SettingsMockupState.Groups)
+        {
+            <div id="@group.Id" class="@(IsWide(group.Group) ? "nbm-wide" : null)">
+                <FluentCard AreaRestricted="false" Width="100%" Height="auto">
+                    <div class="nbm-group-head">
+                        <FluentIcon Value="@group.Icon" Color="Color.Accent" />
+                        <div>
+                            <h4>@group.Title</h4>
+                            <p>@group.Description</p>
+                        </div>
+                    </div>
+                    <SettingsMockupFields Group="@group.Group" State="@state" />
+                </FluentCard>
+            </div>
+        }
+    </div>
+
+    <SettingsMockupSaveBar />
+</div>
+
+@code {
+    private readonly SettingsMockupState state = new();
+
+    // Groups with long fields span the full width; short ones sit side by side on wide screens.
+    private static bool IsWide(SettingsMockupGroup group) =>
+        group is SettingsMockupGroup.Ai or SettingsMockupGroup.ContentFilters or SettingsMockupGroup.Bookmarklet;
+}
