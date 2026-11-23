@@ -1,0 +1,11 @@
+@* TEMPORARY (issue #258): sticky save bar shared by the mockups. The button does nothing. *@
+
+<div class="nbm-savebar">
+    <span>@Note</span>
+    <FluentButton Appearance="Appearance.Outline">Cancel</FluentButton>
+    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size16.Save())">Save</FluentButton>
+</div>
+
+@code {
+    [Parameter] public string Note { get; set; } = "Changes in every section are saved together.";
+}

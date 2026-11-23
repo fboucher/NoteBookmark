@@ -1,0 +1,56 @@
+@* TEMPORARY (issue #258): page title, "mockup only" banner, links between options, and the shared mockup styles. *@
+
+<style>
+    .nbm-page { max-width: 960px; margin: 0 auto; padding-bottom: 88px; }
+    .nbm-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 4px; }
+    .nbm-title h3 { margin: 0; }
+    .nbm-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 12px; margin: 8px 0 20px;
+                  border: 1px dashed var(--accent-fill-rest); border-radius: 6px; font-size: 0.85rem; color: var(--neutral-foreground-hint); }
+    .nbm-banner a { color: var(--accent-foreground-rest); }
+    .nbm-banner a.active { font-weight: 600; text-decoration: none; color: var(--neutral-foreground-rest); }
+
+    .nbm-fields { display: flex; flex-direction: column; gap: 4px; max-width: 720px; }
+    .nbm-fields > .nbm-field { margin-top: 8px; }
+    .nbm-field { min-width: 0; }
+    .nbm-field > label { display: block; }
+    .nbm-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px 16px; margin-top: 8px; }
+    .nbm-row-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+    .nbm-inline { display: flex; align-items: flex-end; gap: 8px; }
+    .nbm-inline .nbm-field { flex: 1; }
+    .nbm-hint { margin: 2px 0 6px; font-size: 0.8rem; color: var(--neutral-foreground-hint); }
+    .nbm-hint-top { margin-top: 0; font-size: 0.875rem; color: var(--neutral-foreground-rest); }
+    .nbm-subhead { margin: 16px 0 0; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--neutral-foreground-hint); }
+    .nbm-subhead:first-child { margin-top: 0; }
+    .nbm-bookmarklet { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; margin: 6px 0; border-radius: 4px;
+                       background: var(--accent-fill-rest); color: var(--foreground-on-accent-rest); font-weight: 600; text-decoration: none; cursor: move; }
+
+    .nbm-group-head { display: flex; align-items: center; gap: 10px; }
+    .nbm-group-head h4 { margin: 0; font-size: 1rem; }
+    .nbm-group-head p { margin: 0; font-size: 0.8rem; color: var(--neutral-foreground-hint); }
+
+    .nbm-savebar { position: sticky; bottom: 0; z-index: 2; display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+                   margin-top: 20px; padding: 12px 0; background: var(--neutral-fill-layer-rest); border-top: 1px solid var(--neutral-stroke-divider-rest); }
+    .nbm-savebar span { margin-right: auto; font-size: 0.8rem; color: var(--neutral-foreground-hint); }
+
+    @@media (max-width: 600px) {
+        .nbm-savebar span { display: none; }
+        .nbm-savebar fluent-button { flex: 1; }
+    }
+</style>
+
+<div class="nbm-title">
+    <h3>Settings</h3>
+    <span class="nbm-hint">Mockup @Option: @Name</span>
+</div>
+<div class="nbm-banner" role="note">
+    <FluentIcon Value="@(new Icons.Regular.Size16.Info())" Color="Color.Accent" />
+    <span>Mockup for issue #258. Nothing on this page is saved.</span>
+    <a href="settings-mockup/a" class="@(Option == "A" ? "active" : null)">A · Tabs</a>
+    <a href="settings-mockup/b" class="@(Option == "B" ? "active" : null)">B · Cards</a>
+    <a href="settings-mockup/c" class="@(Option == "C" ? "active" : null)">C · Accordion</a>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Option { get; set; } = "";
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+}

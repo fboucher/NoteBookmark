@@ -1,0 +1,49 @@
+@page "/settings-mockup/a"
+@* TEMPORARY (issue #258): Option A, one tab per group. *@
+
+<PageTitle>Settings mockup A · Tabs</PageTitle>
+
+@* FluentTabs shows overflowing tabs in a "more" menu on narrow screens, which needs a menu provider rendered before it. *@
+<FluentMenuProvider />
+
+<div class="nbm-page">
+    <SettingsMockupHeader Option="A" Name="Tabs" />
+
+    <style>
+        .nbm-tabs fluent-tab { gap: 6px; }
+        .nbm-tab-panel { padding: 20px 4px 0; }
+        .nbm-tab-panel .nbm-group-head { margin-bottom: 12px; }
+    </style>
+
+    <FluentTabs Class="nbm-tabs" @bind-ActiveTabId="@activeTab" Width="100%">
+        @foreach (var group in SettingsMockupState.Groups)
+        {
+            <FluentTab Id="@group.Id" Label="@group.Title" Icon="@group.Icon">
+                <div class="nbm-tab-panel">
+                    <div class="nbm-group-head">
+                        <p>@group.Description</p>
+                    </div>
+                    <SettingsMockupFields Group="@group.Group" State="@state" />
+                </div>
+            </FluentTab>
+        }
+    </FluentTabs>
+
+    <SettingsMockupSaveBar Note="Save applies the changes from every tab." />
+</div>
+
+@code {
+    private readonly SettingsMockupState state = new();
+    private string activeTab = SettingsMockupState.Groups[0].Id;
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? Tab { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Tab is not null && SettingsMockupState.Groups.Any(g => g.Id == Tab))
+        {
+            activeTab = Tab;
+        }
+    }
+}
