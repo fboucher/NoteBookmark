@@ -353,6 +353,40 @@ public sealed class FeedsPageTests : BunitContext
         _feeds.Verify(f => f.GetItems(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<int?>()), Times.Never);
     }
 
+    [Fact]
+    public async Task AsyncGetFeeds_AutomaticallyLoadsItemsFromStorage_WithoutClickingRefresh()
+    {
+        var feedsTcs = new TaskCompletionSource<List<Feed>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _feeds.Setup(f => f.GetFeeds()).Returns(feedsTcs.Task);
+
+        var cut = Render<Feeds>();
+
+        // First render happens while GetFeeds() is still in flight; no items have been requested yet.
+        _feeds.Verify(f => f.GetItems(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<int?>()), Times.Never);
+
+        await cut.InvokeAsync(() => feedsTcs.SetResult(_feedList));
+
+        cut.WaitForAssertion(() => Titles(cut).Should().Equal("Dev newest", "News item", "Dev older"));
+        _feeds.Verify(f => f.GetItems(
+            null,
+            null,
+            false,
+            It.Is<IReadOnlyCollection<string>>(ids => ids.SequenceEqual(new[] { "f-a", "f-b", "f-n" })),
+            Feeds.BatchWaitMs), Times.Once);
+        _feeds.Verify(f => f.GetItems(It.IsAny<string?>(), It.IsAny<string?>(), true, It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<int?>()), Times.Never);
+    }
+
+    [Fact]
+    public void WhenGetFeedsThrows_ShowsErrorToast_AndDoesNotLoadItems()
+    {
+        _feeds.Setup(f => f.GetFeeds()).ThrowsAsync(new HttpRequestException("Backend unavailable"));
+
+        Render<Feeds>();
+
+        _toasts.Verify(t => t.ShowError(It.Is<string>(msg => msg.Contains("Feeds could not be loaded") && msg.Contains("Backend unavailable"))), Times.Once);
+        _feeds.Verify(f => f.GetItems(It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<IReadOnlyCollection<string>?>(), It.IsAny<int?>()), Times.Never);
+    }
+
     [Theory]
     [InlineData("Skipped", true)]
     [InlineData("Added", true)]

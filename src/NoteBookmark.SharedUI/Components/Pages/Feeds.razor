@@ -203,6 +203,7 @@ else
 
     private readonly CancellationTokenSource disposed = new();
     private bool loading = true;
+    private bool initialLoadStarted;
     private bool refreshing;
     private int feedsToLoad;
     private int feedsLoaded;
@@ -262,10 +263,14 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         // Show the groups right away, then fill in items batch by batch.
-        if (firstRender && feeds.Count > 0)
+        if (!loading && !initialLoadStarted && !disposed.IsCancellationRequested)
         {
-            var groupOrder = groups.Select((g, i) => (g.RowKey, i)).ToDictionary(x => x.RowKey, x => x.i);
-            await LoadFeeds(feeds.OrderBy(f => groupOrder.GetValueOrDefault(f.GroupId, int.MaxValue)).ToList(), refresh: false);
+            initialLoadStarted = true;
+            if (feeds.Count > 0)
+            {
+                var groupOrder = groups.Select((g, i) => (g.RowKey, i)).ToDictionary(x => x.RowKey, x => x.i);
+                await LoadFeeds(feeds.OrderBy(f => groupOrder.GetValueOrDefault(f.GroupId, int.MaxValue)).ToList(), refresh: false);
+            }
         }
     }
 
