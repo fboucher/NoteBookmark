@@ -1,0 +1,128 @@
+.settings-page {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.settings-page ::deep fluent-accordion-item::part(heading) {
+    min-height: 56px;
+}
+
+/* Let long summaries shrink and end with an ellipsis instead of widening the heading. */
+.settings-page ::deep fluent-accordion-item::part(button),
+.settings-page ::deep fluent-accordion-item::part(heading-content),
+.settings-page ::deep [slot="heading"] {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.settings-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-width: 720px;
+    padding: 4px 0 12px 30px;
+}
+
+.settings-fields > .settings-field {
+    margin-top: 8px;
+}
+
+.settings-field {
+    min-width: 0;
+}
+
+.settings-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+    gap: 12px 16px;
+    margin-top: 8px;
+}
+
+.settings-row-wide {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+.settings-inline {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.settings-inline .settings-field {
+    flex: 1;
+}
+
+.settings-hint {
+    margin: 2px 0 6px;
+    font-size: 0.8rem;
+    color: var(--neutral-foreground-hint);
+}
+
+.settings-subhead {
+    margin: 16px 0 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--neutral-foreground-hint);
+}
+
+.settings-subhead:first-child {
+    margin-top: 0;
+}
+
+.settings-bookmarklet {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+    padding: 6px 16px;
+    border-radius: 4px;
+    background: var(--accent-fill-rest);
+    color: var(--foreground-on-accent-rest);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: move;
+}
+
+.settings-savebar {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 12px 0;
+    border-top: 1px solid var(--neutral-stroke-divider-rest);
+    background: var(--neutral-fill-layer-rest);
+}
+
+.settings-savebar ::deep .validation-errors {
+    flex-basis: 100%;
+    margin: 0;
+    padding-left: 20px;
+}
+
+.settings-savebar > span {
+    margin-right: auto;
+    font-size: 0.8rem;
+    color: var(--neutral-foreground-hint);
+}
+
+@media (max-width: 600px) {
+    .settings-fields {
+        padding-left: 0;
+    }
+
+    .settings-savebar > span {
+        display: none;
+    }
+
+    .settings-savebar ::deep fluent-button {
+        flex: 1;
+    }
+}

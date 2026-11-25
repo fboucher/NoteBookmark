@@ -7,149 +7,223 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
+<PageTitle>Settings</PageTitle>
+
 <FluentDesignTheme @bind-Mode="@Mode"
-				   @bind-OfficeColor="@OfficeColor"
-				   StorageName="theme" />
+                   @bind-OfficeColor="@OfficeColor"
+                   StorageName="theme" />
 
-<h3>Settings</h3>
+<div class="settings-page">
+    <h3>Settings</h3>
 
-<div>
-	<FluentStack Orientation="Orientation.Vertical">
-        <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-            <FluentSelect   Label="Theme" Width="150px"
-                            Items="@(Enum.GetValues<DesignThemeModes>())"
-                            @bind-SelectedOption="@Mode" />
-        </FluentStack>
-
-        <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-            <FluentSelect   Label="Color"
-                            Items="@(Enum.GetValues<OfficeColor>().Select(i => (OfficeColor?)i))"
-                Height="200px" Width="250px" @bind-SelectedOption="@OfficeColor">
-                <OptionTemplate>
-                    <FluentStack>
-                        <FluentIcon Value="@(new Icons.Filled.Size20.RectangleLandscape())" Color="Color.Custom"
-                            CustomColor="@(@context.ToAttributeValue() != "default" ? context.ToAttributeValue() : "#036ac4" )" />
-                        <FluentLabel>@context</FluentLabel>
-                    </FluentStack>
-                </OptionTemplate>
-            </FluentSelect>
-        </FluentStack>
-	</FluentStack>
-</div>
-
-<br/>
-
-@if( settings != null)
-{
-    <div>
-        <EditForm Model="@settings" OnValidSubmit="SaveSettings">
+    @if (settings is null)
+    {
+        <FluentProgressRing />
+    }
+    else
+    {
+        <EditForm Model="@settings" OnValidSubmit="SaveSettings" OnInvalidSubmit="ShowInvalidFields">
             <DataAnnotationsValidator />
-            <ValidationSummary />
-            <FluentStack Orientation="Orientation.Vertical" Width="100%">
 
-                <FluentStack Orientation="Orientation.Horizontal" Width="100%">
-                    <FluentSelect Label="Font Size" Width="150px"
-                                  Items="@fontSizeOptions"
-                                  OptionText="@(i => i.Text)"
-                                  OptionValue="@(i => i.Value)"
-                                  @bind-Value="settings!.FontSize" />
-                </FluentStack>
+            <FluentAccordion ExpandMode="AccordionExpandMode.Multi">
 
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%" VerticalAlignment="VerticalAlignment.Center">
-                    <FluentTextField Label="Last Bookmark Date" @bind-Value="settings!.LastBookmarkDate" />
-                </FluentStack>
+                <FluentAccordionItem Expanded="@IsOpen(Section.Appearance)"
+                                     ExpandedChanged="@(open => SetOpen(Section.Appearance, open))">
+                    <HeadingTemplate>
+                        <SettingsSectionHeading Icon="@(new Icons.Regular.Size20.PaintBrush())"
+                                                Title="Appearance"
+                                                Summary="@SettingsSummary.Appearance(Mode.ToString(), OfficeColor?.ToString(), settings.FontSize)" />
+                    </HeadingTemplate>
+                    <ChildContent>
+                        <div class="settings-fields">
+                            <div class="settings-row">
+                                <div class="settings-field">
+                                    <FluentSelect Label="Theme" Width="100%"
+                                                  Items="@(Enum.GetValues<DesignThemeModes>())"
+                                                  @bind-SelectedOption="@Mode" />
+                                </div>
+                                <div class="settings-field">
+                                    <FluentSelect Label="Accent color" Width="100%" Height="200px"
+                                                  Items="@(Enum.GetValues<OfficeColor>().Select(i => (OfficeColor?)i))"
+                                                  @bind-SelectedOption="@OfficeColor">
+                                        <OptionTemplate Context="color">
+                                            <FluentStack>
+                                                <FluentIcon Value="@(new Icons.Filled.Size20.RectangleLandscape())" Color="Color.Custom"
+                                                            CustomColor="@(color.ToAttributeValue() != "default" ? color.ToAttributeValue() : "#036ac4")" />
+                                                <FluentLabel>@color</FluentLabel>
+                                            </FluentStack>
+                                        </OptionTemplate>
+                                    </FluentSelect>
+                                </div>
+                                <div class="settings-field">
+                                    <FluentSelect Label="Font size" Width="100%"
+                                                  Items="@fontSizeOptions"
+                                                  OptionText="@(i => i.Text)"
+                                                  OptionValue="@(i => i.Value)"
+                                                  @bind-Value="settings.FontSize" />
+                                </div>
+                            </div>
+                            <p class="settings-hint">Theme and color apply right away on this device. Font size is saved with the other settings.</p>
+                        </div>
+                    </ChildContent>
+                </FluentAccordionItem>
 
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%" VerticalAlignment="VerticalAlignment.Center">
-                    <FluentTextField Label="Reading Notes Counter" @bind-Value="settings!.ReadingNotesCounter" />
-                    <FluentButton OnClick="IncrementCounter" Appearance="Appearance.Accent" IconEnd="@(new Icons.Regular.Size16.Add())"/>
-                </FluentStack>
+                <FluentAccordionItem Expanded="@IsOpen(Section.ReadingNotes)"
+                                     ExpandedChanged="@(open => SetOpen(Section.ReadingNotes, open))">
+                    <HeadingTemplate>
+                        <SettingsSectionHeading Icon="@(new Icons.Regular.Size20.Notebook())"
+                                                Title="Reading notes"
+                                                Summary="@SettingsSummary.ReadingNotes(settings)" />
+                    </HeadingTemplate>
+                    <ChildContent>
+                        <div class="settings-fields">
+                            <div class="settings-row">
+                                <div class="settings-field">
+                                    <FluentTextField Label="Last bookmark date" @bind-Value="settings.LastBookmarkDate" Style="width:100%" />
+                                </div>
+                                <div class="settings-inline">
+                                    <div class="settings-field">
+                                        <FluentTextField Label="Reading notes counter" @bind-Value="settings.ReadingNotesCounter" Style="width:100%" />
+                                    </div>
+                                    <FluentButton Id="increment-counter" Appearance="Appearance.Outline"
+                                                  Title="Increment counter" aria-label="Increment counter"
+                                                  IconStart="@(new Icons.Regular.Size16.Add())" OnClick="IncrementCounter" />
+                                </div>
+                            </div>
+                            <p class="settings-hint">The counter is the number given to your next reading notes.</p>
+                        </div>
+                    </ChildContent>
+                </FluentAccordionItem>
 
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextField Label="Favorite Domains" @bind-Value="settings!.FavoriteDomains" Style="width:80%" />
-                </FluentStack>
+                <FluentAccordionItem Expanded="@IsOpen(Section.ContentFilters)"
+                                     ExpandedChanged="@(open => SetOpen(Section.ContentFilters, open))">
+                    <HeadingTemplate>
+                        <SettingsSectionHeading Icon="@(new Icons.Regular.Size20.Filter())"
+                                                Title="Content filters"
+                                                Summary="@SettingsSummary.ContentFilters(settings)" />
+                    </HeadingTemplate>
+                    <ChildContent>
+                        <div class="settings-fields">
+                            <div class="settings-field">
+                                <FluentTextField Label="Favorite domains" @bind-Value="settings.FavoriteDomains" Style="width:100%" />
+                            </div>
+                            <p class="settings-hint">Comma separated. When set, AI search only looks at these domains.</p>
+                            <div class="settings-field">
+                                <FluentTextField Label="Blocked domains" @bind-Value="settings.BlockedDomains" Style="width:100%" />
+                            </div>
+                            <p class="settings-hint">Comma separated. AI search skips these domains when no favorite domains are set.</p>
+                        </div>
+                    </ChildContent>
+                </FluentAccordionItem>
 
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextField Label="Blocked Domains" @bind-Value="settings!.BlockedDomains" Style="width:80%" />
-                </FluentStack>
+                <FluentAccordionItem Expanded="@IsOpen(Section.Ai)"
+                                     ExpandedChanged="@(open => SetOpen(Section.Ai, open))">
+                    <HeadingTemplate>
+                        <SettingsSectionHeading Icon="@(new Icons.Regular.Size20.Sparkle())"
+                                                Title="AI"
+                                                Summary="@SettingsSummary.Ai(settings)" />
+                    </HeadingTemplate>
+                    <ChildContent>
+                        <div class="settings-fields">
+                            <h5 class="settings-subhead">Provider</h5>
+                            <p class="settings-hint">
+                                Any OpenAI-compatible provider works. The Base URL must end at <code>/v1</code> (without <code>/chat/completions</code>).
+                                See the <a href="https://github.com/fboucher/NoteBookmark/blob/main/docs/ai-provider-setup.md" target="_blank" rel="noopener">AI provider setup guide</a> for OpenCode, OpenRouter and Ollama examples.
+                            </p>
+                            <div class="settings-field">
+                                <FluentTextField Label="API key" @bind-Value="settings.AiApiKey" TextFieldType="TextFieldType.Password" Style="width:100%" />
+                            </div>
+                            <div class="settings-row settings-row-wide">
+                                <div class="settings-field">
+                                    <FluentTextField Label="Base URL" @bind-Value="settings.AiBaseUrl" Placeholder="https://openrouter.ai/api/v1" Style="width:100%" />
+                                </div>
+                                <div class="settings-field">
+                                    <FluentTextField Label="Model name" @bind-Value="settings.AiModelName" Placeholder="mistralai/mistral-small-3.2-24b-instruct" Style="width:100%" />
+                                </div>
+                            </div>
+                            <h5 class="settings-subhead">Prompts</h5>
+                            <div class="settings-field">
+                                <FluentTextArea Label="Summary prompt" @bind-Value="settings.SummaryPrompt" Rows="3" Resize="TextAreaResize.Vertical" Style="width:100%" />
+                                <FluentValidationMessage For="@(() => settings.SummaryPrompt)" />
+                            </div>
+                            <p class="settings-hint">Must contain <code>{content}</code>, replaced by the article text.</p>
+                            <div class="settings-field">
+                                <FluentTextArea Label="Search prompt" @bind-Value="settings.SearchPrompt" Rows="3" Resize="TextAreaResize.Vertical" Style="width:100%" />
+                                <FluentValidationMessage For="@(() => settings.SearchPrompt)" />
+                            </div>
+                            <p class="settings-hint">Must contain <code>{topic}</code>, replaced at search time.</p>
+                        </div>
+                    </ChildContent>
+                </FluentAccordionItem>
 
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextArea Label="Summary Prompt - must contain {content}." @bind-Value="settings!.SummaryPrompt" Cols="80" Rows="3"/>
-                    <FluentValidationMessage For="@(() => settings!.SummaryPrompt)" />
-                </FluentStack>
+                <FluentAccordionItem Expanded="@IsOpen(Section.Feeds)"
+                                     ExpandedChanged="@(open => SetOpen(Section.Feeds, open))">
+                    <HeadingTemplate>
+                        <SettingsSectionHeading Icon="@(new Icons.Regular.Size20.Rss())"
+                                                Title="Feeds"
+                                                Summary="@SettingsSummary.Feeds(settings)" />
+                    </HeadingTemplate>
+                    <ChildContent>
+                        <div class="settings-fields">
+                            <div class="settings-field">
+                                <FluentSwitch Id="feed-refresh-enabled"
+                                              Label="Background feed refresh"
+                                              @bind-Value="settings.FeedRefreshEnabled" />
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-field">
+                                    <FluentSelect Id="feed-refresh-interval"
+                                                  Label="Refresh interval"
+                                                  Width="100%"
+                                                  Disabled="@(!settings.FeedRefreshEnabled)"
+                                                  Items="@feedRefreshIntervalOptions"
+                                                  OptionText="@(i => i.Text)"
+                                                  OptionValue="@(i => i.Value)"
+                                                  @bind-Value="FeedRefreshIntervalValue" />
+                                </div>
+                            </div>
+                            <p class="settings-hint">When on, feeds are checked for new posts in the background at this interval.</p>
+                        </div>
+                    </ChildContent>
+                </FluentAccordionItem>
 
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%"> 
-                    <FluentTextArea Label="Search Prompt - must contain {topic}. Will be replace at search time" @bind-Value="settings!.SearchPrompt" Cols="80" Rows="3" />
-                    <FluentValidationMessage For="@(() => settings!.SearchPrompt)" />
-                </FluentStack>
+                <FluentAccordionItem Expanded="@IsOpen(Section.Bookmarklet)"
+                                     ExpandedChanged="@(open => SetOpen(Section.Bookmarklet, open))">
+                    <HeadingTemplate>
+                        <SettingsSectionHeading Icon="@(new Icons.Regular.Size20.Bookmark())"
+                                                Title="Bookmarklet"
+                                                Summary="Save any page from your browser's bookmarks bar" />
+                    </HeadingTemplate>
+                    <ChildContent>
+                        <div class="settings-fields">
+                            <p>Drag the button to your browser's bookmarks bar to save the page you're reading straight into NoteBookmark.</p>
+                            <div>
+                                <a href="@BookmarkletCode" class="settings-bookmarklet" title="Drag to bookmarks bar" onclick="return false;">
+                                    <FluentIcon Value="@(new Icons.Regular.Size16.Bookmark())" Color="Color.Fill" />
+                                    + Add to NoteBookmark
+                                </a>
+                            </div>
+                            <p class="settings-hint">Tip: If dragging is not supported, right-click the button, copy the link, and paste it as the URL of a new browser bookmark.</p>
+                            <div class="settings-field">
+                                <FluentTextArea ReadOnly="true" Value="@BookmarkletCode" Label="Bookmarklet code" Rows="3" Style="width:100%" />
+                            </div>
+                        </div>
+                    </ChildContent>
+                </FluentAccordionItem>
 
-                <FluentDivider Style="margin: 20px 0;" />
+            </FluentAccordion>
 
-                <FluentLabel Typo="Typography.H5">AI Provider Configuration</FluentLabel>
-                <FluentLabel Typo="Typography.Body">
-                    Any OpenAI-compatible provider works. The Base URL must end at <code>/v1</code> (without <code>/chat/completions</code>).
-                    See the <a href="https://github.com/fboucher/NoteBookmark/blob/main/docs/ai-provider-setup.md" target="_blank" rel="noopener">AI provider setup guide</a> for OpenCode, OpenRouter and Ollama examples.
-                </FluentLabel>
-
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextField Label="API Key" @bind-Value="settings!.AiApiKey" Style="width:80%" TextFieldType="TextFieldType.Password" />
-                </FluentStack>
-
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextField Label="Base URL" @bind-Value="settings!.AiBaseUrl" Style="width:80%" Placeholder="https://openrouter.ai/api/v1" />
-                </FluentStack>
-
-                <FluentStack Orientation="Orientation.Horizontal"  Width="100%">
-                    <FluentTextField Label="Model Name" @bind-Value="settings!.AiModelName" Style="width:80%" Placeholder="mistralai/mistral-small-3.2-24b-instruct" />
-                </FluentStack>
-
-                <FluentDivider Style="margin: 20px 0;" />
-
-                <FluentLabel Typo="Typography.H5">Feeds</FluentLabel>
-
-                <FluentStack Orientation="Orientation.Horizontal" Width="100%" VerticalAlignment="VerticalAlignment.Center">
-                    <FluentSwitch Id="feed-refresh-enabled"
-                                  Label="Background Feed Refresh"
-                                  @bind-Value="settings!.FeedRefreshEnabled" />
-                </FluentStack>
-
-                <FluentStack Orientation="Orientation.Horizontal" Width="100%" VerticalAlignment="VerticalAlignment.Center">
-                    <FluentSelect Id="feed-refresh-interval"
-                                  Label="Refresh Interval"
-                                  Width="150px"
-                                  Items="@feedRefreshIntervalOptions"
-                                  OptionText="@(i => i.Text)"
-                                  OptionValue="@(i => i.Value)"
-                                  @bind-Value="FeedRefreshIntervalValue" />
-                </FluentStack>
-
-                <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent">Save</FluentButton>
-        
-            </FluentStack>
+            <div class="settings-savebar">
+                @* Inside the sticky bar so a failed save is visible wherever the page is scrolled. *@
+                <ValidationSummary />
+                <span>Collapsed sections keep their changes. Save applies them all.</span>
+                <FluentButton Id="cancel-settings" Appearance="Appearance.Outline" OnClick="Cancel">Cancel</FluentButton>
+                <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent"
+                              IconStart="@(new Icons.Regular.Size16.Save())">Save</FluentButton>
+            </div>
         </EditForm>
-
-        <FluentDivider Style="margin: 20px 0;" />
-
-        <FluentLabel Typo="Typography.H5">Browser Bookmarklet</FluentLabel>
-        <FluentLabel Typo="Typography.Body">
-            Drag the button below to your browser's bookmarks bar to quickly save articles from any webpage directly into NoteBookmark:
-        </FluentLabel>
-
-        <FluentStack Orientation="Orientation.Horizontal" VerticalAlignment="VerticalAlignment.Center" Style="margin: 10px 0;">
-            <a href="@BookmarkletCode"
-               class="fluent-button"
-               style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; background-color: var(--accent-fill-rest, #0078d4); color: white; border-radius: 4px; text-decoration: none; font-weight: 600; cursor: move;"
-               title="Drag to bookmarks bar"
-               onclick="return false;">
-                <FluentIcon Value="@(new Icons.Regular.Size16.Bookmark())" Color="Color.Fill" />
-                + Add to NoteBookmark
-            </a>
-        </FluentStack>
-        <FluentLabel Typo="Typography.Body" Style="font-size: 0.85rem; color: var(--neutral-foreground-rest);">
-            Tip: If dragging is not supported, right-click the button, copy the link, and paste it as the URL of a new browser bookmark.
-        </FluentLabel>
-        <FluentTextArea ReadOnly="true" Value="@BookmarkletCode" Label="Bookmarklet JavaScript Code" Cols="80" Rows="2" Style="width: 100%; margin-top: 8px;" />
-    </div> 
-}
+    }
+</div>
 
 
 @code {
@@ -157,6 +231,19 @@
     public OfficeColor? OfficeColor { get; set; }
 
     private Domain.Settings? settings;
+
+    private enum Section
+    {
+        Appearance,
+        ReadingNotes,
+        ContentFilters,
+        Ai,
+        Feeds,
+        Bookmarklet
+    }
+
+    // Reading notes is the most edited section, so it is the only one open at first.
+    private readonly HashSet<Section> openSections = [Section.ReadingNotes];
 
     private record FontSizeOption(string Text, string Value);
     private record FeedRefreshIntervalOption(string Text, string Value);
@@ -168,15 +255,10 @@
         new("Large", "large")
     };
 
-    private static readonly List<FeedRefreshIntervalOption> feedRefreshIntervalOptions = new()
-    {
-        new("30 min", "30"),
-        new("1 h", "60"),
-        new("3 h", "180"),
-        new("6 h", "360"),
-        new("12 h", "720"),
-        new("24 h", "1440")
-    };
+    private static readonly List<FeedRefreshIntervalOption> feedRefreshIntervalOptions =
+        Domain.Settings.AllowedFeedRefreshIntervals
+            .Select(minutes => new FeedRefreshIntervalOption(SettingsSummary.FormatInterval(minutes), minutes.ToString()))
+            .ToList();
 
     private string FeedRefreshIntervalValue
     {
@@ -208,6 +290,23 @@
         }
     }
 
+    private bool IsOpen(Section section) => openSections.Contains(section);
+
+    private void SetOpen(Section section, bool open)
+    {
+        if (open)
+        {
+            openSections.Add(section);
+        }
+        else
+        {
+            openSections.Remove(section);
+        }
+    }
+
+    // Only the prompts, in the AI section, are validated. Open it so the error is not hidden.
+    private void ShowInvalidFields() => openSections.Add(Section.Ai);
+
     private async Task SaveSettings()
     {
         if (settings != null)
@@ -226,6 +325,8 @@
             Navigation.NavigateTo("/");
         }
     }
+
+    private void Cancel() => Navigation.NavigateTo("/");
 
     private void IncrementCounter()
     {

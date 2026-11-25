@@ -1,4 +1,5 @@
 using Bunit;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.FluentUI.AspNetCore.Components;
 using NoteBookmark.BlazorApp.Tests.Helpers;
@@ -61,5 +62,67 @@ public sealed class SettingsPageTests : BunitContext
 
         _data.Verify(d => d.SaveSettings(It.Is<Domain.Settings>(s =>
             s.FeedRefreshEnabled && s.FeedRefreshIntervalMinutes == 180)), Times.Once);
+    }
+
+    [Fact]
+    public void ShowsEverySetting_InCollapsibleSections_WithOnlyReadingNotesOpen()
+    {
+        var cut = Render< NoteBookmark.SharedUI.Components.Pages.Settings >();
+
+        string[] labels =
+        [
+            "Theme", "Accent color", "Font size",
+            "Last bookmark date", "Reading notes counter",
+            "Favorite domains", "Blocked domains",
+            "API key", "Base URL", "Model name", "Summary prompt", "Search prompt",
+            "Background feed refresh", "Refresh interval",
+            "Bookmarklet code"
+        ];
+        foreach (var label in labels)
+        {
+            cut.Markup.Should().Contain(label);
+        }
+
+        var sections = cut.FindComponents<FluentAccordionItem>();
+        sections.Should().HaveCount(6);
+        sections.Select(s => s.Instance.Expanded)
+            .Should().Equal(false, true, false, false, false, false);
+    }
+
+    [Fact]
+    public async Task IncrementingTheCounter_UpdatesTheSectionSummary()
+    {
+        var cut = Render< NoteBookmark.SharedUI.Components.Pages.Settings >();
+
+        await cut.InvokeAsync(() => cut.Find("#increment-counter").Click());
+
+        _settings.ReadingNotesCounter.Should().Be("651");
+        cut.Markup.Should().Contain("Next #651");
+    }
+
+    [Fact]
+    public async Task SubmittingAnInvalidPrompt_DoesNotSave_AndOpensTheAiSection()
+    {
+        _settings.SummaryPrompt = "No placeholder";
+        var cut = Render< NoteBookmark.SharedUI.Components.Pages.Settings >();
+
+        await cut.InvokeAsync(() => cut.Find("form").Submit());
+
+        _data.Verify(d => d.SaveSettings(It.IsAny<Domain.Settings>()), Times.Never);
+        cut.Markup.Should().Contain("The field must contain");
+        cut.FindComponents<FluentAccordionItem>()[3].Instance.Expanded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Cancel_LeavesThePageWithoutSaving()
+    {
+        var navigation = Services.GetRequiredService<NavigationManager>();
+        navigation.NavigateTo("settings");
+        var cut = Render< NoteBookmark.SharedUI.Components.Pages.Settings >();
+
+        await cut.InvokeAsync(() => cut.Find("#cancel-settings").Click());
+
+        navigation.Uri.Should().Be(navigation.BaseUri);
+        _data.Verify(d => d.SaveSettings(It.IsAny<Domain.Settings>()), Times.Never);
     }
 }
