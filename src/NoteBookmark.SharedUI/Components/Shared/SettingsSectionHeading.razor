@@ -1,0 +1,15 @@
+@* Heading of a collapsible Settings section: icon, title and a summary of the current values. *@
+
+<div class="settings-heading">
+    <FluentIcon Value="@Icon" Color="Color.Accent" />
+    <div class="settings-heading-text">
+        <h4>@Title</h4>
+        <p>@Summary</p>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public Icon Icon { get; set; } = default!;
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Summary { get; set; } = "";
+}

@@ -1,0 +1,25 @@
+.settings-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 6px 0;
+}
+
+.settings-heading-text {
+    min-width: 0;
+}
+
+.settings-heading h4 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.settings-heading p {
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.8rem;
+    color: var(--neutral-foreground-hint);
+}
