@@ -187,7 +187,11 @@ public static class PostEndpoints
 	        Console.WriteLine($"An error Loading the page URL={url} /n Error: {docloadEx.Message}");
         }
 
+        return BuildPostFromHtml(doc, url);
+    }
 
+	public static Post BuildPostFromHtml(HtmlDocument doc, string url)
+    {
         var titleNode = doc.DocumentNode.SelectSingleNode("//head/title");
         var authorNode = doc.DocumentNode.SelectSingleNode("//meta[@name='author']");
 		var descriptionNode = doc.DocumentNode.SelectSingleNode("//meta[@name='description']");
@@ -214,9 +218,9 @@ public static class PostEndpoints
 		{
 			Url = url,
 			Domain = new Uri(url).Host,
-			Title = titleNode?.InnerText,
-			Author = authorNode?.GetAttributeValue("content", string.Empty),
-			Excerpt = descriptionNode?.GetAttributeValue("content", string.Empty),
+			Title = NormalizeText(titleNode?.InnerText),
+			Author = NormalizeText(authorNode?.GetAttributeValue("content", string.Empty)),
+			Excerpt = NormalizeText(descriptionNode?.GetAttributeValue("content", string.Empty)),
 			PartitionKey = DateTime.UtcNow.ToString("yyyy-MM"),
 			Date_published = publicationDate.ToString("yyyy-MM-ddTHH:mm:ssZ"),
 			is_read = false,
@@ -226,6 +230,16 @@ public static class PostEndpoints
 		};
 		return post;
     }
+
+	private static string? NormalizeText(string? text)
+	{
+		if (text is null)
+		{
+			return null;
+		}
+		var decoded = System.Net.WebUtility.HtmlDecode(text);
+		return System.Text.RegularExpressions.Regex.Replace(decoded, @"\s+", " ").Trim();
+	}
 }
 
 public record ExtractPostRequest(string url, string? tags = null, string? category = null);
